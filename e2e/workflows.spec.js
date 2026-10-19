@@ -74,3 +74,39 @@ test('revoked public link shows unavailable instead of login or data',async({pag
  await expect(page.getByText(/This link is disabled/)).toBeVisible();
  await expect(page.getByRole('button',{name:'Stock',exact:true})).toBeHidden();
 });
+
+test('signup sends email registration and explains confirmation',async({page})=>{
+ let signupRequest;
+ await page.route('https://nvkawrmoacikzdfowvem.supabase.co/**',async route=>{
+  if(route.request().url().includes('/auth/v1/signup')){signupRequest=route.request().postDataJSON();return route.fulfill({json:{id:'22222222-2222-4222-8222-222222222222',email:'new@example.com',identities:[]}});}
+  return route.fulfill({json:{}});
+ });
+ await page.goto('/');await page.getByRole('button',{name:'Create an account',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Create your account',exact:true})).toBeVisible();
+ await page.getByLabel('Email',{exact:true}).fill('new@example.com');await page.getByLabel('Password',{exact:true}).fill('example-password');
+ await page.getByRole('button',{name:'Create account',exact:true}).click();
+ await expect(page.getByText(/Check your email for a confirmation link/)).toBeVisible();
+ expect(signupRequest.email).toBe('new@example.com');expect(signupRequest.password).toBe('example-password');
+ await expect(page.getByLabel('Password',{exact:true})).toHaveValue('');
+ await expect(page.getByRole('button',{name:'Sign in',exact:true})).toBeEnabled();
+ await expect(page.getByRole('button',{name:'Stock',exact:true})).toBeHidden();
+});
+test('signup errors allow retry without granting inventory access',async({page})=>{
+ await page.route('https://nvkawrmoacikzdfowvem.supabase.co/**',route=>route.fulfill({status:429,json:{msg:'Too many signup attempts. Please try again later.'}}));
+ await page.goto('/');await page.getByRole('button',{name:'Create an account',exact:true}).click();
+ await page.getByLabel('Email',{exact:true}).fill('new@example.com');await page.getByLabel('Password',{exact:true}).fill('example-password');await page.getByRole('button',{name:'Create account',exact:true}).click();
+ await expect(page.getByText(/Too many signup attempts/)).toBeVisible();
+ await expect(page.getByRole('button',{name:'Create account',exact:true})).toBeEnabled();
+ await expect(page.locator('#nav')).toBeHidden();
+});
+test('unapproved account signs in but cannot open inventory',async({page})=>{
+ const user={id:'22222222-2222-4222-8222-222222222222',aud:'authenticated',role:'authenticated',email:'new@example.com',app_metadata:{provider:'email'},user_metadata:{},created_at:'2026-01-01T00:00:00Z'};
+ await page.route('https://nvkawrmoacikzdfowvem.supabase.co/**',route=>{
+  if(route.request().url().includes('/auth/v1/token'))return route.fulfill({json:{access_token:'test-token',refresh_token:'refresh-token',expires_in:3600,token_type:'bearer',user}});
+  if(route.request().url().includes('/rest/v1/inventory'))return route.fulfill({status:406,json:{code:'PGRST116',message:'No rows'}});
+  return route.fulfill({json:user});
+ });
+ await page.goto('/');await page.getByLabel('Email',{exact:true}).fill('new@example.com');await page.getByLabel('Password',{exact:true}).fill('example-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();
+ await expect(page.getByText(/awaiting inventory access approval/)).toBeVisible();
+ await expect(page.locator('#nav')).toBeHidden();await expect(page.locator('#main')).toBeHidden();
+});

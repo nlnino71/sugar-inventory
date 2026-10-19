@@ -84,3 +84,9 @@ Disabling or replacing a link prevents future loads; it cannot retract informati
 ## Desktop layout
 
 At 1024px and wider, the workspace uses a fixed left sidebar, wider content area, stock and delivery columns, compact filter rows, and right-side detail/edit panels. At narrower widths, navigation remains at the bottom and sheets retain the mobile presentation. The layout applies to staff and public viewers, with the same permissions as before. Browser checks cover 390px, 768px, 1280px, 1440px and 1920px widths.
+
+## Self-service accounts
+
+The sign-in screen includes **Create an account**. Anyone can register an email/password account, confirm the email from Supabase, and sign in. Registration does not add users to `inventory_members`; a project administrator grants inventory access with the membership insert in `supabase/setup.sql`. New users see a pending-approval message until granted access. Public sharing still works without an account.
+
+Supabase must have email signup enabled and Site URL / allowed redirect URLs set to `https://sugar-inventory.vercel.app/`. The live project had signup enabled and confirmation required when this feature was implemented. Email sending limits and delivery are controlled by Supabase's mail configuration.

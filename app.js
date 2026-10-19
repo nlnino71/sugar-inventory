@@ -18,6 +18,7 @@ const DEFAULT_TYPES=['Raw Sugar','Refined Sugar','Washed Sugar'];
 const publicToken=new URLSearchParams(window.location.hash.slice(1)).get('view');
 const readOnly=!!publicToken;
 let shareSettings=null, shareError='';
+let authMode='signin', authBusy=false;
 const KEY='sugar-inventory.v1';
 const blank = ()=>({unit:'bags (LKg)',receipts:[],issues:[],clients:[],seq:0,clientProfiles:{},activity:[],lowStockPercent:20});
 let S=blank(), committed=structuredClone(S), revision=0, saving=false, ready=false;
@@ -55,7 +56,7 @@ async function showAccount(session){
   $('#account').hidden=false; $('#nav').hidden=true;
   if(!session){ lock(false); $('#main').hidden=true; $('#accountMessage').textContent='Sign in with your inventory account.'; return; }
   try { await readCloud(); ready=true; $('#main').hidden=false; $('#account').hidden=true; $('#nav').hidden=false; render(); }
-  catch(error){ $('#accountMessage').textContent='Could not open inventory. Ask the project administrator to run the database setup and grant your account access. '+error.message; }
+  catch(error){ $('#main').hidden=true; $('#accountMessage').textContent=(error.code==='PGRST116'||error.code==='42501')?'Your account is signed in and awaiting inventory access approval. Ask the administrator to approve your email, then select Refresh.':'Could not load inventory. Select Refresh to retry. '+error.message; }
   lock(false);
 }
 
@@ -1088,12 +1089,32 @@ async function showPublic(){
  }catch(error){$('#main').innerHTML='<div class="empty"><b>Shared inventory unavailable</b>'+esc(error.message)+'</div>';$('#cloudStatus').textContent='Public view unavailable';}
 }
 
+function setAuthMode(mode){
+ authMode=mode; const signup=mode==='signup';
+ $('#accountTitle').textContent=signup?'Create your account':'Sign in to Sugar Inventory';
+ $('#loginButton').textContent=signup?'Create account':'Sign in';
+ $('#switchAuth').textContent=signup?'Already registered? Sign in':'Create an account';
+ $('#signupNote').hidden=!signup;
+ $('#password').autocomplete=signup?'new-password':'current-password';
+ $('#password').minLength=signup?8:0;
+ $('#accountMessage').textContent=signup?'Register with your email and a password of at least 8 characters.':'Sign in with your inventory account.';
+ $('#password').value='';
+}
+$('#switchAuth').addEventListener('click',()=>{if(!authBusy)setAuthMode(authMode==='signup'?'signin':'signup');});
 $('#loginForm').addEventListener('submit',async e=>{
- e.preventDefault(); if(!db) return;
- const button=$('#loginButton'); button.disabled=true; $('#accountMessage').textContent='Signing in…';
- try { const {data,error}=await db.auth.signInWithPassword({email:$('#email').value.trim(),password:$('#password').value}); if(error) throw error; $('#password').value=''; await showAccount(data.session); }
- catch(error){ $('#accountMessage').textContent=error.message; }
- finally { button.disabled=false; }
+ e.preventDefault(); if(!db||authBusy||readOnly)return;
+ const signup=authMode==='signup'; authBusy=true;
+ const button=$('#loginButton');button.disabled=true;$('#switchAuth').disabled=true;
+ $('#accountMessage').textContent=signup?'Creating account…':'Signing in…';
+ try{
+  const credentials={email:$('#email').value.trim(),password:$('#password').value};
+  const {data,error}=signup?await db.auth.signUp({...credentials,options:{emailRedirectTo:window.location.origin+'/'} }):await db.auth.signInWithPassword(credentials);
+  if(error)throw error;
+  $('#password').value='';
+  if(signup&&!data.session){setAuthMode('signin');$('#accountMessage').textContent='Check your email for a confirmation link. After confirming, sign in here. Inventory editing requires administrator approval.';}
+  else await showAccount(data.session);
+ }catch(error){$('#accountMessage').textContent=error.message;}
+ finally{authBusy=false;button.disabled=false;$('#switchAuth').disabled=false;}
 });
 $('#signOut').addEventListener('click',async()=>{ if(saving||!db) return; const {error}=await db.auth.signOut(); if(error){toast(error.message);return;} await showAccount(null); });
 $('#reloadCloud').addEventListener('click',async()=>{ if(!db||saving) return; if(readOnly){await showPublic();return;} const {data,error}=await db.auth.getSession(); if(error){toast(error.message);return;} await showAccount(data.session); });

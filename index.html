@@ -298,8 +298,10 @@ button:disabled{cursor:not-allowed;opacity:.5}
 <body>
 <header class="top"><h1 id="title">Stock</h1><span class="unit" id="unitLbl"></span></header>
 <section id="account" class="setting" style="max-width:420px;margin:40px auto">
-<h2>Sugar Inventory</h2><p id="accountMessage" role="status">Connecting to Supabase…</p>
+<h2 id="accountTitle">Sign in to Sugar Inventory</h2><p id="accountMessage" role="status">Connecting to Supabase…</p>
 <form id="loginForm"><label class="f">Email<input id="email" type="email" autocomplete="username" required></label><label class="f">Password<input id="password" type="password" autocomplete="current-password" required></label><button class="btn primary block" id="loginButton">Sign in</button></form>
+<p id="signupNote" class="hint" hidden>Confirm your email after signing up. An administrator must approve access before you can edit the shared inventory.</p>
+<button id="switchAuth" class="btn block" type="button" style="margin-top:12px">Create an account</button>
 </section>
 <div class="connection-bar"><span id="cloudStatus" role="status">Sign in to continue</span><button class="btn" id="reloadCloud" type="button">Refresh</button><button class="btn" id="signOut" type="button">Sign out</button></div>
 <main id="main"></main>
