@@ -14,8 +14,8 @@ export function socialMetadata(slug){
 <meta property="og:url" content="${url}">
 <meta property="og:title" content="${escape(title)}">
 <meta property="og:description" content="${escape(description)}">
-<meta property="og:image" content="${origin}/share-preview-v1.png">
-<meta property="og:image:secure_url" content="${origin}/share-preview-v1.png">
+<meta property="og:image" content="${origin}/share-preview-v2.png">
+<meta property="og:image:secure_url" content="${origin}/share-preview-v2.png">
 <meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -23,7 +23,7 @@ export function socialMetadata(slug){
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${escape(title)}">
 <meta name="twitter:description" content="${escape(description)}">
-<meta name="twitter:image" content="${origin}/share-preview-v1.png">
+<meta name="twitter:image" content="${origin}/share-preview-v2.png">
 <!-- social-preview:end -->`;
 }
 export function previewHtml(html,slug){

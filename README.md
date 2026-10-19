@@ -124,3 +124,7 @@ Phone filters and paired form fields stack below 480px; wider screens keep their
 ### Performance
 
 Reports and client totals use indexed aggregation. Client search updates results without replacing the input or navigation. The Excel library is bundled locally and downloaded only when exporting; CSV remains available if Excel export fails. Run `node scripts/benchmark-features.mjs` for the synthetic large-inventory computation benchmark. See UI-AUDIT.md for measured before/after results and remaining scale limits.
+
+### App branding
+
+The sugar-cube and cane-sprout mark is available as `public/app-icon.svg`, with a matching `public/logo.svg` wordmark. Browser favicon, Apple touch icon, 192/512px app icons and the web manifest use the same mark. `node scripts/generate-icons.mjs` renders PNGs using Chrome; `magick public/app-icon-512.png -define icon:auto-resize=64,48,32,16 public/favicon.ico` regenerates the ICO. `node scripts/generate-preview.mjs` renders the Messenger/Viber Open Graph artwork. Preview artwork uses a versioned URL so services can fetch the refreshed branding; previously shared messages may retain their cached preview.
