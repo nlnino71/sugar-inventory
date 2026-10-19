@@ -6,7 +6,7 @@ Existing inventory interface, packaged with Vite for Vercel, using Supabase Auth
 
 For the existing deployment, `supabase/account-inventories.sql` has been applied after setup.sql, public-sharing.sql and public-slugs.sql. It preserves the original `main` inventory for the verified owner email, adds owner-only row policies, backfills other accounts with empty records, and provisions each future signup automatically. `ensure_inventory()` repairs a missing inventory only for the signed-in caller. New public links start disabled and have unique slugs; `/view/public` stays with the original owner.
 
-For a fresh installation, run setup.sql, create the original owner account (update the verified owner email in the migration), then run public-sharing.sql, public-slugs.sql, account-inventories.sql and short-public-links.sql in that order. Enable Supabase email signups and confirmation. Do not run the historical setup/share scripts again after upgrading, since they describe the old shared installation.
+For a fresh installation, run setup.sql, create the original owner account (update the verified owner email in the migration), then run public-sharing.sql, public-slugs.sql, account-inventories.sql short-public-links.sql and edit-public-links.sql in that order. Enable Supabase email signups and confirmation. Do not run the historical setup/share scripts again after upgrading, since they describe the old shared installation.
 
 The migration transaction keeps pre-upgrade inventory and sharing snapshots in an inaccessible `inventory_backup` schema. Database owners can inspect those snapshots; browser clients cannot. Never use a service-role key in the frontend.
 
@@ -94,7 +94,7 @@ Supabase must have email signup enabled and Site URL / allowed redirect URLs set
 
 ## Readable public URLs
 
-Run `supabase/short-public-links.sql` after account-inventories.sql. New accounts receive a unique random 6-character lowercase letter/number code, such as `/view/a7b2c9`, with sharing **disabled**. Enable public sharing explicitly to expose the read-only projection. **Replace link** generates a fresh code and token, invalidates the old link, and preserves the enabled/disabled setting. Codes cannot be manually edited through the client. Database uniqueness checks retry collisions. Existing enabled links, including `/view/public`, are preserved. Short public codes are discoverable addresses, not authentication credentials.
+Run `supabase/short-public-links.sql` after account-inventories.sql. New accounts receive a unique random 6-character lowercase letter/number code, such as `/view/a7b2c9`, with sharing **disabled**. Enable public sharing explicitly to expose the read-only projection. **Replace link** generates a fresh code and token, invalidates the old link, and preserves the enabled/disabled setting. Owners can edit codes to 3–6 letters/numbers. Availability is checked automatically 350 ms after typing pauses; stale results are ignored. Saving is checked by the unique database index, so a code claimed after the availability check is rejected. Editing preserves sharing enablement and invalidates the previous token and path. Database uniqueness checks retry collisions. Existing enabled links, including `/view/public`, are preserved. Short public codes are discoverable addresses, not authentication credentials.
 
 Vercel rewrites `/view/:slug` to the app so shared links work on direct navigation and refresh.
 
@@ -133,3 +133,5 @@ The sugar-cube and cane-sprout mark is available as `public/app-icon.svg`, with 
 On phones and tablets below 1024px, staff navigation has four buttons: Overview, Stock, Issuance and Menu. Menu opens SRO Quantity, Clients, Reports and Settings & sharing in a keyboard-accessible sheet. The desktop sidebar retains all sections. Public viewers retain their four read-only destinations.
 
 Account-isolation database checks were rehearsed against Supabase in a rolled-back transaction using account-inventories.sql followed by account-inventories.verify.sql in place of COMMIT. The verification fixture asserts the original deployment snapshot (8 receipts / 24 issuance lines); adapt those snapshot assertions for other datasets. Browser account tests use mocks; they supplement rather than prove database authorization.
+
+Run `supabase/edit-public-links.sql` after short-public-links.sql to install authenticated availability checks and owner-only custom code saves. Anonymous users cannot call these functions; availability responses disclose only a boolean, not inventory data.

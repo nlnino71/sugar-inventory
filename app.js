@@ -1082,6 +1082,7 @@ document.addEventListener('click',async e=>{
   if(!ready||saving) return; const t=e.target.closest('[data-act]'); if(!t) return; const a=t.dataset.act, d=t.dataset;
   if(readOnly&&!['tab','filter','sro','close','resetDelivery'].includes(a))return;
   switch(a){
+    case 'saveSlug': await editSharingCode(true);break;
     case 'toggleSharing': await updateSharing({enabled:!shareSettings.enabled}); break;
     case 'rotateSharing': if(await ask('Replace public link','The previous link will stop working. A new random 6-character address will replace it. Your sharing setting stays the same.','Replace link'))await replaceSharingLink(); break;
     case 'copySharing': try{await navigator.clipboard.writeText(publicLink());toast('View-only link copied');}catch{ $('#publicLink').select();toast('Select and copy the link above.');} break;
@@ -1120,7 +1121,13 @@ document.addEventListener('click',async e=>{
 });
 document.addEventListener('submit',e=>{ e.preventDefault(); if(!ready||saving||readOnly) return; if(e.target.id==='clientForm') saveClient(e.target); if(e.target.id==='fRec') saveReceipt(e.target); if(e.target.id==='fIss') saveIssue(e.target); });
 document.addEventListener('input',async e=>{
-  if(e.target.id==='deliveryQuery'){ deliveryFilter.query=e.target.value; refreshPreservingInput('deliveryQuery'); }
+  if(e.target.id==='publicCode'){
+   codeRequest++;clearTimeout(codeTimer);e.target.removeAttribute('aria-invalid');
+   const code=e.target.value.trim(),status=$('#codeStatus');
+   if(!/^[a-zA-Z0-9]{3,6}$/.test(code)){status.textContent=code?'Use 3–6 letters or numbers.':'';}
+   else{status.textContent='Checking availability…';codeTimer=setTimeout(()=>editSharingCode(false),350);}
+  }
+  else if(e.target.id==='deliveryQuery'){ deliveryFilter.query=e.target.value; refreshPreservingInput('deliveryQuery'); }
   else if(e.target.id==='clientQuery'){clientQuery=e.target.value;$('#clientResults').innerHTML=clientResults();}
   else if(e.target.closest&&e.target.closest('#fRec')){
     const f=$('#fRec');
@@ -1154,7 +1161,25 @@ async function loadSharing(){
  shareSettings=data; shareError=error?'Public sharing could not be loaded. Try refreshing your inventory.':'';
 }
 function sharingPanel(){
- return '<section class="setting"><h2>Public view-only sharing</h2><p>Anyone with the link can view stock, client names, quantities and delivery references. Client contacts, notes and change history stay private. Visitors cannot edit or export records.</p>'+(shareError?'<p role="status">'+esc(shareError)+'</p>':!shareSettings?'<p>Open More again to load sharing settings.</p>':'<p><strong>'+(shareSettings.enabled?'Sharing is enabled':'Sharing is disabled')+'</strong></p>'+(shareSettings.enabled?'<label class="f">View-only link<input id="publicLink" readonly value="'+esc(publicLink())+'"></label><button class="btn" data-act="copySharing">Copy public link</button>':'')+'<p class="hint">Public links use a random 6-character code. Replace the link to get a new code. Sharing stays off until you enable it.</p><div class="btns"><button class="btn" data-act="toggleSharing">'+(shareSettings.enabled?'Disable public sharing':'Enable public sharing')+'</button><button class="btn" data-act="rotateSharing">Replace link</button></div>')+'</section>';
+ return '<section class="setting"><h2>Public view-only sharing</h2><p>Anyone with the link can view stock, client names, quantities and delivery references. Client contacts, notes and change history stay private. Visitors cannot edit or export records.</p>'+(shareError?'<p role="status">'+esc(shareError)+'</p>':!shareSettings?'<p>Open More again to load sharing settings.</p>':'<p><strong>'+(shareSettings.enabled?'Sharing is enabled':'Sharing is disabled')+'</strong></p>'+(shareSettings.enabled?'<label class="f">View-only link<input id="publicLink" readonly value="'+esc(publicLink())+'"></label><button class="btn" data-act="copySharing">Copy public link</button>':'')+'<label class="f">Public link code<input id="publicCode" maxlength="6" minlength="3" value="'+esc(shareSettings.slug||'')+'" autocapitalize="none" autocomplete="off" spellcheck="false" aria-describedby="codeHelp codeStatus"></label><p class="hint" id="codeHelp">Use 3–6 letters or numbers. Availability updates as you type. Saving a different code invalidates your previous link. Sharing stays off until you enable it.</p><div class="btns"><button class="btn" data-act="saveSlug">Save code</button></div><p id="codeStatus" role="status" class="hint"></p><div class="btns"><button class="btn" data-act="toggleSharing">'+(shareSettings.enabled?'Disable public sharing':'Enable public sharing')+'</button><button class="btn" data-act="rotateSharing">Replace link</button></div>')+'</section>';
+}
+let codeRequest=0,codeTimer;
+async function editSharingCode(saveCode){
+ const input=$('#publicCode'),status=$('#codeStatus');
+ if(readOnly||!ready||saving||!shareSettings||!input)return;
+ const code=input.value.trim().toLowerCase();if(saveCode)input.value=code;
+ if(!/^[a-z0-9]{3,6}$/.test(code)){status.textContent='Use 3–6 letters or numbers.';input.setAttribute('aria-invalid','true');input.focus();return;}
+ input.removeAttribute('aria-invalid');
+ const request=++codeRequest;status.textContent=saveCode?'Saving code…':'Checking availability…';
+ if(saveCode){saving=true;lock(true);}
+ try{
+  const {data,error}=await db.rpc(saveCode?'set_inventory_slug':'inventory_slug_available',{requested_slug:code});
+  if(!status.isConnected||request!==codeRequest||input.value.trim().toLowerCase()!==code)return;
+  if(error){status.textContent=error.code==='23505'?'This code is taken. Try another.':saveCode?'Code could not be saved. Please retry.':'Availability could not be checked. Please retry.';return;}
+  if(!saveCode){status.textContent=data?'This code is available.':'This code is taken. Try another.';return;}
+  await loadSharing();render();$('#codeStatus').textContent=shareError||'Code saved. Your sharing setting is unchanged.';
+ }catch{if(status.isConnected)status.textContent='Could not complete the request. Please retry.';}
+ finally{if(saveCode){saving=false;lock(false);}}
 }
 async function replaceSharingLink(){
  if(readOnly||!ready||saving||!shareSettings)return;

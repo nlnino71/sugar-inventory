@@ -15,6 +15,8 @@ test('overview, stock report, delivery search and client editing',async({page},i
   if(url.includes('/auth/v1/token'))return route.fulfill({json:{access_token:'test-access-token',refresh_token:'test-refresh-token',expires_in:3600,token_type:'bearer',user}});
   if(url.includes('/auth/v1/user'))return route.fulfill({json:user});
   if(url.includes('/rest/v1/rpc/save_inventory')){state=route.request().postDataJSON().new_data;return route.fulfill({json:1});}
+  if(url.includes('/rpc/inventory_slug_available'))return route.fulfill({json:route.request().postDataJSON().requested_slug!=='taken1'});
+  if(url.includes('/rpc/set_inventory_slug')){const code=route.request().postDataJSON().requested_slug;if(code==='taken1')return route.fulfill({status:409,json:{code:'23505',message:'taken'}});sharing={...sharing,slug:code};return route.fulfill({json:code});}
   if(url.includes('/rpc/replace_inventory_link')){sharing={...sharing,slug:'a7b2c9',token:'22222222-2222-4222-8222-222222222222'};return route.fulfill({json:null});}
   if(url.includes('/rest/v1/inventory_shares')){if(route.request().method()==='PATCH')sharing={...sharing,...route.request().postDataJSON()};return route.fulfill({json:sharing});}
   if(url.includes('/rest/v1/inventory'))return route.fulfill({json:{data:state,revision:0}});
@@ -64,7 +66,10 @@ test('overview, stock report, delivery search and client editing',async({page},i
  const XLSX=await import('xlsx-js-style');const wb=(XLSX.default||XLSX).readFile(await workbookDownload.path());
  expect(wb.SheetNames).toEqual(['Dashboard','SRO Quantity','Issuance','SRO Balance','Client Summary']);
  await expect(page.getByLabel('View-only link')).toHaveValue(/\/view\/public$/);
- await expect(page.getByLabel('Public link slug',{exact:true})).toHaveCount(0);
+ await page.getByLabel('Public link code',{exact:true}).fill('taken1');await expect(page.locator('#codeStatus')).toHaveText('This code is taken. Try another.');
+ await page.getByRole('button',{name:'Save code',exact:true}).click();await expect(page.locator('#codeStatus')).toHaveText('This code is taken. Try another.');
+ await page.getByLabel('Public link code',{exact:true}).fill('mine09');await expect(page.locator('#codeStatus')).toHaveText('This code is available.');
+ await page.getByRole('button',{name:'Save code',exact:true}).click();await expect(page.getByLabel('View-only link')).toHaveValue(/\/view\/mine09$/);
  await page.getByRole('button',{name:'Replace link',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Replace link',exact:true}).click();
  await expect(page.getByLabel('View-only link')).toHaveValue(/\/view\/[a-z0-9]{6}$/);expect(sharing.slug).toBe('a7b2c9');
  await page.getByRole('button',{name:'Disable public sharing',exact:true}).click();await expect(page.getByText('Sharing is disabled',{exact:true})).toBeVisible();expect(sharing.enabled).toBe(false);
