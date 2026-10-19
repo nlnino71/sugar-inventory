@@ -44,9 +44,7 @@ const activity=createActivityTracker({
   if(context.owner){const {data}=await db.auth.getSession();if(data.session?.user?.id===context.owner)token=data.session.access_token;}
   const response=await fetch(url+'/rest/v1/rpc/record_inventory_events',{method:'POST',keepalive:true,headers:{'Content-Type':'application/json',apikey:key,Authorization:'Bearer '+token},body:JSON.stringify({events,share_slug:context.slug||null,share_token:context.shareToken||null})});
   if(!response.ok)throw new Error('Activity sync failed');
- },
- onError:message=>{const status=$('#auditStatus');if(status){status.hidden=false;status.textContent=message;}},
- onSynced:()=>{const status=$('#auditStatus');if(status)status.hidden=true;}
+ }
 });
 const track=(event,details={})=>activity.track(event,{page:activityPage,...details});
 function trackPage(page){activityPage=page;track('page.view',{page,device:deviceInfo()});}
