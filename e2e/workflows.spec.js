@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 test('overview, stock report, delivery search and client editing',async({page},info)=>{
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
- let sharing={token:'11111111-1111-4111-8111-111111111111',enabled:true};
+ let sharing={token:'11111111-1111-4111-8111-111111111111',enabled:true,slug:'sugar-inventory'};
  let state={unit:'bags (LKg)',receipts:[{id:'r1',sro:'SRO-001',type:'Raw Sugar',mill:'Mill A',date:'2026-09-01',qty:100,crop:'2026-2027'}],issues:[{id:'i1',sro:'SRO-001',type:'Raw Sugar',client:'Client A',date:'2026-10-05',qty:85,seq:1,batch:'BATCH-A',atw:'ATW-100',vessel:'MV Pearl',sail:'2026-10-20'}],clients:['Client A'],seq:1};
  const user={id:'11111111-1111-1111-1111-111111111111',aud:'authenticated',role:'authenticated',email:'staff@example.com',app_metadata:{provider:'email'},user_metadata:{},created_at:'2026-01-01T00:00:00Z'};
  await page.route('https://nvkawrmoacikzdfowvem.supabase.co/**',async route=>{
@@ -36,7 +36,8 @@ test('overview, stock report, delivery search and client editing',async({page},i
  await page.getByRole('button',{name:'Clients',exact:true}).click();await page.getByRole('button',{name:'Add client'}).click();await page.getByLabel('Client name').fill('Client B');await page.getByLabel('Contact person').fill('Maria');await page.getByLabel('Phone',{exact:true}).fill('09171234567');await page.getByRole('button',{name:'Save client'}).click();
  await expect(page.getByText('Client B',{exact:true})).toBeVisible();expect(state.clientProfiles['Client B'].contact).toBe('Maria');expect(state.activity[0].summary).toContain('Client directory updated');
  await page.screenshot({path:'.impeccable/review/clients-'+info.project.name+'.png',fullPage:true});
- await page.getByRole('button',{name:'More',exact:true}).click();await expect(page.getByLabel('View-only link')).toHaveValue(/#view=11111111/);
+ await page.getByRole('button',{name:'More',exact:true}).click();await expect(page.getByLabel('View-only link')).toHaveValue(/\/view\/sugar-inventory$/);
+ await page.getByLabel('Public link slug',{exact:true}).fill('warehouse-stock');await page.getByRole('button',{name:'Save slug',exact:true}).click();await expect(page.getByLabel('View-only link')).toHaveValue(/\/view\/warehouse-stock$/);expect(sharing.slug).toBe('warehouse-stock');
  await page.getByRole('button',{name:'Disable public sharing',exact:true}).click();await expect(page.getByText('Sharing is disabled',{exact:true})).toBeVisible();expect(sharing.enabled).toBe(false);
  await page.getByRole('button',{name:'Enable public sharing',exact:true}).click();await expect(page.getByLabel('View-only link')).toBeVisible();
  await page.getByLabel('Low-stock alert').fill('10');await page.getByLabel('Low-stock alert').press('Tab');await expect(page.getByLabel('Low-stock alert')).toHaveValue('10');
@@ -44,13 +45,14 @@ test('overview, stock report, delivery search and client editing',async({page},i
  expect(errors).toEqual([]);
 });
 
-test('public link displays inventory without login or mutation controls',async({page})=>{
+for(const publicAddress of ['/#view=11111111-1111-4111-8111-111111111111','/view/sugar-inventory']){
+test('public link '+publicAddress+' displays inventory without login or mutation controls',async({page})=>{
  let writes=0;
  await page.route('https://nvkawrmoacikzdfowvem.supabase.co/**',async route=>{
   if(route.request().url().includes('/rpc/get_public_inventory'))return route.fulfill({json:{unit:'bags',seq:1,receipts:[{id:'r',sro:'SHARED-001',type:'Raw Sugar',mill:'Mill A',date:'2026-09-01',qty:100}],issues:[{id:'i',sro:'SHARED-001',type:'Raw Sugar',client:'Client A',atw:'ATW-1',date:'2026-10-05',qty:20,batch:'B1',seq:1}],clients:[],activity:[],clientProfiles:{}}});
   writes++;return route.fulfill({status:403,json:{message:'Forbidden'}});
  });
- await page.goto('/#view=11111111-1111-4111-8111-111111111111');
+ await page.goto(publicAddress);
  await expect(page.getByText('Public view · Read only')).toBeVisible();
  await expect(page.getByRole('button',{name:'Sign in',exact:true})).toBeHidden();
  await expect(page.getByRole('button',{name:'Receive stock'})).toHaveCount(0);
@@ -67,6 +69,7 @@ test('public link displays inventory without login or mutation controls',async({
  await expect(page.getByText('Recent changes',{exact:true})).toHaveCount(0);
  expect(writes).toBe(0);
 });
+}
 test('revoked public link shows unavailable instead of login or data',async({page})=>{
  await page.route('https://nvkawrmoacikzdfowvem.supabase.co/**',route=>route.fulfill({json:null}));
  await page.goto('/#view=11111111-1111-4111-8111-111111111111');

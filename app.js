@@ -16,7 +16,10 @@ const DEFAULT_TYPES=['Raw Sugar','Refined Sugar','Washed Sugar'];
 
 /* ---------- storage ---------- */
 const publicToken=new URLSearchParams(window.location.hash.slice(1)).get('view');
-const readOnly=!!publicToken;
+const slugPath=(window.location.pathname||'/').startsWith('/view/');
+const publicSlug=slugPath?(window.location.pathname.split('/')[2]||''):'';
+const validSlug=value=>value.length>=3&&value.length<=64&&/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value);
+const readOnly=!!publicToken||slugPath;
 let shareSettings=null, shareError='';
 let authMode='signin', authBusy=false;
 const KEY='sugar-inventory.v1';
@@ -996,8 +999,9 @@ document.addEventListener('click',async e=>{
   if(!ready||saving) return; const t=e.target.closest('[data-act]'); if(!t) return; const a=t.dataset.act, d=t.dataset;
   if(readOnly&&!['tab','filter','sro','close','resetDelivery'].includes(a))return;
   switch(a){
+    case 'savePublicSlug': {const slug=$('#publicSlug').value.trim().toLowerCase();if(!validSlug(slug)){toast('Use 3–64 lowercase letters, numbers and single hyphens.');return;} await updateSharing({slug});break;}
     case 'toggleSharing': await updateSharing({enabled:!shareSettings.enabled}); break;
-    case 'rotateSharing': if(await ask('Replace public link','The previous link will stop working. Anyone with the new link can view inventory, client names and delivery references. Contact details and change history remain private.','Replace link'))await updateSharing({token:crypto.randomUUID(),enabled:true}); break;
+    case 'rotateSharing': if(await ask('Replace public link','The previous link will stop working. Anyone with the new link can view inventory, client names and delivery references. Contact details and change history remain private.','Replace link'))await updateSharing({token:crypto.randomUUID(),slug:'inventory-'+uid(),enabled:true}); break;
     case 'copySharing': try{await navigator.clipboard.writeText(publicLink());toast('View-only link copied');}catch{ $('#publicLink').select();toast('Select and copy the link above.');} break;
     case 'newClient': clientEditor(); break;
     case 'editClient': clientEditor(d.name); break;
@@ -1061,18 +1065,18 @@ function restrictPublicControls(){
   }else if(!allowed.includes(el.dataset.act))el.remove();
  });
 }
-function publicLink(){return window.location.origin+'/#view='+shareSettings.token;}
+function publicLink(){return shareSettings.slug?window.location.origin+'/view/'+shareSettings.slug:window.location.origin+'/#view='+shareSettings.token;}
 async function loadSharing(){
- const {data,error}=await db.from('inventory_shares').select('token,enabled').eq('id','main').single();
- shareSettings=data; shareError=error?'Public sharing needs database setup. Run supabase/public-sharing.sql in the Supabase SQL editor.':'';
+ const {data,error}=await db.from('inventory_shares').select('token,enabled,slug').eq('id','main').single();
+ shareSettings=data; shareError=error?'Public sharing needs database setup. Run supabase/public-slugs.sql after public-sharing.sql in the Supabase SQL editor.':'';
 }
 function sharingPanel(){
- return '<section class="setting"><h2>Public view-only sharing</h2><p>Anyone with the link can view stock, client names, quantities and delivery references. Client contacts, notes and change history stay private. Visitors cannot edit or export records.</p>'+(shareError?'<p role="status">'+esc(shareError)+'</p>':!shareSettings?'<p>Open More again to load sharing settings.</p>':'<p><strong>'+(shareSettings.enabled?'Sharing is enabled':'Sharing is disabled')+'</strong></p>'+(shareSettings.enabled?'<label class="f">View-only link<input id="publicLink" readonly value="'+esc(publicLink())+'"></label><button class="btn" data-act="copySharing">Copy public link</button>':'')+'<div class="btns"><button class="btn" data-act="toggleSharing">'+(shareSettings.enabled?'Disable public sharing':'Enable public sharing')+'</button><button class="btn" data-act="rotateSharing">Replace link</button></div>')+'</section>';
+ return '<section class="setting"><h2>Public view-only sharing</h2><p>Anyone with the link can view stock, client names, quantities and delivery references. Client contacts, notes and change history stay private. Visitors cannot edit or export records.</p>'+(shareError?'<p role="status">'+esc(shareError)+'</p>':!shareSettings?'<p>Open More again to load sharing settings.</p>':'<p><strong>'+(shareSettings.enabled?'Sharing is enabled':'Sharing is disabled')+'</strong></p>'+(shareSettings.enabled?'<label class="f">View-only link<input id="publicLink" readonly value="'+esc(publicLink())+'"></label><button class="btn" data-act="copySharing">Copy public link</button>':'')+'<label class="f">Public link slug<input id="publicSlug" maxlength="64" value="'+esc(shareSettings.slug||'sugar-inventory')+'" placeholder="sugar-inventory"></label><button class="btn" data-act="savePublicSlug">Save slug</button><p class="hint">Use lowercase letters, numbers and hyphens. Changing the slug stops the previous slug URL from working. This is a public, discoverable address.</p><div class="btns"><button class="btn" data-act="toggleSharing">'+(shareSettings.enabled?'Disable public sharing':'Enable public sharing')+'</button><button class="btn" data-act="rotateSharing">Replace link</button></div>')+'</section>';
 }
 async function updateSharing(changes){
  if(readOnly||!ready||saving||!shareSettings)return;
  saving=true;lock(true);
- try{const {data,error}=await db.from('inventory_shares').update(changes).eq('id','main').select('token,enabled').single();if(error)throw error;shareSettings=data;render();toast(data.enabled?'Public link is ready':'Public sharing disabled');}
+ try{const {data,error}=await db.from('inventory_shares').update(changes).eq('id','main').select('token,enabled,slug').single();if(error)throw error;shareSettings=data;render();toast(data.enabled?'Public link is ready':'Public sharing disabled');}
  catch(error){toast('Sharing could not be updated: '+error.message);}
  finally{saving=false;lock(false);}
 }
@@ -1081,8 +1085,9 @@ async function showPublic(){
  $('#cloudStatus').textContent='Loading public inventory…';
  $('#main').innerHTML='<p class="setting" role="status">Loading shared inventory…</p>';
  try{
-  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(publicToken))throw new Error('This sharing link is invalid.');
-  const {data,error}=await db.rpc('get_public_inventory',{share_token:publicToken});
+  if(slugPath&&!validSlug(publicSlug))throw new Error('This sharing address is invalid.');
+  if(!slugPath&&!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(publicToken))throw new Error('This sharing link is invalid.');
+  const {data,error}=await db.rpc(slugPath?'get_public_inventory_by_slug':'get_public_inventory',slugPath?{share_slug:publicSlug}:{share_token:publicToken});
   if(error)throw new Error('Public sharing is not available. Ask the owner to finish sharing setup.');
   if(!data)throw new Error('This link is disabled or has been replaced. Ask the owner for a new link.');
   S=Object.assign(blank(),data);ready=true;$('#nav').hidden=false;render();lock(false);
