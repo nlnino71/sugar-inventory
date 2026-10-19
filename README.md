@@ -108,3 +108,9 @@ Regenerate the committed preview image with `node scripts/generate-preview.mjs` 
 Dialogs and nested confirmations have accessible names, move and contain keyboard focus, make the background inert, and restore focus on close. Ledger records use explicit Edit buttons. Authentication provides the active main landmark. Report and ledger scrolling regions are named and keyboard-focusable. Receipt and issuance errors are announced and identify invalid controls; failed saves retain the form contents. Imported identifiers/dates are escaped for HTML, and record aggregation supports reserved object-property names without breaking the interface. The optional spreadsheet script loads asynchronously, so it cannot block app startup.
 
 `e2e/hardening.spec.js` covers keyboard focus, nested confirmations, validation, failed saves and unusual imported records, with the optional Excel CDN unavailable. This pass does not claim to resolve the baseline audit's status-color contrast, 320px filter sizing, touch targets or large-data calculation findings; those remain for the recommended colorize/adapt/optimize passes.
+
+## Semantic color roles
+
+Primary actions retain cane green. Healthy-stock text uses a separate high-contrast green token; warnings use amber; over-issuance and invalid fields use red; neutral depleted stock has its own text token; information and public read-only labels use blue. Theme-specific control outlines and focus rings are separate from subtle separators. Native date/select widgets inherit the selected light or dark color scheme.
+
+`e2e/colors.spec.js` measures rendered contrast for all four stock states, errors, information panels, form outlines and focus indicators in light, dark and automatic themes at desktop and phone sizes. It also checks that the Fully issued badge stays compact and verifies labeled stock states under simulated deuteranopia.
