@@ -254,10 +254,15 @@ function vIssue(){
   });
 }
 
+let visibleClients=[];
 function vClients(){
- const clients=clientDirectory(S), needle=clientQuery.toLowerCase();
+ const clients=visibleClients=clientDirectory(S);
+ return '<div class="btns"><button class="btn primary" data-act="newClient">Add client</button></div><label class="f">Find a client<input id="clientQuery" type="search" value="'+esc(clientQuery)+'" placeholder="Name, contact, phone or email"></label><p class="hint">'+clients.length+' clients · '+nf(clients.reduce((n,c)=>n+c.total,0))+' '+esc(S.unit)+' issued</p><div id="clientResults">'+clientResults()+'</div>';
+}
+function clientResults(){
+ const clients=visibleClients, needle=clientQuery.toLowerCase();
  const rows=clients.filter(c=>[c.name,c.contact,c.phone,c.email].join(' ').toLowerCase().includes(needle));
- return '<div class="btns"><button class="btn primary" data-act="newClient">Add client</button></div><label class="f">Find a client<input id="clientQuery" type="search" value="'+esc(clientQuery)+'" placeholder="Name, contact, phone or email"></label><p class="hint">'+clients.length+' clients · '+nf(clients.reduce((n,c)=>n+c.total,0))+' '+esc(S.unit)+' issued</p>'+(!rows.length?'<div class="empty">No clients match. Add a client to start your directory.</div>':rows.map(c=>'<article class="card"><div class="row"><strong>'+esc(c.name)+'</strong><b class="num">'+nf(c.total)+'</b></div><p class="sub">'+esc([c.contact,c.phone,c.email].filter(Boolean).join(' · ')||'No contact details')+'</p><p class="hint">'+c.lines+' batch lines'+(c.last?' · Last delivery '+fd(c.last):' · No deliveries yet')+'</p><div class="btns"><button class="btn" data-act="editClient" data-name="'+esc(c.name)+'">Edit details</button>'+(c.lines?'<button class="btn" data-act="client" data-name="'+esc(c.name)+'">Delivery history</button>':'')+'</div></article>').join(''));
+ return !rows.length?'<div class="empty">No clients match. Add a client to start your directory.</div>':rows.map(c=>'<article class="card"><div class="row"><strong>'+esc(c.name)+'</strong><b class="num">'+nf(c.total)+'</b></div><p class="sub">'+esc([c.contact,c.phone,c.email].filter(Boolean).join(' · ')||'No contact details')+'</p><p class="hint">'+c.lines+' batch lines'+(c.last?' · Last delivery '+fd(c.last):' · No deliveries yet')+'</p><div class="btns"><button class="btn" data-act="editClient" data-name="'+esc(c.name)+'">Edit details</button>'+(c.lines?'<button class="btn" data-act="client" data-name="'+esc(c.name)+'">Delivery history</button>':'')+'</div></article>').join('');
 }
 
 let DL={async save({filename,data}){
@@ -917,9 +922,21 @@ function clientSummarySheet(c){
   ws['!rows']=[]; Object.keys(H).forEach(k=>{ ws['!rows'][+k]={hpt:H[k]}; });
   return ws;
 }
+let exportingXlsx=false;
 async function exportXlsx(){
-  const wb=xlsxBook(); if(!wb){ toast('Excel export is still loading or unavailable. Retry shortly, or use CSV.'); return; }
-  const buf=window.XLSX.write(wb,{bookType:'xlsx',type:'array'}); await saveFile('Sugar_Inventory_'+stamp()+'.xlsx',buf);
+  if(readOnly||exportingXlsx)return;
+  exportingXlsx=true;
+  const button=document.querySelector('[data-act="xlsx"]');
+  const label=button?.textContent;
+  if(button){button.disabled=true;button.textContent='Preparing Excel…';}
+  try{
+    const module=await import('xlsx-js-style');
+    window.XLSX=module.default||module;
+    const wb=xlsxBook();
+    const buf=window.XLSX.write(wb,{bookType:'xlsx',type:'array'});
+    await saveFile('Sugar_Inventory_'+stamp()+'.xlsx',buf);
+  }catch(error){toast('Excel export could not finish. Please retry, or export CSV.');}
+  finally{exportingXlsx=false;if(button){button.disabled=false;button.textContent=label;}}
 }
 function parseCSV(t){
   t=t.replace(/^\ufeff/,''); const rows=[]; let row=[],cur='',q=false;
@@ -1029,7 +1046,9 @@ function vReports(){
  h+='<div class="btns"><button class="btn primary" data-act="reportCsv"'+(!rows.length?' disabled':'')+'>Export report CSV</button></div><dl class="metrics">'+Object.entries(sums).map(([label,total])=>'<div><dt>'+label[0].toUpperCase()+label.slice(1)+'</dt><dd>'+nf(total)+'</dd></div>').join('')+'</dl>';
  h+='<div class="table-scroll" tabindex="0" role="region" aria-label="SRO movement report"><table class="led"><caption>SRO movement · '+esc(S.unit)+'</caption><thead><tr><th>SRO / Sugar type</th><th class="r">Opening</th><th class="r">Received</th><th class="r">Issued</th><th class="r">Closing</th></tr></thead><tbody>'+rows.map(r=>'<tr><td>'+esc(r.sro)+'<small>'+esc(r.type)+'</small></td><td class="r">'+nf(r.opening)+'</td><td class="r">'+nf(r.received)+'</td><td class="r">'+nf(r.issued)+'</td><td class="r">'+nf(r.closing)+'</td></tr>').join('')+'</tbody></table></div>';
  if(!rows.length)h+='<p class="empty">No stock movements in this period.</p>';
- const selected=matchingIssues(S.issues,{from:reportFilter.from,to:reportFilter.to}).filter(i=>!reportFilter.type||(i.type||S.receipts.find(r=>r.sro===i.sro)?.type)===reportFilter.type), clients=new Map();
+ const receiptTypes=new Map();
+ for(const r of S.receipts)if(!receiptTypes.has(r.sro))receiptTypes.set(r.sro,r.type);
+ const selected=matchingIssues(S.issues,{from:reportFilter.from,to:reportFilter.to}).filter(i=>!reportFilter.type||(i.type||receiptTypes.get(i.sro))===reportFilter.type), clients=new Map();
  selected.forEach(i=>clients.set(i.client||'No client',(clients.get(i.client||'No client')||0)+(+i.qty||0)));
  h+='<div class="sec"><h2>Issued per client in this period</h2></div>'+[...clients].sort((a,b)=>b[1]-a[1]).map(([name,total])=>'<div class="attention-row"><span>'+esc(name)+'</span><b>'+nf(total)+'</b></div>').join('');
  if(!clients.size)h+='<p class="hint">No client issuances in this period.</p>';
@@ -1099,7 +1118,7 @@ document.addEventListener('click',async e=>{
 document.addEventListener('submit',e=>{ e.preventDefault(); if(!ready||saving||readOnly) return; if(e.target.id==='clientForm') saveClient(e.target); if(e.target.id==='fRec') saveReceipt(e.target); if(e.target.id==='fIss') saveIssue(e.target); });
 document.addEventListener('input',async e=>{
   if(e.target.id==='deliveryQuery'){ deliveryFilter.query=e.target.value; refreshPreservingInput('deliveryQuery'); }
-  else if(e.target.id==='clientQuery'){clientQuery=e.target.value;refreshPreservingInput('clientQuery');}
+  else if(e.target.id==='clientQuery'){clientQuery=e.target.value;$('#clientResults').innerHTML=clientResults();}
   else if(e.target.closest&&e.target.closest('#fRec')){
     const f=$('#fRec');
     if(e.target.name==='crop') e.target.dataset.manual='1';

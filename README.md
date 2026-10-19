@@ -120,3 +120,7 @@ Primary actions retain cane green. Healthy-stock text uses a separate high-contr
 Phone filters and paired form fields stack below 480px; wider screens keep their existing columns and desktop sidebar. Date inputs can shrink without forcing page-level horizontal scrolling. Long SRO/client references wrap, while report-table horizontal scrolling remains inside a named keyboard-accessible region. Chips, close/remove controls, batch actions, issuance lines and receipt rows have at least 44px touch targets. Narrow form action buttons stack so Save and Cancel remain readable.
 
 `e2e/adaptation.spec.js` uses long mixed-character record names to check 320px, 390px, tablet, landscape, desktop, 4K and a 640px viewport representing desktop reflow at 200% zoom. These are Chrome viewport simulations rather than physical-device or cross-browser certification.
+
+### Performance
+
+Reports and client totals use indexed aggregation. Client search updates results without replacing the input or navigation. The Excel library is bundled locally and downloaded only when exporting; CSV remains available if Excel export fails. Run `node scripts/benchmark-features.mjs` for the synthetic large-inventory computation benchmark. See UI-AUDIT.md for measured before/after results and remaining scale limits.

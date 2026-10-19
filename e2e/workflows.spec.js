@@ -1,7 +1,8 @@
 import {test,expect} from '@playwright/test';
-// Core workflows must stay available when the optional Excel CDN fails.
+// No core workflow depends on an external spreadsheet CDN.
 test.beforeEach(async({page})=>{await page.route('https://cdn.jsdelivr.net/**',route=>route.abort());});
 test('overview, stock report, delivery search and client editing',async({page},info)=>{
+ const excelRequests=[];page.on('request',r=>{if(/xlsx|sheetjs|cdn.jsdelivr/.test(r.url()))excelRequests.push(r.url());});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  let sharing={token:'11111111-1111-4111-8111-111111111111',enabled:true,slug:'public'};
  let state={unit:'bags (LKg)',receipts:[{id:'r1',sro:'SRO-001',type:'Raw Sugar',mill:'Mill A',date:'2026-09-01',qty:100,crop:'2026-2027'}],issues:[{id:'i1',sro:'SRO-001',type:'Raw Sugar',client:'Client A',date:'2026-10-05',qty:85,seq:1,batch:'BATCH-A',atw:'ATW-100',vessel:'MV Pearl',sail:'2026-10-20'}],clients:['Client A'],seq:1};
@@ -38,7 +39,17 @@ test('overview, stock report, delivery search and client editing',async({page},i
  await page.getByRole('button',{name:'Clients',exact:true}).click();await page.getByRole('button',{name:'Add client'}).click();await page.getByLabel('Client name').fill('Client B');await page.getByLabel('Contact person').fill('Maria');await page.getByLabel('Phone',{exact:true}).fill('09171234567');await page.getByRole('button',{name:'Save client'}).click();
  await expect(page.getByText('Client B',{exact:true})).toBeVisible();expect(state.clientProfiles['Client B'].contact).toBe('Maria');expect(state.activity[0].summary).toContain('Client directory updated');
  await page.screenshot({path:'.impeccable/review/clients-'+info.project.name+'.png',fullPage:true});
- await page.getByRole('button',{name:'More',exact:true}).click();await expect(page.getByLabel('View-only link')).toHaveValue(/\/view\/public$/);
+ await page.getByLabel('Find a client').evaluate(el=>{window.clientSearchInput=el;});
+ await page.getByLabel('Find a client').fill('Client B');await expect(page.getByText('Client A',{exact:true})).toHaveCount(0);
+ expect(await page.getByLabel('Find a client').evaluate(el=>el===window.clientSearchInput)).toBe(true);
+ await expect(page.getByLabel('Find a client')).toBeFocused();
+ expect(excelRequests).toEqual([]);
+ await page.getByRole('button',{name:'More',exact:true}).click();
+ const excelDownload=page.waitForEvent('download');await page.getByRole('button',{name:'Excel workbook (.xlsx)',exact:true}).click();
+ const workbookDownload=await excelDownload;expect(workbookDownload.suggestedFilename()).toMatch(/\.xlsx$/);
+ const XLSX=await import('xlsx-js-style');const wb=(XLSX.default||XLSX).readFile(await workbookDownload.path());
+ expect(wb.SheetNames).toEqual(['Dashboard','SRO Quantity','Issuance','SRO Balance','Client Summary']);
+ await expect(page.getByLabel('View-only link')).toHaveValue(/\/view\/public$/);
  await page.getByLabel('Public link slug',{exact:true}).fill('warehouse-stock');await page.getByRole('button',{name:'Save slug',exact:true}).click();await expect(page.getByLabel('View-only link')).toHaveValue(/\/view\/warehouse-stock$/);expect(sharing.slug).toBe('warehouse-stock');
  await page.getByRole('button',{name:'Disable public sharing',exact:true}).click();await expect(page.getByText('Sharing is disabled',{exact:true})).toBeVisible();expect(sharing.enabled).toBe(false);
  await page.getByRole('button',{name:'Enable public sharing',exact:true}).click();await expect(page.getByLabel('View-only link')).toBeVisible();

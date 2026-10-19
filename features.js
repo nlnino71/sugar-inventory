@@ -1,7 +1,8 @@
 export const quantity = value => Number(value) || 0;
 export const threshold = state => Math.min(100, Math.max(0, Number(state.lowStockPercent ?? 20)));
 export function stockReport(state, {from='',to='',type=''}={}) {
-  const rows=new Map();
+  const rows=new Map(), receipts=new Map();
+  for(const receipt of state.receipts) if(!receipts.has(receipt.sro)) receipts.set(receipt.sro,receipt);
   const selected=r=>!type||r.type===type;
   const row=r=>{const key=r.sro; if(!rows.has(key)) rows.set(key,{sro:key,type:r.type||'',mill:r.mill||'',opening:0,received:0,issued:0,closing:0});return rows.get(key);};
   state.receipts.filter(selected).forEach(r=>{
@@ -9,7 +10,7 @@ export function stockReport(state, {from='',to='',type=''}={}) {
     const out=row(r); if(from&&r.date<from)out.opening+=quantity(r.qty);else out.received+=quantity(r.qty);
   });
   state.issues.forEach(i=>{
-    const receipt=state.receipts.find(r=>r.sro===i.sro);
+    const receipt=receipts.get(i.sro);
     if(!selected({type:i.type||receipt?.type})||(to&&i.date>to))return;
     const out=row({...i,type:i.type||receipt?.type,mill:receipt?.mill});
     if(from&&i.date<from)out.opening-=quantity(i.qty);else out.issued+=quantity(i.qty);
@@ -33,9 +34,14 @@ export function changeSummary(before,after){
  return parts.join('; ');
 }
 export function clientDirectory(state){
- const names=[...new Set([...(state.clients||[]),...state.issues.map(i=>i.client)].filter(Boolean))];
- return names.sort((a,b)=>a.localeCompare(b)).map(name=>{
-  const issues=state.issues.filter(i=>i.client===name);
-  return {name,...(state.clientProfiles||{})[name],total:issues.reduce((s,i)=>s+quantity(i.qty),0),lines:issues.length,last:issues.map(i=>i.date).sort().at(-1)||''};
- });
+ const totals=new Map();
+ for(const issue of state.issues){
+  if(!issue.client)continue;
+  let entry=totals.get(issue.client);
+  if(!entry){entry={total:0,lines:0,last:''};totals.set(issue.client,entry);}
+  entry.total+=quantity(issue.qty);entry.lines++;
+  if(issue.date>entry.last)entry.last=issue.date;
+ }
+ const names=[...new Set([...(state.clients||[]),...totals.keys()].filter(Boolean))];
+ return names.sort((a,b)=>a.localeCompare(b)).map(name=>({name,...(state.clientProfiles||{})[name],...(totals.get(name)||{total:0,lines:0,last:''})}));
 }
