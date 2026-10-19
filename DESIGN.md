@@ -159,3 +159,5 @@ State transitions last .18s with `ease` only under `prefers-reduced-motion:no-pr
 - Don’t infer pricing, warehouse roles or audit guarantees from the visual design.
 - Don’t replace operational quantities with decorative metrics.
 - Don’t introduce unconditional animation; respect reduced motion.
+
+Admin analytics uses the existing workspace surface and 12px radius, with a two-column desktop grid and one column below 768px. Activity, registrations and hourly charts span the desktop grid. Green leads each comparison; blue, amber and muted categorical colors distinguish series, with separate light/dark palettes. Chart counts use zero-based numeric axes and exact-value disclosure tables. These categorical colors apply only to data visualization, not new interface accents. Reporting uses Asia/Manila consistently.

@@ -25,7 +25,7 @@ const publicSlug=slugPath?(window.location.pathname.split('/')[2]||''):'';
 const validSlug=value=>value.length>=3&&value.length<=64&&/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value);
 const readOnly=!!publicToken||slugPath;
 let shareSettings=null, shareError='', accountId=null;
-let isSuperadmin=false;
+let isSuperadmin=false,adminCleanup=null;
 let authMode='signin', authBusy=false;
 const KEY='sugar-inventory.v1';
 const blank = ()=>({unit:'bags (LKg)',receipts:[],issues:[],clients:[],seq:0,clientProfiles:{},activity:[],lowStockPercent:20});
@@ -183,7 +183,8 @@ function renderNav(){
   $('#nav').innerHTML='<div class="nav-brand"><img src="/app-icon.svg" width="44" height="44" alt="">Sugar Inventory<small>'+ (readOnly?'Shared inventory':'Inventory workspace')+'</small></div>'+Object.keys(TITLES).filter(k=>!readOnly||['dashboard','stock','issue','reports'].includes(k)).map(k=>'<button class="'+(!readOnly&&['receive','clients','reports','more'].includes(k)?'nav-overflow':'')+'" data-act="tab" data-tab="'+k+'"'+(k===tab?' aria-current="page"':'')+'>'+ICON[k]+'<span>'+(k==='receive'?'SRO Qty':TITLES[k])+'</span></button>').join('')+(!readOnly?'<button class="nav-menu" data-act="navMenu" aria-haspopup="dialog"'+(['receive','clients','reports','more'].includes(tab)?' aria-current="page"':'')+'><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span>Menu</span></button>':'');
 }
 function render(){
-  $('#main').onclick=null;
+  adminCleanup?.();adminCleanup=null;
+  $('#main').onclick=null;$('#main').onchange=null;
   document.body.classList.toggle('workspace',ready);
   $('#main').dataset.view=tab;
   $('#title').textContent=TITLES[tab]; $('#unitLbl').textContent='Unit: '+S.unit;
@@ -1161,7 +1162,7 @@ document.addEventListener('click',async e=>{
     case 'toggleSharing': await updateSharing({enabled:!shareSettings.enabled}); break;
     case 'rotateSharing': if(await ask('Replace public link','The previous link will stop working. A new random 6-character address will replace it. Your sharing setting stays the same.','Replace link'))await replaceSharingLink(); break;
     case 'copySharing': try{await navigator.clipboard.writeText(publicLink());toast('View-only link copied');}catch{ $('#publicLink').select();toast('Select and copy the link above.');} break;
-    case 'superadmin': if(!isSuperadmin||readOnly)return; $('#title').textContent='Superadmin';track('admin.view'); await openAdmin(db,$('#main')); break;
+    case 'superadmin': if(!isSuperadmin||readOnly)return; $('#title').textContent='Superadmin';track('admin.view');adminCleanup?.();adminCleanup=openAdmin(db,$('#main')); break;
     case 'navMenu': openSheet(sheetHead('Menu')+'<div class="section-menu">'+['receive','clients','reports','more'].map(k=>'<button class="btn" data-act="tab" data-tab="'+k+'"'+(tab===k?' aria-current="page"':'')+'>'+ICON[k]+'<span>'+(k==='more'?'Settings & sharing':TITLES[k])+'</span></button>').join('')+'</div>');break;
     case 'newClient': clientEditor(); break;
     case 'editClient': clientEditor(d.name); break;
@@ -1329,5 +1330,6 @@ else {
  const {data,error}=await db.auth.getSession();
  if(error){startGuest('signin');$('#accountMessage').textContent=error.message;}
  else await showAccount(data.session);
+ $('#loginButton').disabled=false;$('#switchAuth').disabled=false;
 }
 })();

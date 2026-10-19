@@ -408,9 +408,9 @@ body.login-screen #account{width:100%;flex-shrink:0;margin:auto!important}
 <img class="account-logo" src="/app-icon.svg" width="64" height="64" alt="">
 <h2 id="accountTitle">Sign in to Sugar Inventory</h2><p id="accountMessage" role="status">Connecting to Supabase…</p>
 <p class="hint">Visits, sign-ins and inventory activity are logged for security, including available IP and browser/device details.</p>
-<form id="loginForm"><label class="f">Email<input id="email" type="email" autocomplete="username" required></label><label class="f">Password<input id="password" type="password" autocomplete="current-password" required></label><button class="btn primary block" id="loginButton">Sign in</button></form>
+<form id="loginForm"><label class="f">Email<input id="email" type="email" autocomplete="username" required></label><label class="f">Password<input id="password" type="password" autocomplete="current-password" required></label><button class="btn primary block" id="loginButton" disabled>Sign in</button></form>
 <p id="signupNote" class="hint" hidden>Confirm your email after signing up, then sign in to your own private inventory. Your records are separate from other accounts.</p>
-<button id="switchAuth" class="btn block" type="button" style="margin-top:12px">Create an account</button>
+<button id="switchAuth" class="btn block" type="button" disabled style="margin-top:12px">Create an account</button>
 </section>
 
 <main id="main" hidden tabindex="-1"></main>
