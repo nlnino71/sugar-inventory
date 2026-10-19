@@ -55,6 +55,7 @@ async function save(){
   } finally { saving=false; lock(false); }
 }
 async function showAccount(session){
+  document.body.classList.toggle('login-screen',!session);
   ready=false; closeSheet(true); S=blank(); render();
   $('#account').hidden=false; $('#nav').hidden=true;
   if(!session){ lock(false); $('#main').hidden=true; $('#accountMessage').textContent='Sign in with your inventory account.'; return; }
@@ -1162,6 +1163,7 @@ async function updateSharing(changes){
  finally{saving=false;lock(false);}
 }
 async function showPublic(){
+ document.body.classList.remove('login-screen');
  ready=false;$('#account').hidden=true;$('#nav').hidden=true;$('#signOut').hidden=true;$('#main').hidden=false;
  $('#cloudStatus').textContent='Loading public inventory…';
  $('#main').innerHTML='<p class="setting" role="status">Loading shared inventory…</p>';

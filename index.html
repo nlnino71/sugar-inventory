@@ -386,9 +386,10 @@ nav#nav .nav-overflow{display:none}
  .header-actions .btn{padding:8px 10px}
 }
 .stock-clear{display:grid;place-items:center;text-align:center;min-height:64px;padding:16px;line-height:1.4}
+body.login-screen .top{display:none}
 </style>
 </head>
-<body>
+<body class="login-screen">
 <header class="top"><div class="page-heading"><h1 id="title">Stock</h1><span class="unit" id="unitLbl"></span></div>
 <div class="connection-bar"><span id="cloudStatus" role="status">Sign in to continue</span><div class="header-actions"><button class="btn" id="reloadCloud" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></svg><span>Refresh</span></button><button class="btn" id="signOut" type="button">Sign out</button></div></div></header>
 <section id="account" role="main" aria-labelledby="accountTitle" tabindex="-1" class="setting" style="max-width:420px;margin:40px auto">

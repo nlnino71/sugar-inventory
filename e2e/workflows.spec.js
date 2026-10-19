@@ -21,6 +21,7 @@ test('overview, stock report, delivery search and client editing',async({page},i
  });
  await page.goto('/');await page.getByLabel('Email',{exact:true}).fill('staff@example.com');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();
  await expect(page.getByRole('heading',{name:'Inventory at a glance'})).toBeVisible();
+ await expect(page.locator('header.top')).toBeVisible();
  await expect(page.getByRole('button',{name:/SRO-001.*Low/})).toBeVisible();
  await page.screenshot({path:'.impeccable/review/'+info.project.name+'.png',fullPage:true});
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
@@ -111,6 +112,7 @@ test('signup sends email registration and explains confirmation',async({page})=>
  });
  await page.goto('/');await page.getByRole('button',{name:'Create an account',exact:true}).click();
  await expect(page.getByRole('heading',{name:'Create your account',exact:true})).toBeVisible();
+ await expect(page.locator('header.top')).toBeHidden();
  await page.getByLabel('Email',{exact:true}).fill('new@example.com');await page.getByLabel('Password',{exact:true}).fill('example-password');
  await page.getByRole('button',{name:'Create account',exact:true}).click();
  await expect(page.getByText(/Check your email for a confirmation link/)).toBeVisible();
