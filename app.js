@@ -15,20 +15,23 @@ const uid = ()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 const DEFAULT_TYPES=['Raw Sugar','Refined Sugar','Washed Sugar'];
 
 /* ---------- storage ---------- */
+const publicToken=new URLSearchParams(window.location.hash.slice(1)).get('view');
+const readOnly=!!publicToken;
+let shareSettings=null, shareError='';
 const KEY='sugar-inventory.v1';
 const blank = ()=>({unit:'bags (LKg)',receipts:[],issues:[],clients:[],seq:0,clientProfiles:{},activity:[],lowStockPercent:20});
 let S=blank(), committed=structuredClone(S), revision=0, saving=false, ready=false;
 const url=import.meta.env.VITE_SUPABASE_URL;
 const key=import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const db=url&&key?createClient(url,key):null;
-function lock(on){ document.body.inert=on; $('#cloudStatus').textContent=on?'Saving…':(ready?'Saved to Supabase':'Sign in to continue'); }
+function lock(on){ document.body.inert=on; $('#cloudStatus').textContent=on?'Saving…':(readOnly?'Public view · Read only':ready?'Saved to Supabase':'Sign in to continue'); }
 async function readCloud(){
   const {data,error}=await db.from('inventory').select('data,revision').eq('id','main').single();
   if(error) throw error;
   S=Object.assign(blank(),data.data); revision=data.revision; committed=structuredClone(S);
 }
 async function save(){
-  if(!ready||saving) return false;
+  if(!ready||saving||readOnly) return false;
   saving=true; lock(true);
   const next=structuredClone(S);
   const summary=changeSummary(committed,next);
@@ -113,7 +116,7 @@ const ICON={
  more:'<svg viewBox="0 0 24 24"><path d="M4 7h10"/><path d="M18 7h2"/><circle cx="16" cy="7" r="2"/><path d="M4 17h2"/><path d="M10 17h10"/><circle cx="8" cy="17" r="2"/></svg>'
 };
 function renderNav(){
-  $('#nav').innerHTML=Object.keys(TITLES).map(k=>'<button data-act="tab" data-tab="'+k+'"'+(k===tab?' aria-current="page"':'')+'>'+ICON[k]+'<span>'+(k==='receive'?'SRO Qty':TITLES[k])+'</span></button>').join('');
+  $('#nav').innerHTML=Object.keys(TITLES).filter(k=>!readOnly||['dashboard','stock','issue','reports'].includes(k)).map(k=>'<button data-act="tab" data-tab="'+k+'"'+(k===tab?' aria-current="page"':'')+'>'+ICON[k]+'<span>'+(k==='receive'?'SRO Qty':TITLES[k])+'</span></button>').join('');
 }
 function render(){
   $('#title').textContent=TITLES[tab]; $('#unitLbl').textContent='Unit: '+S.unit;
@@ -121,12 +124,17 @@ function render(){
   $('#main').innerHTML=({dashboard:vDashboard,reports:vReports,stock:vStock,receive:vReceive,issue:vIssue,clients:vClients,more:vMore})[tab]();
   if(tab==='stock') updateList();
   if(tab==='receive') updateRList();
+  if(readOnly){
+    document.body.classList.add('public-view');
+    restrictPublicControls();
+  }
 }
 
 /* ---------- views ---------- */
 function vStock(){
   const c=compute();
   if(!c.list.length && !c.orphans.length){
+    if(readOnly)return '<div class="empty"><b>No stock yet</b>The owner has not added stock to this inventory.</div>';
     return '<div class="empty"><b>No stock yet</b>Add your first SRO quantity, or load sample data to see how the app works.'+
       '<div class="btns"><button class="btn primary" data-act="newReceipt">Add SRO quantity</button><button class="btn" data-act="sample">Load sample data</button></div></div>';
   }
@@ -252,7 +260,7 @@ let DL={async save({filename,data}){
 }};
 function vMore(){
   const dl=!!DL;
-  return '<div class="setting"><h2>Inventory preferences</h2><label class="f">Low-stock alert (% remaining)<input id="lowStockPercent" type="number" min="0" max="100" value="'+threshold(S)+'"></label><label class="f">Appearance<select id="appearance"><option value="auto">Use device setting</option><option value="light"'+(document.documentElement.dataset.theme==='light'?' selected':'')+'>Light</option><option value="dark"'+(document.documentElement.dataset.theme==='dark'?' selected':'')+'>Dark</option></select></label><label class="f">Quantity unit<input id="unit" value="'+esc(S.unit)+'" maxlength="24"></label><p>Shown next to totals. The app does not convert units.</p></div>'+
+  return sharingPanel()+'<div class="setting"><h2>Inventory preferences</h2><label class="f">Low-stock alert (% remaining)<input id="lowStockPercent" type="number" min="0" max="100" value="'+threshold(S)+'"></label><label class="f">Appearance<select id="appearance"><option value="auto">Use device setting</option><option value="light"'+(document.documentElement.dataset.theme==='light'?' selected':'')+'>Light</option><option value="dark"'+(document.documentElement.dataset.theme==='dark'?' selected':'')+'>Dark</option></select></label><label class="f">Quantity unit<input id="unit" value="'+esc(S.unit)+'" maxlength="24"></label><p>Shown next to totals. The app does not convert units.</p></div>'+
    '<div class="sec"><h2>Export</h2></div><div class="setting"><div class="stack">'+
    '<button class="btn block" data-act="xlsx"'+(dl?'':' disabled')+'>Excel workbook (.xlsx)</button>'+
    '<button class="btn block" data-act="csvRec"'+(dl?'':' disabled')+'>SRO Quantity (.csv)</button>'+
@@ -268,7 +276,7 @@ function vMore(){
 }
 
 /* ---------- sheet / dialog / toast ---------- */
-function openSheet(html){ $('#sheet').innerHTML=html; $('#sheet').classList.add('on'); $('#scrim').classList.add('on'); $('#sheet').scrollTop=0; }
+function openSheet(html){ $('#sheet').innerHTML=html; if(readOnly)restrictPublicControls(); $('#sheet').classList.add('on'); $('#scrim').classList.add('on'); $('#sheet').scrollTop=0; }
 function closeSheet(){ $('#sheet').classList.remove('on'); $('#scrim').classList.remove('on'); $('#sheet').innerHTML=''; }
 let toastT; function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('on'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('on'),3200); }
 function ask(title,msg,okLabel,danger){
@@ -941,6 +949,7 @@ function vDashboard(){
  if(c.orphans.length)h+='<p class="alert">'+c.orphans.length+' issuance lines have no matching SRO. Review them in Issuance.</p>';
  h+='<div class="sec"><h2>Stock aging</h2></div><p class="hint">'+aged.length+' SROs received at least 90 days ago still have stock on hand.</p>'+aged.slice(0,5).map(o=>'<button class="attention-row" data-act="sro" data-id="'+esc(o.sro)+'"><span>'+esc(o.sro)+'<small>Received '+fd(o.date)+'</small></span><b>'+nf(o.balance)+'</b></button>').join('')+'</section>';
  h+='<section><div class="sec"><h2>Sailing in the next 14 days</h2></div>'+(sailings.length?sailings.slice(0,8).map(g=>'<button class="attention-row" data-act="editIssue" data-id="'+esc(g.items[0].id)+'"><span><strong>'+esc(g.vessel||'Vessel not recorded')+'</strong><small>'+esc(g.client||'No client')+' · '+esc(g.atw||g.sro)+'</small></span><b>'+fd(g.sail)+'</b></button>').join(''):'<p class="setting">No upcoming sailings recorded. Add sailing details when you create an issuance.</p>')+'</section></div>';
+ if(readOnly)return h;
  h+='<div class="sec"><h2>Recent changes</h2><span class="hint">Latest 200 saved changes</span></div><p class="hint">Shared operational history; not an immutable audit log.</p>';
  h+=(S.activity||[]).length?'<ol class="activity-list">'+(S.activity||[]).slice(0,12).map(a=>'<li><span>'+esc(a.summary)+'</span><time datetime="'+esc(a.at)+'">'+esc(new Date(a.at).toLocaleString())+'</time></li>').join('')+'</ol>':'<p class="setting">New inventory changes will appear here after they are saved.</p>';
  return h;
@@ -982,12 +991,16 @@ async function saveClient(form){
 /* ---------- events ---------- */
 document.addEventListener('click',async e=>{
   if(!ready||saving) return; const t=e.target.closest('[data-act]'); if(!t) return; const a=t.dataset.act, d=t.dataset;
+  if(readOnly&&!['tab','filter','sro','close','resetDelivery'].includes(a))return;
   switch(a){
+    case 'toggleSharing': await updateSharing({enabled:!shareSettings.enabled}); break;
+    case 'rotateSharing': if(await ask('Replace public link','The previous link will stop working. Anyone with the new link can view inventory, client names and delivery references. Contact details and change history remain private.','Replace link'))await updateSharing({token:crypto.randomUUID(),enabled:true}); break;
+    case 'copySharing': try{await navigator.clipboard.writeText(publicLink());toast('View-only link copied');}catch{ $('#publicLink').select();toast('Select and copy the link above.');} break;
     case 'newClient': clientEditor(); break;
     case 'editClient': clientEditor(d.name); break;
     case 'reportCsv': exportReport(); break;
     case 'resetDelivery': deliveryFilter={query:'',from:'',to:'',client:''}; render(); break;
-    case 'tab': tab=d.tab; closeSheet(); render(); window.scrollTo(0,0); break;
+    case 'tab': if(readOnly&&!['dashboard','stock','issue','reports'].includes(d.tab))return; tab=d.tab; if(tab==='more')await loadSharing(); closeSheet(); render(); window.scrollTo(0,0); break;
     case 'filter': filter=d.f; updateList(); break;
     case 'rcrop': rcrop=d.c; updateRList(); break;
     case 'rtype': rtype=(rtype===d.t&&d.t!=='all')?'all':d.t; updateRList(); if(rtype!=='all'){ const el=$('#rList'); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); } break;
@@ -1015,7 +1028,7 @@ document.addEventListener('click',async e=>{
       if(await ask('Delete all data','All SRO quantities and issuances in the shared inventory will be removed. Save a backup first if you need one.','Delete everything',true)){ S=blank(); if(!await save()) return; render(); toast('All data deleted'); } break;
   }
 });
-document.addEventListener('submit',e=>{ e.preventDefault(); if(!ready||saving) return; if(e.target.id==='clientForm') saveClient(e.target); if(e.target.id==='fRec') saveReceipt(e.target); if(e.target.id==='fIss') saveIssue(e.target); });
+document.addEventListener('submit',e=>{ e.preventDefault(); if(!ready||saving||readOnly) return; if(e.target.id==='clientForm') saveClient(e.target); if(e.target.id==='fRec') saveReceipt(e.target); if(e.target.id==='fIss') saveIssue(e.target); });
 document.addEventListener('input',async e=>{
   if(e.target.id==='deliveryQuery'){ deliveryFilter.query=e.target.value; refreshPreservingInput('deliveryQuery'); }
   else if(e.target.id==='clientQuery'){clientQuery=e.target.value;refreshPreservingInput('clientQuery');}
@@ -1029,12 +1042,49 @@ document.addEventListener('input',async e=>{
   
   else if(e.target.closest&&e.target.closest('#fIss')) updateIssueInfo();
 });
-document.addEventListener('change',async e=>{ if(!ready||saving) return; if(e.target.id==='appearance'){ const theme=e.target.value; document.documentElement.dataset.theme=theme; try{localStorage.setItem('sugar-theme',theme);}catch{} return; }
+document.addEventListener('change',async e=>{ if(!ready||saving) return; if(readOnly&&!e.target.dataset.delivery&&!e.target.dataset.report)return; if(e.target.id==='appearance'){ const theme=e.target.value; document.documentElement.dataset.theme=theme; try{localStorage.setItem('sugar-theme',theme);}catch{} return; }
  if(e.target.id==='lowStockPercent'){const value=Number(e.target.value); if(!Number.isFinite(value)||value<0||value>100){toast('Enter a percentage from 0 to 100.');e.target.value=threshold(S);return;} S.lowStockPercent=value;if(!await save())return;render();}
  if(e.target.dataset.delivery){deliveryFilter[e.target.dataset.delivery]=e.target.value;render();}
  if(e.target.dataset.report){reportFilter[e.target.dataset.report]=e.target.value;render();}
  if(e.target.id==='unit'){ S.unit=e.target.value.trim()||'units'; if(!await save()) return; render(); } if(e.target.closest&&e.target.closest('#fIss')) updateIssueInfo(); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ if($('#dlg').classList.contains('on')){ $('#dNo')&&$('#dNo').click(); } else closeSheet(); } });
+
+function restrictPublicControls(){
+ const allowed=['tab','filter','sro','close','resetDelivery'];
+ document.querySelectorAll('[data-act]').forEach(el=>{
+  if(['editIssue','editReceipt'].includes(el.dataset.act)){
+   if(el.tagName==='BUTTON'){const display=document.createElement('div');display.className=el.className;display.innerHTML=el.innerHTML;el.replaceWith(display);}
+   else{el.removeAttribute('data-act');el.removeAttribute('data-id');}
+  }else if(!allowed.includes(el.dataset.act))el.remove();
+ });
+}
+function publicLink(){return window.location.origin+'/#view='+shareSettings.token;}
+async function loadSharing(){
+ const {data,error}=await db.from('inventory_shares').select('token,enabled').eq('id','main').single();
+ shareSettings=data; shareError=error?'Public sharing needs database setup. Run supabase/public-sharing.sql in the Supabase SQL editor.':'';
+}
+function sharingPanel(){
+ return '<section class="setting"><h2>Public view-only sharing</h2><p>Anyone with the link can view stock, client names, quantities and delivery references. Client contacts, notes and change history stay private. Visitors cannot edit or export records.</p>'+(shareError?'<p role="status">'+esc(shareError)+'</p>':!shareSettings?'<p>Open More again to load sharing settings.</p>':'<p><strong>'+(shareSettings.enabled?'Sharing is enabled':'Sharing is disabled')+'</strong></p>'+(shareSettings.enabled?'<label class="f">View-only link<input id="publicLink" readonly value="'+esc(publicLink())+'"></label><button class="btn" data-act="copySharing">Copy public link</button>':'')+'<div class="btns"><button class="btn" data-act="toggleSharing">'+(shareSettings.enabled?'Disable public sharing':'Enable public sharing')+'</button><button class="btn" data-act="rotateSharing">Replace link</button></div>')+'</section>';
+}
+async function updateSharing(changes){
+ if(readOnly||!ready||saving||!shareSettings)return;
+ saving=true;lock(true);
+ try{const {data,error}=await db.from('inventory_shares').update(changes).eq('id','main').select('token,enabled').single();if(error)throw error;shareSettings=data;render();toast(data.enabled?'Public link is ready':'Public sharing disabled');}
+ catch(error){toast('Sharing could not be updated: '+error.message);}
+ finally{saving=false;lock(false);}
+}
+async function showPublic(){
+ ready=false;$('#account').hidden=true;$('#nav').hidden=true;$('#signOut').hidden=true;$('#main').hidden=false;
+ $('#cloudStatus').textContent='Loading public inventory…';
+ $('#main').innerHTML='<p class="setting" role="status">Loading shared inventory…</p>';
+ try{
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(publicToken))throw new Error('This sharing link is invalid.');
+  const {data,error}=await db.rpc('get_public_inventory',{share_token:publicToken});
+  if(error)throw new Error('Public sharing is not available. Ask the owner to finish sharing setup.');
+  if(!data)throw new Error('This link is disabled or has been replaced. Ask the owner for a new link.');
+  S=Object.assign(blank(),data);ready=true;$('#nav').hidden=false;render();lock(false);
+ }catch(error){$('#main').innerHTML='<div class="empty"><b>Shared inventory unavailable</b>'+esc(error.message)+'</div>';$('#cloudStatus').textContent='Public view unavailable';}
+}
 
 $('#loginForm').addEventListener('submit',async e=>{
  e.preventDefault(); if(!db) return;
@@ -1044,10 +1094,11 @@ $('#loginForm').addEventListener('submit',async e=>{
  finally { button.disabled=false; }
 });
 $('#signOut').addEventListener('click',async()=>{ if(saving||!db) return; const {error}=await db.auth.signOut(); if(error){toast(error.message);return;} await showAccount(null); });
-$('#reloadCloud').addEventListener('click',async()=>{ if(!db||saving) return; const {data,error}=await db.auth.getSession(); if(error){toast(error.message);return;} await showAccount(data.session); });
+$('#reloadCloud').addEventListener('click',async()=>{ if(!db||saving) return; if(readOnly){await showPublic();return;} const {data,error}=await db.auth.getSession(); if(error){toast(error.message);return;} await showAccount(data.session); });
 try{document.documentElement.dataset.theme=localStorage.getItem('sugar-theme')||'auto';}catch{}
 render();
 if(!db){ $('#accountMessage').textContent='Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY before building.'; $('#loginButton').disabled=true; }
+else if(readOnly){await showPublic();}
 else {
  db.auth.onAuthStateChange((event,session)=>{ if(event==='SIGNED_OUT') setTimeout(()=>showAccount(null),0); });
  const {data,error}=await db.auth.getSession();

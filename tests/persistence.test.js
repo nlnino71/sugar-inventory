@@ -11,7 +11,7 @@ async function harness(rpc, cloud) {
  source+=`render=()=>{}; ready=true; globalThis.app={save,compute,state:()=>S,revision:()=>revision,set:(value)=>{S=value},commit:()=>{committed=structuredClone(S)}}; })();`;
  const elements=new Map();
  const element=selector=>{if(!elements.has(selector))elements.set(selector,{textContent:'',addEventListener(){},classList:{add(){},remove(){},contains(){return false;}}});return elements.get(selector);};
- const context=vm.createContext({...features,structuredClone,setTimeout:()=>0,clearTimeout(){},console,document:{body:{},querySelector:element,addEventListener(){}},createClient:()=>({rpc,from:()=>({select:()=>({eq:()=>({single:async()=>({data:cloud,error:null})})})})})});
+ const context=vm.createContext({...features,window:{location:{hash:""}},URLSearchParams,structuredClone,setTimeout:()=>0,clearTimeout(){},console,document:{body:{},querySelector:element,addEventListener(){}},createClient:()=>({rpc,from:()=>({select:()=>({eq:()=>({single:async()=>({data:cloud,error:null})})})})})});
  await vm.runInContext(source,context);
  return {app:context.app,elements};
 }
