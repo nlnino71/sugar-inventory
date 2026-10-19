@@ -212,3 +212,9 @@ Preserved the established green warehouse workspace and refined local inconsiste
 The manual Impeccable detector returned no findings for app.js and index.html. Desktop/mobile workflow and light/dark/device-theme checks accompany the existing unit tests and production build; screenshots were inspected at both sizes. No stored critique snapshot was available to close.
 
 Verification outcome: 18 unit tests and 20 desktop/mobile workflow/theme checks passed. The first browser run encountered intermittent Google Fonts load-event timeouts; the final run explicitly aborts optional Google font requests and verifies the fallback layout, workflow, and semantic contrast without that dependency. Normal-font desktop screenshots and fallback-font mobile screenshots were inspected. Build passes with the previously documented optional Excel chunk warning.
+
+### Compact header extension — 19 October 2026
+
+Combined page title, unit, save status, Refresh, and Sign out into one toolbar. Desktop keeps context on the left and connection actions on the right; at 600px and below the title/unit and status/actions form two compact rows. Refresh retains a labeled icon button and 44px touch target; Sign out uses a quieter text treatment. Existing green semantic colors, Barlow typography, sidebar, mobile navigation, and page content remain the incumbent reference.
+
+Inspected `index.html` header markup and final CSS block against `.impeccable/review/desktop.png` (1440px) and `mobile.png` (390px): header labels fit, hierarchy is clear, and actions remain visible at both sizes. Validation reported by the implementation pass: 18 unit tests, 14 browser workflow tests, and production build passed; manual detector returned `[]`. Existing documentation drift: `PRODUCT.md` exists, while `DESIGN.md` is absent. This narrow extension records its change here without creating system documentation or repairing preexisting drift.

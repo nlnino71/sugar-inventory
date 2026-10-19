@@ -363,10 +363,33 @@ nav#nav .nav-overflow{display:none}
 .section-menu svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
 .section-menu [aria-current="page"]{background:var(--cane-bg);color:var(--stock-ink);border-color:var(--cane)}
 @media(min-width:1024px){nav#nav .nav-overflow{display:flex}nav#nav .nav-menu{display:none}}
+/* A single compact toolbar owns page context and connection actions. */
+.top,.workspace .top{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:16px;min-height:0;background:var(--surface)}
+.page-heading{display:flex;flex-direction:column;gap:6px;min-width:0}
+.top h1,.workspace .top h1{font-size:28px;line-height:1.1}
+.top .unit,.workspace .top .unit{max-width:none;text-align:left;font-size:12px;overflow-wrap:anywhere}
+.top .connection-bar,.workspace .top .connection-bar{display:flex;align-items:center;gap:20px;max-width:none;margin:0;padding:0;border:0;flex-wrap:wrap;justify-content:flex-end}
+.top #cloudStatus,.workspace .top #cloudStatus{margin:0;font-size:12px;color:var(--muted)}
+.header-actions{display:flex;align-items:center;gap:8px}
+.header-actions .btn{display:flex;align-items:center;gap:8px;padding:10px 12px;min-height:44px;font-size:13px}
+.header-actions svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+#reloadCloud{border-color:var(--control-line)}
+#signOut{background:transparent;border-color:transparent;color:var(--muted)}
+.public-view .top #cloudStatus{color:var(--info-ink)}
+@media(min-width:1024px){.workspace .top{padding:18px 36px}.workspace .top h1{font-size:30px}}
+@media(max-width:600px){
+ .top,.workspace .top{flex-wrap:wrap;gap:14px;padding:14px 16px}
+ .page-heading{flex-direction:row;align-items:baseline;justify-content:space-between;width:100%;gap:14px}
+ .top .unit{max-width:48%;text-align:right}
+ .top .connection-bar{width:100%;justify-content:space-between;gap:8px}
+ .top #cloudStatus{flex:1;min-width:80px}
+ .header-actions .btn{padding:8px 10px}
+}
 </style>
 </head>
 <body>
-<header class="top"><h1 id="title">Stock</h1><span class="unit" id="unitLbl"></span></header>
+<header class="top"><div class="page-heading"><h1 id="title">Stock</h1><span class="unit" id="unitLbl"></span></div>
+<div class="connection-bar"><span id="cloudStatus" role="status">Sign in to continue</span><div class="header-actions"><button class="btn" id="reloadCloud" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></svg><span>Refresh</span></button><button class="btn" id="signOut" type="button">Sign out</button></div></div></header>
 <section id="account" role="main" aria-labelledby="accountTitle" tabindex="-1" class="setting" style="max-width:420px;margin:40px auto">
 <img class="account-logo" src="/app-icon.svg" width="64" height="64" alt="">
 <h2 id="accountTitle">Sign in to Sugar Inventory</h2><p id="accountMessage" role="status">Connecting to Supabase…</p>
@@ -374,7 +397,7 @@ nav#nav .nav-overflow{display:none}
 <p id="signupNote" class="hint" hidden>Confirm your email after signing up. An administrator must approve access before you can edit the shared inventory.</p>
 <button id="switchAuth" class="btn block" type="button" style="margin-top:12px">Create an account</button>
 </section>
-<div class="connection-bar"><span id="cloudStatus" role="status">Sign in to continue</span><button class="btn" id="reloadCloud" type="button">Refresh</button><button class="btn" id="signOut" type="button">Sign out</button></div>
+
 <main id="main" hidden tabindex="-1"></main>
 <nav id="nav" hidden aria-label="Sections"></nav>
 <div class="scrim" id="scrim" data-act="close"></div>
