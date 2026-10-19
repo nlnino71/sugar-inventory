@@ -1,3 +1,4 @@
+import {navigate} from './navigation.js';
 import {test,expect} from '@playwright/test';
 // Core workflows must stay available when the optional Excel CDN fails.
 test.beforeEach(async({page})=>{await page.route('https://cdn.jsdelivr.net/**',route=>route.abort());});
@@ -50,5 +51,5 @@ test('a failed save preserves entered data and allows correcting or retrying',as
 test('unusual record keys and imported markup stay inert',async({page})=>{
  await signIn(page,{unusualRecords:true});await page.getByRole('button',{name:'Stock',exact:true}).click();
  await expect(page.locator('[data-audit-injection]')).toHaveCount(0);await expect(page.getByText('<img data-audit-injection>',{exact:false}).first()).toBeVisible();
- await page.getByRole('button',{name:'SRO Qty',exact:true}).click();await expect(page.locator('[data-injected]')).toHaveCount(0);
+ await navigate(page,'SRO Qty');await expect(page.locator('[data-injected]')).toHaveCount(0);
 });

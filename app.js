@@ -120,7 +120,7 @@ const ICON={
  more:'<svg viewBox="0 0 24 24"><path d="M4 7h10"/><path d="M18 7h2"/><circle cx="16" cy="7" r="2"/><path d="M4 17h2"/><path d="M10 17h10"/><circle cx="8" cy="17" r="2"/></svg>'
 };
 function renderNav(){
-  $('#nav').innerHTML='<div class="nav-brand"><img src="/app-icon.svg" width="44" height="44" alt="">Sugar Inventory<small>'+ (readOnly?'Shared inventory':'Inventory workspace')+'</small></div>'+Object.keys(TITLES).filter(k=>!readOnly||['dashboard','stock','issue','reports'].includes(k)).map(k=>'<button data-act="tab" data-tab="'+k+'"'+(k===tab?' aria-current="page"':'')+'>'+ICON[k]+'<span>'+(k==='receive'?'SRO Qty':TITLES[k])+'</span></button>').join('');
+  $('#nav').innerHTML='<div class="nav-brand"><img src="/app-icon.svg" width="44" height="44" alt="">Sugar Inventory<small>'+ (readOnly?'Shared inventory':'Inventory workspace')+'</small></div>'+Object.keys(TITLES).filter(k=>!readOnly||['dashboard','stock','issue','reports'].includes(k)).map(k=>'<button class="'+(!readOnly&&['receive','clients','reports','more'].includes(k)?'nav-overflow':'')+'" data-act="tab" data-tab="'+k+'"'+(k===tab?' aria-current="page"':'')+'>'+ICON[k]+'<span>'+(k==='receive'?'SRO Qty':TITLES[k])+'</span></button>').join('')+(!readOnly?'<button class="nav-menu" data-act="navMenu" aria-haspopup="dialog"'+(['receive','clients','reports','more'].includes(tab)?' aria-current="page"':'')+'><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span>Menu</span></button>':'');
 }
 function render(){
   document.body.classList.toggle('workspace',ready);
@@ -1083,6 +1083,7 @@ document.addEventListener('click',async e=>{
     case 'toggleSharing': await updateSharing({enabled:!shareSettings.enabled}); break;
     case 'rotateSharing': if(await ask('Replace public link','The previous link will stop working. Anyone with the new link can view inventory, client names and delivery references. Contact details and change history remain private.','Replace link'))await updateSharing({token:crypto.randomUUID(),slug:'inventory-'+uid(),enabled:true}); break;
     case 'copySharing': try{await navigator.clipboard.writeText(publicLink());toast('View-only link copied');}catch{ $('#publicLink').select();toast('Select and copy the link above.');} break;
+    case 'navMenu': openSheet(sheetHead('Menu')+'<div class="section-menu">'+['receive','clients','reports','more'].map(k=>'<button class="btn" data-act="tab" data-tab="'+k+'"'+(tab===k?' aria-current="page"':'')+'>'+ICON[k]+'<span>'+(k==='more'?'Settings & sharing':TITLES[k])+'</span></button>').join('')+'</div>');break;
     case 'newClient': clientEditor(); break;
     case 'editClient': clientEditor(d.name); break;
     case 'reportCsv': exportReport(); break;

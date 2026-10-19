@@ -128,3 +128,5 @@ Reports and client totals use indexed aggregation. Client search updates results
 ### App branding
 
 The sugar-cube and cane-sprout mark is available as `public/app-icon.svg`, with a matching `public/logo.svg` wordmark. Browser favicon, Apple touch icon, 192/512px app icons and the web manifest use the same mark. `node scripts/generate-icons.mjs` renders PNGs using Chrome; `magick public/app-icon-512.png -define icon:auto-resize=64,48,32,16 public/favicon.ico` regenerates the ICO. `node scripts/generate-preview.mjs` renders the Messenger/Viber Open Graph artwork. Preview artwork uses a versioned URL so services can fetch the refreshed branding; previously shared messages may retain their cached preview.
+
+On phones and tablets below 1024px, staff navigation has four buttons: Overview, Stock, Issuance and Menu. Menu opens SRO Quantity, Clients, Reports and Settings & sharing in a keyboard-accessible sheet. The desktop sidebar retains all sections. Public viewers retain their four read-only destinations.

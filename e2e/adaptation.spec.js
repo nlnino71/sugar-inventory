@@ -1,3 +1,4 @@
+import {navigate} from './navigation.js';
 import {test,expect} from '@playwright/test';
 const sizes=[{name:'320px phone',w:320,h:800},{name:'390px phone',w:390,h:844},{name:'tablet',w:768,h:1024},{name:'phone landscape',w:844,h:390},{name:'desktop',w:1440,h:1000},{name:'4K',w:3840,h:2160},{name:'200-percent zoom equivalent',w:640,h:450}];
 for(const size of sizes)test('reflow and touch targets — '+size.name,async({page})=>{
@@ -19,7 +20,7 @@ for(const size of sizes)test('reflow and touch targets — '+size.name,async({pa
  };
  await page.goto('/');await noOverflow();await page.getByLabel('Email',{exact:true}).fill('staff@example.com');await page.getByLabel('Password',{exact:true}).fill('password-example');await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('heading',{name:'Inventory at a glance'}).waitFor();await noOverflow();
  await page.getByRole('button',{name:'Stock',exact:true}).click();await noOverflow();await touchTargets('.chip-b,#nav button');
- await page.getByRole('button',{name:'Reports',exact:true}).click();await noOverflow();
+ await navigate(page,'Reports');await noOverflow();
  const scroll=page.getByRole('region',{name:'SRO movement report'});
  if(size.w<640){expect(await scroll.evaluate(el=>el.scrollWidth>el.clientWidth)).toBeTruthy();await scroll.focus();await page.keyboard.press('ArrowRight');await expect.poll(()=>scroll.evaluate(el=>el.scrollLeft)).toBeGreaterThan(0);await scroll.evaluate(el=>el.scrollLeft=0);}
  await page.evaluate(()=>window.scrollTo(0,0));
@@ -35,7 +36,7 @@ for(const size of sizes)test('reflow and touch targets — '+size.name,async({pa
  const confirmation=page.getByRole('alertdialog',{name:'Delete SRO quantity',exact:true}),bounds=await confirmation.boundingBox();
  expect(bounds.x).toBeGreaterThanOrEqual(0);expect(bounds.y).toBeGreaterThanOrEqual(0);expect(bounds.height).toBeLessThanOrEqual(size.h);expect(await confirmation.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBeTruthy();
  await page.keyboard.press('Escape');await page.keyboard.press('Escape');
- await page.getByRole('button',{name:'Clients',exact:true}).click();await noOverflow();
- await page.goto('/view/public');await expect(page.getByText('Public view · Read only',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Reports',exact:true}).click();await noOverflow();
+ await navigate(page,'Clients');await noOverflow();
+ await page.goto('/view/public');await expect(page.getByText('Public view · Read only',{exact:true})).toBeVisible();await navigate(page,'Reports');await noOverflow();
  await expect(page.getByRole('button',{name:'Export report CSV'})).toHaveCount(0);
 });

@@ -267,7 +267,7 @@ h2{font-family:var(--display);font-size:24px;margin:0 0 6px}
 .table-scroll table{min-width:580px;width:100%}
 caption{text-align:left;font-size:13px;color:var(--muted);padding:8px 0}
 textarea{font:inherit;width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);resize:vertical}
-nav#nav{grid-template-columns:repeat(7,minmax(0,1fr));overflow-x:auto;justify-content:space-around}
+nav#nav{grid-template-columns:repeat(4,minmax(0,1fr));overflow-x:auto;justify-content:space-around}
 nav#nav button{min-width:62px;flex:1}
 ::selection{background:var(--cane-bg);color:var(--ink)}
 input,textarea{caret-color:var(--cane)}
@@ -356,6 +356,13 @@ label.f input[type="date"]{width:100%;min-width:0}
  .sheet .btns .btn{flex-basis:100%}
 }
 .account-logo{display:block;margin:0 0 20px}
+/* Four primary mobile destinations; full sidebar on desktop. */
+nav#nav .nav-overflow{display:none}
+.section-menu{display:grid;gap:12px;margin-top:20px}
+.section-menu .btn{display:flex;align-items:center;gap:14px;text-align:left;min-height:56px}
+.section-menu svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.section-menu [aria-current="page"]{background:var(--cane-bg);color:var(--stock-ink);border-color:var(--cane)}
+@media(min-width:1024px){nav#nav .nav-overflow{display:flex}nav#nav .nav-menu{display:none}}
 </style>
 </head>
 <body>

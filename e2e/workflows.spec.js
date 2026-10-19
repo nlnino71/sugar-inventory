@@ -1,3 +1,4 @@
+import {navigate} from './navigation.js';
 import {test,expect} from '@playwright/test';
 // Exercise font fallback deterministically; third-party font outages must not stall workflows.
 test.beforeEach(async({page})=>{await page.route(/https:\/\/fonts\.(googleapis|gstatic)\.com\//,route=>route.abort());});
@@ -26,19 +27,28 @@ test('overview, stock report, delivery search and client editing',async({page},i
  const navBounds=await page.locator('#nav').boundingBox(),mainBounds=await page.locator('main').boundingBox();
  if(page.viewportSize().width>=1024){expect(navBounds.x).toBe(0);expect(navBounds.y).toBe(0);expect(mainBounds.x).toBeGreaterThanOrEqual(navBounds.width);}
  else expect(navBounds.y).toBeGreaterThan(page.viewportSize().height-100);
+ if(page.viewportSize().width<1024){
+  await expect(page.locator('#nav button:visible')).toHaveCount(4);
+  const menu=page.locator('#nav').getByRole('button',{name:'Menu',exact:true});
+  await menu.click();await expect(page.getByRole('dialog',{name:'Menu',exact:true})).toBeVisible();
+  await page.screenshot({path:'.impeccable/review/mobile-navigation-menu.png',fullPage:true,animations:'disabled'});
+  await page.keyboard.press('Escape');await expect(menu).toBeFocused();
+  await navigate(page,'SRO Qty');await expect(page.locator('#title')).toHaveText('SRO Quantity');
+  await expect(page.locator('#nav [aria-current="page"]:visible')).toHaveText('Menu');
+ }
  await page.getByRole('button',{name:'Stock',exact:true}).click();
  await page.screenshot({path:'.impeccable/review/stock-'+info.project.name+'.png',fullPage:true});
  await page.getByRole('button',{name:/SRO-001.*Low/}).click();
  if(page.viewportSize().width>=1024){const panel=await page.locator('#sheet').boundingBox();expect(panel.x+panel.width).toBe(page.viewportSize().width);expect(panel.y).toBe(0);}
  await page.getByRole('button',{name:'Close',exact:true}).click();
- await page.getByRole('button',{name:'Reports',exact:true}).click();
+ await navigate(page,'Reports');
  await page.locator('[data-report="from"]').fill('2026-10-01');await page.locator('[data-report="to"]').fill('2026-10-31');
  await expect(page.getByRole('cell',{name:'100.00',exact:true})).toBeVisible();
  await page.screenshot({path:'.impeccable/review/report-'+info.project.name+'.png',fullPage:true});
  const download=page.waitForEvent('download');await page.getByRole('button',{name:'Export report CSV'}).click();expect((await download).suggestedFilename()).toContain('2026-10-01');
  await page.getByRole('button',{name:'Issuance',exact:true}).click();await page.getByLabel('Find deliveries').fill('not-present');await expect(page.getByText('No deliveries match these filters.')).toBeVisible();
  await page.getByRole('button',{name:'Clear filters'}).click();await expect(page.getByText('ATW-100',{exact:true})).toBeVisible();
- await page.getByRole('button',{name:'Clients',exact:true}).click();await page.getByRole('button',{name:'Add client'}).click();await page.getByLabel('Client name').fill('Client B');await page.getByLabel('Contact person').fill('Maria');await page.getByLabel('Phone',{exact:true}).fill('09171234567');await page.getByRole('button',{name:'Save client'}).click();
+ await navigate(page,'Clients');await page.getByRole('button',{name:'Add client'}).click();await page.getByLabel('Client name').fill('Client B');await page.getByLabel('Contact person').fill('Maria');await page.getByLabel('Phone',{exact:true}).fill('09171234567');await page.getByRole('button',{name:'Save client'}).click();
  await expect(page.getByText('Client B',{exact:true})).toBeVisible();expect(state.clientProfiles['Client B'].contact).toBe('Maria');expect(state.activity[0].summary).toContain('Client directory updated');
  await page.screenshot({path:'.impeccable/review/clients-'+info.project.name+'.png',fullPage:true});
  await page.getByLabel('Find a client').evaluate(el=>{window.clientSearchInput=el;});
@@ -46,7 +56,7 @@ test('overview, stock report, delivery search and client editing',async({page},i
  expect(await page.getByLabel('Find a client').evaluate(el=>el===window.clientSearchInput)).toBe(true);
  await expect(page.getByLabel('Find a client')).toBeFocused();
  expect(excelRequests).toEqual([]);
- await page.getByRole('button',{name:'More',exact:true}).click();
+ await navigate(page,'More');
  const excelDownload=page.waitForEvent('download');await page.getByRole('button',{name:'Excel workbook (.xlsx)',exact:true}).click();
  const workbookDownload=await excelDownload;expect(workbookDownload.suggestedFilename()).toMatch(/\.xlsx$/);
  const XLSX=await import('xlsx-js-style');const wb=(XLSX.default||XLSX).readFile(await workbookDownload.path());
@@ -79,7 +89,7 @@ test('public link '+publicAddress+' displays inventory without login or mutation
  await page.getByRole('button',{name:'Issuance',exact:true}).click();
  await expect(page.getByText('B1',{exact:true})).toBeVisible();
  await expect(page.getByRole('button',{name:'New issuance'})).toHaveCount(0);
- await page.getByRole('button',{name:'Reports',exact:true}).click();
+ await navigate(page,'Reports');
  await expect(page.getByRole('button',{name:'Export report CSV'})).toHaveCount(0);
  await expect(page.getByText('Recent changes',{exact:true})).toHaveCount(0);
  expect(writes).toBe(0);
