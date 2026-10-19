@@ -1,0 +1,41 @@
+import {test,expect} from '@playwright/test';
+const sizes=[{name:'320px phone',w:320,h:800},{name:'390px phone',w:390,h:844},{name:'tablet',w:768,h:1024},{name:'phone landscape',w:844,h:390},{name:'desktop',w:1440,h:1000},{name:'4K',w:3840,h:2160},{name:'200-percent zoom equivalent',w:640,h:450}];
+for(const size of sizes)test('reflow and touch targets — '+size.name,async({page})=>{
+ await page.setViewportSize({width:size.w,height:size.h});
+ await page.route('https://cdn.jsdelivr.net/**',route=>route.abort());
+ const longSro='SRO-'+('WarehouseRecord'.repeat(8)),longName='Client '+('Ninonuevo倉庫'.repeat(12));
+ const state={unit:'bags (LKg)',receipts:[{id:'r',sro:longSro,type:'Raw Sugar',mill:'Mill '+('NorthernSupply'.repeat(8)),date:'2026-09-01',qty:100,crop:'2026-2027'}],issues:[{id:'i',sro:longSro,type:'Raw Sugar',client:longName,date:'2026-10-01',qty:85,seq:1,batch:'B1',atw:'ATW-1',vessel:'MV Pearl'}],clients:[longName],seq:1};
+ const user={id:'11111111-1111-4111-8111-111111111111',aud:'authenticated',role:'authenticated',email:'staff@example.com',app_metadata:{provider:'email'},user_metadata:{},created_at:'2026-01-01T00:00:00Z'};
+ await page.route('https://nvkawrmoacikzdfowvem.supabase.co/**',route=>{
+  const url=route.request().url();
+  if(url.includes('/auth/v1/token'))return route.fulfill({json:{access_token:'test-token',refresh_token:'refresh-token',expires_in:3600,token_type:'bearer',user}});
+  if(url.includes('/auth/v1/user'))return route.fulfill({json:user});
+  if(url.includes('/rpc/get_public_inventory'))return route.fulfill({json:state});
+  return route.fulfill({json:{data:state,revision:0}});
+ });
+ const noOverflow=async()=>expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'no page-level horizontal overflow').toBeTruthy();
+ const touchTargets=async selector=>{
+  const small=await page.locator(selector).evaluateAll(elements=>elements.filter(el=>el.getClientRects().length).map(el=>({name:el.textContent.trim(),w:el.getBoundingClientRect().width,h:el.getBoundingClientRect().height})).filter(v=>v.w<43.9||v.h<43.9));expect(small).toEqual([]);
+ };
+ await page.goto('/');await noOverflow();await page.getByLabel('Email',{exact:true}).fill('staff@example.com');await page.getByLabel('Password',{exact:true}).fill('password-example');await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('heading',{name:'Inventory at a glance'}).waitFor();await noOverflow();
+ await page.getByRole('button',{name:'Stock',exact:true}).click();await noOverflow();await touchTargets('.chip-b,#nav button');
+ await page.getByRole('button',{name:'Reports',exact:true}).click();await noOverflow();
+ const scroll=page.getByRole('region',{name:'SRO movement report'});
+ if(size.w<640){expect(await scroll.evaluate(el=>el.scrollWidth>el.clientWidth)).toBeTruthy();await scroll.focus();await page.keyboard.press('ArrowRight');await expect.poll(()=>scroll.evaluate(el=>el.scrollLeft)).toBeGreaterThan(0);await scroll.evaluate(el=>el.scrollLeft=0);}
+ await page.evaluate(()=>window.scrollTo(0,0));
+ await page.screenshot({path:'.impeccable/review/adapt-report-'+size.w+'x'+size.h+'.png',fullPage:true});
+ await page.getByRole('button',{name:'Issuance',exact:true}).click();await noOverflow();await touchTargets('.line');
+ await page.getByRole('button',{name:'New issuance',exact:true}).click();await touchTargets('.x,.batch button,[data-act=addBatch]');
+ const modal=page.getByRole('dialog',{name:'New issuance'});await expect(modal.locator('[name=date]')).toBeFocused();
+ await expect(modal.getByRole('button',{name:'Save',exact:true})).toBeEnabled();await modal.getByRole('button',{name:'Save',exact:true}).scrollIntoViewIfNeeded();
+ expect(await modal.evaluate(el=>el.scrollWidth<=el.clientWidth),'sheet content fits').toBeTruthy();
+ if(size.w===320)await page.screenshot({path:'.impeccable/review/adapt-form-320.png',fullPage:false});
+ await page.keyboard.press('Escape');
+ await page.getByRole('button',{name:'Stock',exact:true}).click();await page.locator('#sroList .card').first().click();await page.getByRole('button',{name:'Edit SRO quantity '+longSro,exact:true}).click();await page.getByRole('button',{name:'Delete',exact:true}).click();
+ const confirmation=page.getByRole('alertdialog',{name:'Delete SRO quantity',exact:true}),bounds=await confirmation.boundingBox();
+ expect(bounds.x).toBeGreaterThanOrEqual(0);expect(bounds.y).toBeGreaterThanOrEqual(0);expect(bounds.height).toBeLessThanOrEqual(size.h);expect(await confirmation.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBeTruthy();
+ await page.keyboard.press('Escape');await page.keyboard.press('Escape');
+ await page.getByRole('button',{name:'Clients',exact:true}).click();await noOverflow();
+ await page.goto('/view/public');await expect(page.getByText('Public view · Read only',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Reports',exact:true}).click();await noOverflow();
+ await expect(page.getByRole('button',{name:'Export report CSV'})).toHaveCount(0);
+});

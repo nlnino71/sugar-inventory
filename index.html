@@ -118,7 +118,7 @@ main{max-width:640px;margin:0 auto;padding:14px 16px}
 .search input{flex:1;min-width:0;height:44px;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:0 12px;font-size:16px}
 .chips{display:flex;gap:8px;overflow-x:auto;padding:10px 0 4px;scrollbar-width:none}
 .chips::-webkit-scrollbar{display:none}
-.chip-b{flex:none;height:34px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-size:14px}
+.chip-b{flex:none;min-height:44px;padding:10px 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-size:14px}
 .chip-b[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 
 /* list cards */
@@ -146,13 +146,13 @@ button.card:active{background:var(--soft)}
 .line b{font-family:var(--display);font-size:18px;font-weight:600}
 .tot{display:flex;justify-content:space-between;padding-top:8px;font-weight:600}
 
-.btn{height:46px;border-radius:8px;border:1px solid var(--line);background:var(--surface);padding:0 18px;font-weight:600;font-size:15px}
+.btn{min-height:46px;height:auto;border-radius:8px;border:1px solid var(--line);background:var(--surface);padding:10px 18px;font-weight:600;font-size:15px}
 .btn.primary{background:var(--cane);color:var(--cane-ink);border-color:var(--cane)}
 .btn.danger{color:var(--alert);border-color:var(--alert);background:transparent}
 .btn.block{display:block;width:100%}
 .btn[disabled]{opacity:.45;cursor:not-allowed}
-.btns{display:flex;gap:10px;margin-top:16px}
-.btns .btn{flex:1}
+.btns{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+.btns .btn{flex:1 1 140px}
 
 .empty{text-align:center;padding:34px 18px;border:1px dashed var(--line);border-radius:10px;color:var(--muted)}
 .empty b{display:block;color:var(--ink);font-family:var(--display);font-size:22px;margin-bottom:4px}
@@ -175,14 +175,14 @@ nav button[aria-current="page"]{color:var(--stock-ink);font-weight:600}
 @media (prefers-reduced-motion:no-preference){.sheet.on{animation:up .18s ease-out}@keyframes up{from{transform:translateY(24px);opacity:.4}}}
 .sheet h3{margin:0;font-family:var(--display);font-size:26px;font-weight:700;line-height:1.1}
 .sheet .head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
-.x{width:40px;height:40px;border-radius:8px;border:1px solid var(--line);background:var(--surface);font-size:20px;line-height:1}
+.x{width:44px;height:44px;border-radius:8px;border:1px solid var(--line);background:var(--surface);font-size:20px;line-height:1}
 label.f{display:block;margin:12px 0 0;font-size:13px;color:var(--muted);font-weight:500}
 label.f input,label.f select{display:block;width:100%;height:46px;margin-top:4px;border:1px solid var(--line);border-radius:8px;background:var(--surface);
   padding:0 12px;font-size:16px;color:var(--ink)}
-.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.two{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}
 .info{margin-top:12px;padding:10px 12px;border-radius:8px;background:var(--info-bg);color:var(--info-ink);font-size:14px}
 .info.bad{background:var(--alert-bg);color:var(--alert)}
-.batch{display:grid;grid-template-columns:1fr 110px 40px;gap:8px;margin-top:8px;align-items:center}
+.batch{display:grid;grid-template-columns:minmax(0,1fr) minmax(80px,110px) 44px;gap:8px;margin-top:8px;align-items:center}
 .batch input{height:46px;border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:0 12px;font-size:16px;width:100%;color:var(--ink)}
 .batch button{height:46px;border:1px solid var(--line);border-radius:8px;background:var(--surface);font-size:18px}
 .err{color:var(--alert);font-size:13px;margin-top:8px;min-height:1em}
@@ -260,7 +260,7 @@ h2{font-family:var(--display);font-size:24px;margin:0 0 6px}
 .activity-list{list-style:none;padding:0}
 .activity-list li{display:flex;justify-content:space-between;gap:24px;padding:14px 0;border-bottom:1px solid var(--line)}
 .activity-list time{color:var(--muted);font-size:12px;flex-shrink:0}
-.filter-panel{display:grid;grid-template-columns:1fr 1fr;gap:12px 20px;margin:18px 0 22px;padding:18px 0;border-block:1px solid var(--line)}
+.filter-panel{display:grid;grid-template-columns:minmax(0,1fr);gap:12px 20px;margin:18px 0 22px;padding:18px 0;border-block:1px solid var(--line)}
 .filter-panel .wide{grid-column:1/-1}
 .filter-panel .f{margin:0}
 .table-scroll{overflow-x:auto;margin-top:20px}
@@ -272,6 +272,7 @@ nav#nav button{min-width:62px;flex:1}
 ::selection{background:var(--cane-bg);color:var(--ink)}
 input,textarea{caret-color:var(--cane)}
 button:disabled{cursor:not-allowed;opacity:.5}
+@media(min-width:480px){.filter-panel,.two{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(min-width:760px){nav#nav{max-width:1000px;left:50%;right:auto;width:100%;transform:translateX(-50%)}}
 @media(max-width:600px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}.overview-columns{grid-template-columns:1fr;gap:12px}.activity-list li{display:block}.activity-list time{display:block;margin-top:5px}nav#nav button{min-width:0;padding-inline:4px}nav#nav button span{font-size:10px}.top .unit{max-width:45%;text-align:right}}
 .public-view nav#nav{grid-template-columns:repeat(4,minmax(0,1fr))}
@@ -334,6 +335,24 @@ label.f input,label.f select,.search input,.batch input,textarea{border-color:va
 input::placeholder,textarea::placeholder{color:var(--muted);opacity:1}
 input[aria-invalid="true"],select[aria-invalid="true"],textarea[aria-invalid="true"]{border-color:var(--alert)}
 .public-view #cloudStatus{color:var(--info-ink)}
+/* Reflow and touch affordances apply to staff and public workspaces. */
+label.f,input,select,textarea,.filter-panel>*{min-width:0;max-width:100%}
+label.f input[type="date"]{width:100%;min-width:0}
+.card,.typeCard,.attention-row>span{min-width:0;overflow-wrap:anywhere}
+.row>:first-child,.nums>div,.line>span{min-width:0;overflow-wrap:anywhere}
+.nums b,.metrics dd{overflow-wrap:anywhere}
+.line,.rr{min-height:44px}
+.sec{gap:10px;flex-wrap:wrap}
+.dlg{max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow-y:auto;overflow-wrap:anywhere;overscroll-behavior:contain}
+.sheet{overscroll-behavior:contain}
+.sheet .head{gap:12px}
+@media(max-width:479px){
+ .typeCard .row{flex-wrap:wrap;align-items:flex-start}
+ .typeCard .tbal{margin-left:auto}
+ .table-scroll table{min-width:580px}
+ .table-scroll,.tabwrap{max-width:100%;overscroll-behavior-x:contain}
+ .sheet .btns .btn{flex-basis:100%}
+}
 </style>
 </head>
 <body>

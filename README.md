@@ -114,3 +114,9 @@ Dialogs and nested confirmations have accessible names, move and contain keyboar
 Primary actions retain cane green. Healthy-stock text uses a separate high-contrast green token; warnings use amber; over-issuance and invalid fields use red; neutral depleted stock has its own text token; information and public read-only labels use blue. Theme-specific control outlines and focus rings are separate from subtle separators. Native date/select widgets inherit the selected light or dark color scheme.
 
 `e2e/colors.spec.js` measures rendered contrast for all four stock states, errors, information panels, form outlines and focus indicators in light, dark and automatic themes at desktop and phone sizes. It also checks that the Fully issued badge stays compact and verifies labeled stock states under simulated deuteranopia.
+
+## Narrow-screen and touch adaptation
+
+Phone filters and paired form fields stack below 480px; wider screens keep their existing columns and desktop sidebar. Date inputs can shrink without forcing page-level horizontal scrolling. Long SRO/client references wrap, while report-table horizontal scrolling remains inside a named keyboard-accessible region. Chips, close/remove controls, batch actions, issuance lines and receipt rows have at least 44px touch targets. Narrow form action buttons stack so Save and Cancel remain readable.
+
+`e2e/adaptation.spec.js` uses long mixed-character record names to check 320px, 390px, tablet, landscape, desktop, 4K and a 640px viewport representing desktop reflow at 200% zoom. These are Chrome viewport simulations rather than physical-device or cross-browser certification.

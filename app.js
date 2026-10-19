@@ -424,7 +424,7 @@ function issueSheet(opt){
    '<label class="f">Sailing date<input type="date" name="sail" value="'+esc(e?e.sail:'')+'"></label></div>'+
    dl('dlClients',knownClients())+
    '<label class="f" style="margin-bottom:0">Batch codes and quantity</label><div id="batches">'+(e?batchRow(e.batch,e.qty):batchRow()+batchRow())+'</div>'+
-   (e?'':'<button type="button" class="btn block" style="margin-top:8px;height:40px" data-act="addBatch">Add batch code</button>')+
+   (e?'':'<button type="button" class="btn block" style="margin-top:8px" data-act="addBatch">Add batch code</button>')+
    '<div class="err" id="err" role="alert" tabindex="-1"></div><div class="btns">'+(e?'<button type="button" class="btn danger" data-act="delIssue" data-id="'+esc(e.id)+'">Delete</button>':'')+'<button type="submit" class="btn primary">Save</button></div></form>');
   updateIssueInfo();
 }
