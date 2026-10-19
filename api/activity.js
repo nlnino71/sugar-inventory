@@ -1,4 +1,5 @@
 import {isIP} from 'node:net';
+import {savedNetwork} from '../server/network.js';
 import {createClient} from '@supabase/supabase-js';
 const kinds=new Set(['page.view','panel.view','panel.close','action.requested','form.submit','field.change','file.exported','save.failed','save.conflict','visibility.change','session.end','admin.view','auth.result','form.invalid']);
 export default async function handler(req,res){
@@ -20,7 +21,18 @@ export default async function handler(req,res){
  const ip=typeof candidate==='string'&&isIP(candidate)?candidate:null;
  try{
  const db=createClient(url,secret,{auth:{persistSession:false,autoRefreshToken:false}});
- const {error}=await db.rpc('record_guest_inventory_events',{events:body.events,network:{ip,ip_source:proxy?'Vercel request IP':'Direct socket peer',user_agent:String(req.headers['user-agent']||'').slice(0,512)},share_slug:body.share_slug||null,share_token:body.share_token||null});
+ const network={ip,ip_source:proxy?'Vercel request IP':'Direct socket peer',user_agent:String(req.headers['user-agent']||'').slice(0,512)};
+ let actor=null;
+ const authorization=req.headers.authorization;
+ if(authorization){
+  if(!/^Bearer \S+$/.test(authorization))return res.status(401).json({error:'Invalid session'});
+  const {data,error}=await db.auth.getUser(authorization.slice(7));
+  if(error||!data.user)return res.status(401).json({error:'Invalid session'});
+  actor=data.user.id;
+ }
+ // Enrichment is best effort. Provider outages must not discard activity.
+ try{await savedNetwork(db,ip);}catch{console.warn('Network enrichment unavailable');}
+ const {error}=await db.rpc('record_request_inventory_events',{events:body.events,network,actor,share_slug:body.share_slug||null,share_token:body.share_token||null});
  if(error)return res.status(error.code==='P0001'?429:error.code==='42501'?403:503).json({error:'Guest activity could not be recorded'});
  return res.status(204).end();
  }catch{return res.status(503).json({error:'Guest activity temporarily unavailable'});}

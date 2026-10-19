@@ -12,10 +12,29 @@ test('guest collector rejects cross-origin, unsupported and oversized reports',a
 test('guest collector derives network data on server and keeps service credential private',async()=>{
  const previous={...process.env},oldFetch=globalThis.fetch;const saved=[];
  process.env.SUPABASE_URL='https://example.supabase.co';process.env.SUPABASE_SERVICE_ROLE_KEY='server-secret';delete process.env.VERCEL;
- globalThis.fetch=async(url,options)=>{saved.push(JSON.parse(options.body));return new Response(null,{status:204});};
+ globalThis.fetch=async(url,options)=>{if(String(url).includes('/inventory_ip_networks'))return new Response('null',{headers:{'Content-Type':'application/json'}});saved.push(JSON.parse(options.body));return new Response(null,{status:204});};
  try{
   const req=request();req.headers['x-forwarded-for']='198.51.100.99';req.body.network={ip:'192.0.2.1'};
   const res=response();await handler(req,res);assert.equal(res.statusCode,204);assert.equal(saved[0].network.ip,'203.0.113.9');assert.equal(res.body,undefined);assert.ok(!JSON.stringify(res).includes('server-secret'));
   process.env.VERCEL='1';const vercel=request();vercel.headers['x-forwarded-for']='198.51.100.8';await handler(vercel,response());assert.equal(saved[1].network.ip,'198.51.100.8');
  }finally{globalThis.fetch=oldFetch;for(const k of ['SUPABASE_URL','SUPABASE_SERVICE_ROLE_KEY','VERCEL']){if(previous[k]===undefined)delete process.env[k];else process.env[k]=previous[k];}}
+});
+
+test('signed-in collector rejects invalid sessions before enrichment or persistence',async()=>{
+ const oldFetch=globalThis.fetch,previous={...process.env},calls=[];
+ process.env.SUPABASE_URL='https://example.supabase.co';process.env.SUPABASE_SERVICE_ROLE_KEY='server-secret';
+ globalThis.fetch=async url=>{calls.push(String(url));return new Response(JSON.stringify({message:'Invalid token'}),{status:401,headers:{'Content-Type':'application/json'}});};
+ try{const req=request();req.headers.authorization='Bearer invalid';const res=response();await handler(req,res);assert.equal(res.statusCode,401);assert.equal(calls.length,1);assert.ok(calls[0].endsWith('/auth/v1/user'));}
+ finally{globalThis.fetch=oldFetch;for(const k of ['SUPABASE_URL','SUPABASE_SERVICE_ROLE_KEY']){if(previous[k]===undefined)delete process.env[k];else process.env[k]=previous[k];}}
+});
+test('signed-in collector uses verified actor and request IP, ignoring client identity and ISP',async()=>{
+ const oldFetch=globalThis.fetch,previous={...process.env},saved=[];
+ process.env.SUPABASE_URL='https://example.supabase.co';process.env.SUPABASE_SERVICE_ROLE_KEY='server-secret';delete process.env.VERCEL;
+ globalThis.fetch=async(url,options)=>{
+  if(String(url).endsWith('/auth/v1/user'))return new Response(JSON.stringify({id:'11111111-1111-4111-8111-111111111111'}),{headers:{'Content-Type':'application/json'}});
+  if(String(url).includes('/inventory_ip_networks'))return new Response('null',{headers:{'Content-Type':'application/json'}});
+  saved.push(JSON.parse(options.body));return new Response(null,{status:204});
+ };
+ try{const req=request();req.headers.authorization='Bearer valid-token';req.body.actor='spoofed';req.body.network={ip:'8.8.8.8',isp:'Fake ISP'};const res=response();await handler(req,res);assert.equal(res.statusCode,204);assert.equal(saved[0].actor,'11111111-1111-4111-8111-111111111111');assert.equal(saved[0].network.ip,'203.0.113.9');assert.equal(saved[0].network.isp,undefined);}
+ finally{globalThis.fetch=oldFetch;for(const k of ['SUPABASE_URL','SUPABASE_SERVICE_ROLE_KEY','VERCEL']){if(previous[k]===undefined)delete process.env[k];else process.env[k]=previous[k];}}
 });

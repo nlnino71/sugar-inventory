@@ -36,13 +36,14 @@ const db=url&&key?createClient(url,key):null;
 let activityPage='signin';
 const activity=createActivityTracker({
  send:async(events,context)=>{
-  if(context.guest){
-   const response=await fetch('/api/activity',{method:'POST',keepalive:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({events,share_slug:context.slug||null,share_token:context.shareToken||null})});
-   if(!response.ok)throw new Error('Guest activity sync failed');return;
+  const headers={'Content-Type':'application/json'};
+  if(!context.guest){
+   let token=context.token;
+   if(context.owner){const {data}=await db.auth.getSession();if(data.session?.user?.id===context.owner)token=data.session.access_token;}
+   if(!token)throw new Error('Activity session unavailable');
+   headers.Authorization='Bearer '+token;
   }
-  let token=context.token||key;
-  if(context.owner){const {data}=await db.auth.getSession();if(data.session?.user?.id===context.owner)token=data.session.access_token;}
-  const response=await fetch(url+'/rest/v1/rpc/record_inventory_events',{method:'POST',keepalive:true,headers:{'Content-Type':'application/json',apikey:key,Authorization:'Bearer '+token},body:JSON.stringify({events,share_slug:context.slug||null,share_token:context.shareToken||null})});
+  const response=await fetch('/api/activity',{method:'POST',keepalive:true,headers,body:JSON.stringify({events,share_slug:context.slug||null,share_token:context.shareToken||null})});
   if(!response.ok)throw new Error('Activity sync failed');
  }
 });

@@ -1,3 +1,4 @@
+import {savedNetwork} from '../server/network.js';
 import {isIP} from 'node:net';
 import {createClient} from '@supabase/supabase-js';
 export default async function handler(req,res){
@@ -16,8 +17,10 @@ export default async function handler(req,res){
  let body=req.body; if(typeof body==='string'){try{body=JSON.parse(body);}catch{return res.status(400).json({error:'Invalid request'});}}
  const ip=body?.ip;if(typeof ip!=='string'||!isIP(ip))return res.status(400).json({error:'Invalid IP address'});
  if(!process.env.IPINFO_TOKEN)return res.status(503).json({error:'ISP lookup requires a server-side IPINFO_TOKEN'});
- const upstream=await fetch('https://ipinfo.io/'+encodeURIComponent(ip)+'/json?token='+encodeURIComponent(process.env.IPINFO_TOKEN),{signal:AbortSignal.timeout(5000)});
- if(!upstream.ok)return res.status(502).json({error:'Network lookup unavailable'});
- const network=await upstream.json();return res.status(200).json({org:network.org||'',city:network.city||'',region:network.region||'',country:network.country||''});
+ if(!process.env.SUPABASE_SERVICE_ROLE_KEY)return res.status(503).json({error:'Network storage is not configured'});
+ const service=createClient(url,process.env.SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
+ const network=await savedNetwork(service,ip);
+ if(!network)return res.status(502).json({error:'Network not provided for this IP'});
+ return res.status(200).json({...network,org:[network.asn,network.isp].filter(Boolean).join(' ')});
  }catch{return res.status(503).json({error:'Network lookup temporarily unavailable'});}
 }
