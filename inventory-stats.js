@@ -1,0 +1,35 @@
+// Pure inventory aggregates; no extra data access or client contact information.
+const quantity=r=>Number.isFinite(+r.qty)?+r.qty:0;
+const validDate=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&!Number.isNaN(Date.parse(s))&&new Date(s).toISOString().slice(0,10)===s;
+const dayOffset=(date,n)=>{const d=new Date(date+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10);};
+const entries=map=>[...map].sort((a,b)=>b[1]-a[1]);
+export function inventorySpecs(state,days=30,end=new Date().toISOString().slice(0,10)){
+ days=[7,30,90].includes(+days)?+days:30;
+ const from=dayOffset(end,1-days),receipts=state.receipts||[],issues=state.issues||[],types=new Map(),firstType=new Map(),clients=new Map(),mills=new Map();
+ const daily=new Map(Array.from({length:days},(_,i)=>[dayOffset(from,i),{received:0,issued:0}]));
+ let opening=0,undated=0;
+ for(const r of receipts)if(!firstType.has(r.sro))firstType.set(r.sro,r.type||'Unspecified');
+ for(const [rows,kind,sign] of [[receipts,'received',1],[issues,'issued',-1]])for(const r of rows){
+  const qty=quantity(r),type=(kind==='received'?firstType.get(r.sro):r.type||firstType.get(r.sro))||'Unspecified';types.set(type,(types.get(type)||0)+sign*qty);
+  if(!validDate(r.date)){undated++;continue;}
+  if(r.date<from)opening+=sign*qty;
+  if(!daily.has(r.date))continue;
+  daily.get(r.date)[kind]+=qty;
+  const group=kind==='issued'?clients:mills,name=kind==='issued'?(r.client||'No client'):(r.mill||'No mill');group.set(name,(group.get(name)||0)+qty);
+ }
+ const labels=[...daily.keys()],values=[...daily.values()];let balance=opening;
+ const balances=values.map(d=>(balance+=d.received-d.issued));
+ const stock=entries(types),positive=stock.filter(([,qty])=>qty>0);
+ const top=map=>{const all=entries(map);return all.length>8?[...all.slice(0,8),['Other (remaining '+(all.length-8)+')',all.slice(8).reduce((n,x)=>n+x[1],0)]]:all;};
+ const clientRows=top(clients),millRows=top(mills),unit=state.unit||'units';
+ const spec=(key,title,note,type,labels,datasets,extra={})=>({key:'inventory-'+key,title,note,type,labels,datasets,decimals:true,emptyLabel:'inventory quantities',...extra});
+ const series=(label,data)=>({label:label+' · '+unit,data});
+ return {from,to:end,undated,specs:[
+  spec('movements','Received and issued','Daily quantities in the selected period · '+unit,'bar',labels,[series('Received',values.map(d=>d.received)),series('Issued',values.map(d=>d.issued))],{wide:true}),
+  spec('balance','Running stock balance','End-of-day balance, including stock before this period. Undated records are excluded.','line',labels,[series('Balance',balances)],{wide:true}),
+  spec('types','Balance by sugar type','All recorded quantities, including future and undated records. Negative values show shortages.','bar',stock.map(x=>x[0]),[series('On hand',stock.map(x=>x[1]))],{horizontal:true}),
+  spec('mix','Available stock mix','Positive balances by sugar type across all records. Shortages appear in the balance chart.','pie',positive.map(x=>x[0]),[series('Available',positive.map(x=>x[1]))]),
+  spec('clients','Issued by client','Quantities issued in the selected period. Largest eight clients plus the remaining total.','bar',clientRows.map(x=>x[0]),[series('Issued',clientRows.map(x=>x[1]))],{horizontal:true}),
+  spec('mills','Received by mill','Quantities received in the selected period. Largest eight mills plus the remaining total.','bar',millRows.map(x=>x[0]),[series('Received',millRows.map(x=>x[1]))],{horizontal:true})
+ ]};
+}

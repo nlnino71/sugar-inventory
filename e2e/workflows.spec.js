@@ -25,6 +25,13 @@ test('overview, stock report, delivery search and client editing',async({page},i
  await page.goto('/');await page.getByLabel('Email',{exact:true}).fill('staff@example.com');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();
  await expect(page.getByRole('heading',{name:'Inventory at a glance'})).toBeVisible();
  await expect(page.locator('header.top')).toBeVisible();
+ await expect(page.locator('#inventoryCharts canvas')).toHaveCount(5);
+ await page.getByRole('combobox',{name:'Inventory chart period'}).selectOption('7');
+ await expect(page.locator('#inventoryCharts .chart-empty')).toHaveCount(3);
+ await page.getByRole('combobox',{name:'Inventory chart period'}).selectOption('30');
+ await expect(page.locator('#inventoryCharts canvas')).toHaveCount(5);
+ await page.getByText('View balance by sugar type data',{exact:true}).click();
+ await expect(page.locator('#inventoryCharts table').filter({hasText:'Raw Sugar'}).first()).toContainText('15');
  await expect(page.getByRole('button',{name:/SRO-001.*Low/})).toBeVisible();
  await page.screenshot({path:'.impeccable/review/'+info.project.name+'.png',fullPage:true});
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();

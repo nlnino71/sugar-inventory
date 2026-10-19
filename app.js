@@ -25,7 +25,7 @@ const publicSlug=slugPath?(window.location.pathname.split('/')[2]||''):'';
 const validSlug=value=>value.length>=3&&value.length<=64&&/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value);
 const readOnly=!!publicToken||slugPath;
 let shareSettings=null, shareError='', accountId=null;
-let isSuperadmin=false,adminCleanup=null;
+let isSuperadmin=false,adminCleanup=null,inventoryCleanup=null,inventoryDays=30;
 let authMode='signin', authBusy=false;
 const KEY='sugar-inventory.v1';
 const blank = ()=>({unit:'bags (LKg)',receipts:[],issues:[],clients:[],seq:0,clientProfiles:{},activity:[],lowStockPercent:20});
@@ -184,6 +184,7 @@ function renderNav(){
 }
 function render(){
   adminCleanup?.();adminCleanup=null;
+  inventoryCleanup?.();inventoryCleanup=null;
   $('#main').onclick=null;$('#main').onchange=null;
   document.body.classList.toggle('workspace',ready);
   $('#main').dataset.view=tab;
@@ -191,6 +192,11 @@ function render(){
   renderNav();
   $('#main').innerHTML=({dashboard:vDashboard,reports:vReports,stock:vStock,receive:vReceive,issue:vIssue,clients:vClients,more:vMore})[tab]();
   if(tab==='more'&&isSuperadmin&&!readOnly)$('#main').insertAdjacentHTML('afterbegin','<section class="setting"><h2>Private administration</h2><p>Accounts, security events, IPs and device reports. Restricted to your account.</p><div class="btns"><button class="btn primary" data-act="superadmin">Open superadmin</button></div></section>');
+  if(tab==='dashboard'){
+    const host=$('#inventoryCharts');let cancelled=false,dispose=null;
+    inventoryCleanup=()=>{cancelled=true;dispose?.();};
+    import('./inventory-charts.js').then(({mountInventory})=>{if(!cancelled)dispose=mountInventory(host,S,today(),inventoryDays,days=>{inventoryDays=days;});}).catch(()=>{if(!cancelled)host.innerHTML='<p class="hint">Charts could not load. Reload the page to try again.</p>';});
+  }
   if(tab==='stock') updateList();
   if(tab==='receive') updateRList();
   if(readOnly){
@@ -1097,6 +1103,7 @@ function vDashboard(){
  if(c.orphans.length)h+='<p class="alert">'+c.orphans.length+' issuance lines have no matching SRO. Review them in Issuance.</p>';
  h+='<div class="sec"><h2>Stock aging</h2></div><p class="hint">'+aged.length+' SROs received at least 90 days ago still have stock on hand.</p>'+aged.slice(0,5).map(o=>'<button class="attention-row" data-act="sro" data-id="'+esc(o.sro)+'"><span>'+esc(o.sro)+'<small>Received '+fd(o.date)+'</small></span><b>'+nf(o.balance)+'</b></button>').join('')+'</section>';
  h+='<section><div class="sec"><h2>Sailing in the next 14 days</h2></div>'+(sailings.length?sailings.slice(0,8).map(g=>'<button class="attention-row" data-act="editIssue" data-id="'+esc(g.items[0].id)+'"><span><strong>'+esc(g.vessel||'Vessel not recorded')+'</strong><small>'+esc(g.client||'No client')+' · '+esc(g.atw||g.sro)+'</small></span><b>'+fd(g.sail)+'</b></button>').join(''):'<p class="setting dashboard-empty">No upcoming sailings recorded. Add sailing details when you create an issuance.</p>')+'</section></div>';
+ h+='<section id="inventoryCharts" class="admin-statistics" aria-label="Inventory statistics"><p class="hint">Loading inventory charts…</p></section>';
  if(readOnly)return h;
  h+='<div class="sec"><h2>Recent changes</h2><span class="hint">Latest 200 saved changes</span></div><p class="hint">Shared operational history; not an immutable audit log.</p>';
  h+=(S.activity||[]).length?'<ol class="activity-list">'+(S.activity||[]).slice(0,12).map(a=>'<li><span>'+esc(a.summary)+'</span><time datetime="'+esc(a.at)+'">'+esc(new Date(a.at).toLocaleString())+'</time></li>').join('')+'</ol>':'<p class="setting dashboard-empty">New inventory changes will appear here after they are saved.</p>';

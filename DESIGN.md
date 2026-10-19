@@ -161,3 +161,5 @@ State transitions last .18s with `ease` only under `prefers-reduced-motion:no-pr
 - Don’t introduce unconditional animation; respect reduced motion.
 
 Admin analytics uses the existing workspace surface and 12px radius, with a two-column desktop grid and one column below 768px. Activity, registrations and hourly charts span the desktop grid. Green leads each comparison; blue, amber and muted categorical colors distinguish series, with separate light/dark palettes. Chart counts use zero-based numeric axes and exact-value disclosure tables. These categorical colors apply only to data visualization, not new interface accents. Reporting uses Asia/Manila consistently.
+
+Inventory charts reuse the analytics grid and chart renderer on Overview. Movement and running-balance charts span both columns; type, mix, client and mill comparisons pair below. Keep movement-period labels distinct from all-record stock snapshots. Quantities retain decimal precision and shortages remain visible below zero. Charts follow appearance changes, offer exact-value tables and release observers/canvases on navigation.
