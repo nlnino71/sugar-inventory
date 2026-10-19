@@ -54,3 +54,21 @@ npm run build
 ```
 
 Live database checks require running the SQL and provisioning a user in the supplied Supabase project. Publishing requires access to your GitHub/Vercel account.
+
+## Expanded workflows
+
+- **Overview:** totals, today's issues, low and over-issued SROs, unmatched issuance warnings, stock held for 90 days, upcoming sailings, and the latest saved changes.
+- **Issuance:** combine keyword search (ATW, SRO, batch, waybill, vessel and other references), client and inclusive date filters.
+- **Clients:** maintain contact person, phone, email and notes, including clients without deliveries. Renaming a client updates their existing issuance records.
+- **Reports:** choose a date period and sugar type for opening, received, issued and closing quantities by SRO. Export CSV and see client issuance totals for the same period. Opening balances include movements before the period; end-date filtering excludes future movements.
+- **More:** set the shared low-stock percentage and choose a local light/dark/device appearance preference.
+
+New fields are stored in the existing inventory JSON document and default safely for old backups. No database migration is required. Activity is capped at 200 entries and is shared operational history, not an immutable or user-attributed audit log.
+
+Browser workflow checks use mocked Supabase responses and never write to the live inventory:
+
+```sh
+npm run test:browser
+```
+
+They run in installed Google Chrome at desktop and mobile viewport sizes.

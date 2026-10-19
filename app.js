@@ -1,4 +1,5 @@
 
+import { stockReport, matchingIssues, changeSummary, clientDirectory, threshold } from './features.js';
 import { createClient } from '@supabase/supabase-js';
 (async function(){
 'use strict';
@@ -15,7 +16,7 @@ const DEFAULT_TYPES=['Raw Sugar','Refined Sugar','Washed Sugar'];
 
 /* ---------- storage ---------- */
 const KEY='sugar-inventory.v1';
-const blank = ()=>({unit:'bags (LKg)',receipts:[],issues:[],clients:[],seq:0});
+const blank = ()=>({unit:'bags (LKg)',receipts:[],issues:[],clients:[],seq:0,clientProfiles:{},activity:[],lowStockPercent:20});
 let S=blank(), committed=structuredClone(S), revision=0, saving=false, ready=false;
 const url=import.meta.env.VITE_SUPABASE_URL;
 const key=import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -30,6 +31,8 @@ async function save(){
   if(!ready||saving) return false;
   saving=true; lock(true);
   const next=structuredClone(S);
+  const summary=changeSummary(committed,next);
+  if(summary) next.activity=[{id:uid(),at:new Date().toISOString(),summary},...(committed.activity||[])].slice(0,200);
   try {
     const {data,error}=await db.rpc('save_inventory',{expected_revision:revision,new_data:next});
     if(error) throw error;
@@ -38,7 +41,7 @@ async function save(){
       toast('Inventory changed on another device. Latest records loaded; please reapply your edit.');
       return false;
     }
-    revision=data; committed=next; return true;
+    revision=data; S=next; committed=structuredClone(next); return true;
   } catch(error){
     S=structuredClone(committed); render();
     toast('Save failed. Your change was not confirmed: '+error.message); return false;
@@ -47,8 +50,8 @@ async function save(){
 async function showAccount(session){
   ready=false; closeSheet(); S=blank(); render();
   $('#account').hidden=false; $('#nav').hidden=true;
-  if(!session){ $('#accountMessage').textContent='Sign in with your inventory account.'; return; }
-  try { await readCloud(); ready=true; $('#account').hidden=true; $('#nav').hidden=false; render(); }
+  if(!session){ lock(false); $('#main').hidden=true; $('#accountMessage').textContent='Sign in with your inventory account.'; return; }
+  try { await readCloud(); ready=true; $('#main').hidden=false; $('#account').hidden=true; $('#nav').hidden=false; render(); }
   catch(error){ $('#accountMessage').textContent='Could not open inventory. Ask the project administrator to run the database setup and grant your account access. '+error.message; }
   lock(false);
 }
@@ -70,7 +73,7 @@ function compute(){
 function status(o){
   if(o.balance<0) return {k:'over',t:'Over-issued'};
   if(o.balance===0) return {k:'empty',t:'Fully issued'};
-  if(o.received>0 && o.balance/o.received<=0.2) return {k:'low',t:'Low'};
+  if(o.received>0 && o.balance/o.received<=threshold(S)/100) return {k:'low',t:'Low'};
   return {k:'ok',t:'In stock'};
 }
 function gauge(o){
@@ -98,9 +101,11 @@ const knownCrops=()=>[...new Set([cropOf(today()),...S.receipts.map(r=>r.crop)].
 const knownMills=()=>[...new Set(S.receipts.map(r=>r.mill).filter(Boolean))].sort();
 
 /* ---------- ui state ---------- */
-let tab='stock', filter='all', q='';
-const TITLES={stock:'Stock',receive:'SRO Quantity',issue:'Issuance',clients:'Clients',more:'More'};
+let tab='dashboard', filter='all', q='';
+const TITLES={dashboard:'Overview',stock:'Stock',receive:'SRO Quantity',issue:'Issuance',clients:'Clients',reports:'Reports',more:'More'};
 const ICON={
+ dashboard:'<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>',
+ reports:'<svg viewBox="0 0 24 24"><path d="M5 3h10l4 4v14H5zM14 3v5h5M8 12h8M8 16h8"/></svg>',
  stock:'<svg viewBox="0 0 24 24"><rect x="4" y="12" width="4" height="8"/><rect x="10" y="7" width="4" height="13"/><rect x="16" y="4" width="4" height="16"/></svg>',
  receive:'<svg viewBox="0 0 24 24"><path d="M12 3v11"/><path d="M8 10l4 4 4-4"/><path d="M4 15v4h16v-4"/></svg>',
  issue:'<svg viewBox="0 0 24 24"><path d="M12 15V4"/><path d="M8 8l4-4 4 4"/><path d="M4 15v4h16v-4"/></svg>',
@@ -113,7 +118,7 @@ function renderNav(){
 function render(){
   $('#title').textContent=TITLES[tab]; $('#unitLbl').textContent='Unit: '+S.unit;
   renderNav();
-  $('#main').innerHTML=({stock:vStock,receive:vReceive,issue:vIssue,clients:vClients,more:vMore})[tab]();
+  $('#main').innerHTML=({dashboard:vDashboard,reports:vReports,stock:vStock,receive:vReceive,issue:vIssue,clients:vClients,more:vMore})[tab]();
   if(tab==='stock') updateList();
   if(tab==='receive') updateRList();
 }
@@ -212,16 +217,18 @@ function updateRList(){
   }).join('');
 }
 
-function issueGroups(c){
+function issueGroups(c,items=S.issues){
   const g={}; 
-  [...S.issues].forEach(i=>{ const k=[i.date,i.atw,i.sro,i.client,i.waybill].join('|'); (g[k]||(g[k]={key:k,date:i.date,atw:i.atw,sro:i.sro,client:i.client,permit:i.permit,waybill:i.waybill,bol:i.bol,vessel:i.vessel,voy:i.voy,sail:i.sail,type:i.type,items:[],seq:0})).items.push(i); g[k].seq=Math.max(g[k].seq,i.seq); });
+  [...items].forEach(i=>{ const k=[i.date,i.atw,i.sro,i.client,i.waybill].join('|'); (g[k]||(g[k]={key:k,date:i.date,atw:i.atw,sro:i.sro,client:i.client,permit:i.permit,waybill:i.waybill,bol:i.bol,vessel:i.vessel,voy:i.voy,sail:i.sail,type:i.type,items:[],seq:0})).items.push(i); g[k].seq=Math.max(g[k].seq,i.seq); });
   return Object.values(g).sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:b.seq-a.seq);
 }
 function vIssue(){
   const c=compute();
-  let h='<button class="btn primary block" data-act="newIssue">New issuance</button><div class="sec"><h2>Deliveries by sugar type</h2><span class="hint">'+S.issues.length+' batch lines</span></div>';
+  let h='<button class="btn primary block" data-act="newIssue">New issuance</button>'+deliveryFilters()+'<div class="sec"><h2>Deliveries by sugar type</h2><span class="hint">'+S.issues.length+' batch lines</span></div>';
   if(!S.issues.length) return h+'<div class="empty"><b>Nothing issued yet</b>Record each delivery with its ATW, waybill and batch codes.</div>';
-  return h+grouped(c,issueGroups(c),g=>g.type,g=>g.items.reduce((a,i)=>a+(+i.qty||0),0),'delivery',g=>{
+  const matches=matchingIssues(S.issues,deliveryFilter);
+  if(!matches.length) return h+'<div class="empty">No deliveries match these filters.</div>';
+  return h+grouped(c,issueGroups(c,matches),g=>g.type,g=>g.items.reduce((a,i)=>a+(+i.qty||0),0),'delivery',g=>{
     const tot=g.items.reduce((a,i)=>a+(+i.qty||0),0), missing=!c.by[g.sro];
     return '<div class="card"><div class="row"><span class="sro-no">'+esc(g.atw||'No ATW no.')+'</span><span class="sub" style="margin:0">'+fd(g.date)+'</span></div>'+
       '<div class="sub" style="margin-bottom:4px">'+esc(g.client||'No client')+' · '+esc(g.sro)+'</div>'+
@@ -234,14 +241,9 @@ function vIssue(){
 }
 
 function vClients(){
-  const cs=clientStats();
-  if(!cs.length) return '<div class="empty"><b>No client issuances</b>Issued quantity per client appears here after your first delivery.</div>';
-  const total=cs.reduce((a,c)=>a+c.total,0), max=cs[0].total||1;
-  return '<div class="hero"><div class="lbl">Issued to '+cs.length+' client'+(cs.length>1?'s':'')+'</div><div class="big num">'+nf(total)+'</div></div>'+
-    '<div class="sec"><h2>Issued per client</h2></div>'+cs.map(c=>
-    '<button class="card" data-act="client" data-name="'+esc(c.name)+'"><div class="row"><span class="sro-no">'+esc(c.name)+'</span><span class="num" style="font-size:24px;font-weight:700">'+nf(c.total)+'</span></div>'+
-    '<div class="sub">'+(total?Math.round(c.total/total*100):0)+'% of issued · '+(c.atw.size||c.lines)+' deliver'+((c.atw.size||c.lines)===1?'y':'ies')+' · last '+fd(c.last)+'</div>'+
-    '<div class="gauge"><i style="width:'+Math.round(c.total/max*100)+'%"></i></div></button>').join('');
+ const clients=clientDirectory(S), needle=clientQuery.toLowerCase();
+ const rows=clients.filter(c=>[c.name,c.contact,c.phone,c.email].join(' ').toLowerCase().includes(needle));
+ return '<div class="btns"><button class="btn primary" data-act="newClient">Add client</button></div><label class="f">Find a client<input id="clientQuery" type="search" value="'+esc(clientQuery)+'" placeholder="Name, contact, phone or email"></label><p class="hint">'+clients.length+' clients · '+nf(clients.reduce((n,c)=>n+c.total,0))+' '+esc(S.unit)+' issued</p>'+(!rows.length?'<div class="empty">No clients match. Add a client to start your directory.</div>':rows.map(c=>'<article class="card"><div class="row"><strong>'+esc(c.name)+'</strong><b class="num">'+nf(c.total)+'</b></div><p class="sub">'+esc([c.contact,c.phone,c.email].filter(Boolean).join(' · ')||'No contact details')+'</p><p class="hint">'+c.lines+' batch lines'+(c.last?' · Last delivery '+fd(c.last):' · No deliveries yet')+'</p><div class="btns"><button class="btn" data-act="editClient" data-name="'+esc(c.name)+'">Edit details</button>'+(c.lines?'<button class="btn" data-act="client" data-name="'+esc(c.name)+'">Delivery history</button>':'')+'</div></article>').join(''));
 }
 
 let DL={async save({filename,data}){
@@ -250,7 +252,7 @@ let DL={async save({filename,data}){
 }};
 function vMore(){
   const dl=!!DL;
-  return '<div class="setting"><label class="f">Quantity unit<input id="unit" value="'+esc(S.unit)+'" maxlength="24"></label><p>Shown next to totals. The app does not convert units.</p></div>'+
+  return '<div class="setting"><h2>Inventory preferences</h2><label class="f">Low-stock alert (% remaining)<input id="lowStockPercent" type="number" min="0" max="100" value="'+threshold(S)+'"></label><label class="f">Appearance<select id="appearance"><option value="auto">Use device setting</option><option value="light"'+(document.documentElement.dataset.theme==='light'?' selected':'')+'>Light</option><option value="dark"'+(document.documentElement.dataset.theme==='dark'?' selected':'')+'>Dark</option></select></label><label class="f">Quantity unit<input id="unit" value="'+esc(S.unit)+'" maxlength="24"></label><p>Shown next to totals. The app does not convert units.</p></div>'+
    '<div class="sec"><h2>Export</h2></div><div class="setting"><div class="stack">'+
    '<button class="btn block" data-act="xlsx"'+(dl?'':' disabled')+'>Excel workbook (.xlsx)</button>'+
    '<button class="btn block" data-act="csvRec"'+(dl?'':' disabled')+'>SRO Quantity (.csv)</button>'+
@@ -913,10 +915,78 @@ async function loadSample(){
   if(!await save()) return false; render(); return true;
 }
 
+/* ---------- overview, reporting and directory ---------- */
+let deliveryFilter={query:'',from:'',to:'',client:''}, clientQuery='';
+let reportFilter={from:today().slice(0,7)+'-01',to:today(),type:''};
+function refreshPreservingInput(id){
+ const input=$('#'+id), position=input.selectionStart;
+ render(); const next=$('#'+id); next.focus(); if(position!==null)next.setSelectionRange(position,position);
+}
+const options=(values,selected,empty)=>'<option value="">'+empty+'</option>'+values.map(v=>'<option value="'+esc(v)+'"'+(v===selected?' selected':'')+'>'+esc(v)+'</option>').join('');
+function deliveryFilters(){
+ return '<div class="filter-panel"><label class="f wide">Find deliveries<input id="deliveryQuery" type="search" value="'+esc(deliveryFilter.query)+'" placeholder="ATW, SRO, client, batch, vessel…"></label><label class="f">From<input type="date" data-delivery="from" value="'+esc(deliveryFilter.from)+'"></label><label class="f">To<input type="date" data-delivery="to" value="'+esc(deliveryFilter.to)+'"></label><label class="f wide">Client<select data-delivery="client">'+options(knownClients(),deliveryFilter.client,'All clients')+'</select></label><button class="btn" data-act="resetDelivery">Clear filters</button></div>';
+}
+function vDashboard(){
+ const c=compute(), received=S.receipts.reduce((n,r)=>n+(+r.qty||0),0), issued=S.issues.reduce((n,i)=>n+(+i.qty||0),0);
+ const low=c.list.filter(o=>status(o).k==='low'), over=c.list.filter(o=>o.balance<0);
+ const todayIssues=S.issues.filter(i=>i.date===today()), dateLimit=new Date(today()+'T12:00:00');dateLimit.setDate(dateLimit.getDate()+14);
+ const limit=dateLimit.getFullYear()+'-'+pad(dateLimit.getMonth()+1)+'-'+pad(dateLimit.getDate());
+ const sailings=issueGroups(c).filter(g=>g.sail&&g.sail>=today()&&g.sail<=limit).sort((a,b)=>a.sail.localeCompare(b.sail));
+ const aged=c.list.filter(o=>o.balance>0&&o.date&&Math.floor((new Date(today()+'T12:00:00')-new Date(o.date+'T12:00:00'))/86400000)>=90);
+ let h='<div class="overview-heading"><div><h2>Inventory at a glance</h2><p>'+fd(today())+' · '+esc(S.unit)+'</p></div><div class="btns"><button class="btn primary" data-act="newReceipt">Receive stock</button><button class="btn" data-act="newIssue">New issuance</button></div></div>';
+ h+='<dl class="metrics"><div><dt>On hand</dt><dd>'+nf(received-issued)+'</dd></div><div><dt>Total received</dt><dd>'+nf(received)+'</dd></div><div><dt>Total issued</dt><dd>'+nf(issued)+'</dd></div><div><dt>Issued today</dt><dd>'+nf(todayIssues.reduce((n,i)=>n+(+i.qty||0),0))+'</dd></div></dl>';
+ h+='<div class="overview-columns"><section><div class="sec"><h2>Stock needs attention</h2><span class="hint">Alert at '+threshold(S)+'%</span></div>';
+ if(!low.length&&!over.length&&!c.orphans.length)h+='<p class="setting">'+(c.list.length?'No low or over-issued SROs.':'Add your first SRO quantity to start monitoring stock.')+'</p>';
+ h+=[...over,...low].slice(0,8).map(o=>'<button class="attention-row" data-act="sro" data-id="'+esc(o.sro)+'"><span><strong>'+esc(o.sro)+'</strong><small>'+esc(o.type)+' · '+status(o).t+'</small></span><b>'+nf(o.balance)+'</b></button>').join('');
+ if(c.orphans.length)h+='<p class="alert">'+c.orphans.length+' issuance lines have no matching SRO. Review them in Issuance.</p>';
+ h+='<div class="sec"><h2>Stock aging</h2></div><p class="hint">'+aged.length+' SROs received at least 90 days ago still have stock on hand.</p>'+aged.slice(0,5).map(o=>'<button class="attention-row" data-act="sro" data-id="'+esc(o.sro)+'"><span>'+esc(o.sro)+'<small>Received '+fd(o.date)+'</small></span><b>'+nf(o.balance)+'</b></button>').join('')+'</section>';
+ h+='<section><div class="sec"><h2>Sailing in the next 14 days</h2></div>'+(sailings.length?sailings.slice(0,8).map(g=>'<button class="attention-row" data-act="editIssue" data-id="'+esc(g.items[0].id)+'"><span><strong>'+esc(g.vessel||'Vessel not recorded')+'</strong><small>'+esc(g.client||'No client')+' · '+esc(g.atw||g.sro)+'</small></span><b>'+fd(g.sail)+'</b></button>').join(''):'<p class="setting">No upcoming sailings recorded. Add sailing details when you create an issuance.</p>')+'</section></div>';
+ h+='<div class="sec"><h2>Recent changes</h2><span class="hint">Latest 200 saved changes</span></div><p class="hint">Shared operational history; not an immutable audit log.</p>';
+ h+=(S.activity||[]).length?'<ol class="activity-list">'+(S.activity||[]).slice(0,12).map(a=>'<li><span>'+esc(a.summary)+'</span><time datetime="'+esc(a.at)+'">'+esc(new Date(a.at).toLocaleString())+'</time></li>').join('')+'</ol>':'<p class="setting">New inventory changes will appear here after they are saved.</p>';
+ return h;
+}
+function vReports(){
+ const invalid=reportFilter.from&&reportFilter.to&&reportFilter.from>reportFilter.to;
+ const rows=invalid?[]:stockReport(S,reportFilter), sums=rows.reduce((a,r)=>{for(const k of ['opening','received','issued','closing'])a[k]+=r[k];return a;},{opening:0,received:0,issued:0,closing:0});
+ let h='<h2>Stock movement report</h2><p class="hint">Opening stock is the balance before the start date. Closing stock includes all movements through the end date.</p><div class="filter-panel"><label class="f">From<input type="date" data-report="from" value="'+esc(reportFilter.from)+'"></label><label class="f">To<input type="date" data-report="to" value="'+esc(reportFilter.to)+'"></label><label class="f wide">Sugar type<select data-report="type">'+options(knownTypes(),reportFilter.type,'All sugar types')+'</select></label></div>';
+ if(invalid)return h+'<p class="alert" role="alert">The start date must be on or before the end date.</p>';
+ h+='<div class="btns"><button class="btn primary" data-act="reportCsv"'+(!rows.length?' disabled':'')+'>Export report CSV</button></div><dl class="metrics">'+Object.entries(sums).map(([label,total])=>'<div><dt>'+label[0].toUpperCase()+label.slice(1)+'</dt><dd>'+nf(total)+'</dd></div>').join('')+'</dl>';
+ h+='<div class="table-scroll"><table class="led"><caption>SRO movement · '+esc(S.unit)+'</caption><thead><tr><th>SRO / Sugar type</th><th class="r">Opening</th><th class="r">Received</th><th class="r">Issued</th><th class="r">Closing</th></tr></thead><tbody>'+rows.map(r=>'<tr><td>'+esc(r.sro)+'<small>'+esc(r.type)+'</small></td><td class="r">'+nf(r.opening)+'</td><td class="r">'+nf(r.received)+'</td><td class="r">'+nf(r.issued)+'</td><td class="r">'+nf(r.closing)+'</td></tr>').join('')+'</tbody></table></div>';
+ if(!rows.length)h+='<p class="empty">No stock movements in this period.</p>';
+ const selected=matchingIssues(S.issues,{from:reportFilter.from,to:reportFilter.to}).filter(i=>!reportFilter.type||(i.type||S.receipts.find(r=>r.sro===i.sro)?.type)===reportFilter.type), clients=new Map();
+ selected.forEach(i=>clients.set(i.client||'No client',(clients.get(i.client||'No client')||0)+(+i.qty||0)));
+ h+='<div class="sec"><h2>Issued per client in this period</h2></div>'+[...clients].sort((a,b)=>b[1]-a[1]).map(([name,total])=>'<div class="attention-row"><span>'+esc(name)+'</span><b>'+nf(total)+'</b></div>').join('');
+ if(!clients.size)h+='<p class="hint">No client issuances in this period.</p>';
+ return h;
+}
+function exportReport(){
+ if(reportFilter.from&&reportFilter.to&&reportFilter.from>reportFilter.to){toast('Choose a valid date range.');return;}
+ const safe=v=>typeof v==='string'&&/^[=+@\-\t\r]/.test(v)?"'"+v:v;
+ const rows=stockReport(S,reportFilter).map(r=>[r.sro,r.type,r.mill,r.opening,r.received,r.issued,r.closing,S.unit].map(safe));
+ saveFile('Stock_Movement_'+(reportFilter.from||'start')+'_'+(reportFilter.to||today())+'.csv',csv([['SRO','Sugar Type','Mill','Opening','Received','Issued','Closing','Unit'],...rows]));
+}
+function clientEditor(name=''){
+ const profile=(S.clientProfiles||{})[name]||{};
+ openSheet(sheetHead(name?'Edit client':'New client')+'<form id="clientForm" data-original="'+esc(name)+'"><label class="f">Client name<input name="name" required maxlength="120" value="'+esc(name)+'"></label><label class="f">Contact person<input name="contact" maxlength="120" value="'+esc(profile.contact||'')+'"></label><label class="f">Phone<input name="phone" type="tel" maxlength="50" value="'+esc(profile.phone||'')+'"></label><label class="f">Email<input name="email" type="email" maxlength="160" value="'+esc(profile.email||'')+'"></label><label class="f">Address / notes<textarea name="notes" rows="3" maxlength="1000">'+esc(profile.notes||'')+'</textarea></label><p class="hint">Renaming a client updates their existing issuance records.</p><p id="clientError" class="err" role="alert"></p><button class="btn primary block">Save client</button></form>');
+}
+async function saveClient(form){
+ const value=k=>form.elements[k].value.trim(),name=value('name'),original=form.dataset.original;
+ if(!name||['__proto__','prototype','constructor'].includes(name)){ $('#clientError').textContent='Enter a valid client name.';return; }
+ if(knownClients().some(n=>n.toLowerCase()===name.toLowerCase()&&n!==original)){ $('#clientError').textContent='This client already exists. Edit their existing details.';return; }
+ S.clients=[...new Set([...S.clients.filter(n=>n!==original),name])];S.clientProfiles=S.clientProfiles||{};
+ if(original&&original!==name){S.issues.forEach(i=>{if(i.client===original)i.client=name;});delete S.clientProfiles[original];}
+ S.clientProfiles[name]={contact:value('contact'),phone:value('phone'),email:value('email'),notes:value('notes')};
+ if(!await save())return;closeSheet();render();toast('Client details saved');
+}
+
 /* ---------- events ---------- */
 document.addEventListener('click',async e=>{
   if(!ready||saving) return; const t=e.target.closest('[data-act]'); if(!t) return; const a=t.dataset.act, d=t.dataset;
   switch(a){
+    case 'newClient': clientEditor(); break;
+    case 'editClient': clientEditor(d.name); break;
+    case 'reportCsv': exportReport(); break;
+    case 'resetDelivery': deliveryFilter={query:'',from:'',to:'',client:''}; render(); break;
     case 'tab': tab=d.tab; closeSheet(); render(); window.scrollTo(0,0); break;
     case 'filter': filter=d.f; updateList(); break;
     case 'rcrop': rcrop=d.c; updateRList(); break;
@@ -945,9 +1015,11 @@ document.addEventListener('click',async e=>{
       if(await ask('Delete all data','All SRO quantities and issuances in the shared inventory will be removed. Save a backup first if you need one.','Delete everything',true)){ S=blank(); if(!await save()) return; render(); toast('All data deleted'); } break;
   }
 });
-document.addEventListener('submit',e=>{ e.preventDefault(); if(!ready||saving) return; if(e.target.id==='fRec') saveReceipt(e.target); if(e.target.id==='fIss') saveIssue(e.target); });
+document.addEventListener('submit',e=>{ e.preventDefault(); if(!ready||saving) return; if(e.target.id==='clientForm') saveClient(e.target); if(e.target.id==='fRec') saveReceipt(e.target); if(e.target.id==='fIss') saveIssue(e.target); });
 document.addEventListener('input',async e=>{
-  if(e.target.closest&&e.target.closest('#fRec')){
+  if(e.target.id==='deliveryQuery'){ deliveryFilter.query=e.target.value; refreshPreservingInput('deliveryQuery'); }
+  else if(e.target.id==='clientQuery'){clientQuery=e.target.value;refreshPreservingInput('clientQuery');}
+  else if(e.target.closest&&e.target.closest('#fRec')){
     const f=$('#fRec');
     if(e.target.name==='crop') e.target.dataset.manual='1';
     else if(e.target.name==='date'&&!f.dataset.id&&f.elements.crop&&!f.elements.crop.dataset.manual&&e.target.value) f.elements.crop.value=cropOf(e.target.value);
@@ -957,7 +1029,11 @@ document.addEventListener('input',async e=>{
   
   else if(e.target.closest&&e.target.closest('#fIss')) updateIssueInfo();
 });
-document.addEventListener('change',async e=>{ if(!ready||saving) return; if(e.target.id==='unit'){ S.unit=e.target.value.trim()||'units'; if(!await save()) return; render(); } if(e.target.closest&&e.target.closest('#fIss')) updateIssueInfo(); });
+document.addEventListener('change',async e=>{ if(!ready||saving) return; if(e.target.id==='appearance'){ const theme=e.target.value; document.documentElement.dataset.theme=theme; try{localStorage.setItem('sugar-theme',theme);}catch{} return; }
+ if(e.target.id==='lowStockPercent'){const value=Number(e.target.value); if(!Number.isFinite(value)||value<0||value>100){toast('Enter a percentage from 0 to 100.');e.target.value=threshold(S);return;} S.lowStockPercent=value;if(!await save())return;render();}
+ if(e.target.dataset.delivery){deliveryFilter[e.target.dataset.delivery]=e.target.value;render();}
+ if(e.target.dataset.report){reportFilter[e.target.dataset.report]=e.target.value;render();}
+ if(e.target.id==='unit'){ S.unit=e.target.value.trim()||'units'; if(!await save()) return; render(); } if(e.target.closest&&e.target.closest('#fIss')) updateIssueInfo(); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ if($('#dlg').classList.contains('on')){ $('#dNo')&&$('#dNo').click(); } else closeSheet(); } });
 
 $('#loginForm').addEventListener('submit',async e=>{
@@ -969,6 +1045,7 @@ $('#loginForm').addEventListener('submit',async e=>{
 });
 $('#signOut').addEventListener('click',async()=>{ if(saving||!db) return; const {error}=await db.auth.signOut(); if(error){toast(error.message);return;} await showAccount(null); });
 $('#reloadCloud').addEventListener('click',async()=>{ if(!db||saving) return; const {data,error}=await db.auth.getSession(); if(error){toast(error.message);return;} await showAccount(data.session); });
+try{document.documentElement.dataset.theme=localStorage.getItem('sugar-theme')||'auto';}catch{}
 render();
 if(!db){ $('#accountMessage').textContent='Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY before building.'; $('#loginButton').disabled=true; }
 else {
