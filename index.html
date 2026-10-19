@@ -242,6 +242,57 @@ button:disabled{cursor:not-allowed;opacity:.5}
 @media(min-width:760px){nav#nav{max-width:1000px;left:50%;right:auto;width:100%;transform:translateX(-50%)}}
 @media(max-width:600px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}.overview-columns{grid-template-columns:1fr;gap:12px}.activity-list li{display:block}.activity-list time{display:block;margin-top:5px}nav#nav button{min-width:0;padding-inline:4px}nav#nav button span{font-size:10px}.top .unit{max-width:45%;text-align:right}}
 .public-view nav#nav{grid-template-columns:repeat(4,minmax(0,1fr))}
+
+.nav-brand{display:none}
+.connection-bar{display:flex;gap:12px;align-items:center;padding:12px 20px;flex-wrap:wrap}
+.type-grid,.delivery-grid{min-width:0}
+@media(hover:hover){
+ nav#nav button:hover{background:var(--soft);color:var(--ink)}
+ button.card:hover,.attention-row[data-act]:hover{background:var(--soft)}
+ .btn:hover:not(:disabled){filter:brightness(.96)}
+}
+@media(min-width:1024px){
+ body.workspace{padding-left:228px;padding-bottom:0}
+ .workspace .top{padding:25px 36px 20px;align-items:center;min-height:82px}
+ .workspace .top h1{font-size:34px}
+ .workspace .top .unit{font-size:14px}
+ .workspace .connection-bar{max-width:1320px;margin:0 auto;padding:16px 36px;justify-content:flex-end;border-bottom:1px solid var(--line)}
+ .workspace #cloudStatus{margin-right:auto;font-size:13px}
+ .workspace main{max-width:1320px;padding:28px 36px 48px}
+ .workspace nav#nav,.workspace.public-view nav#nav{display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:6px;left:0;right:auto;top:0;bottom:0;width:228px;max-width:none;transform:none;border-top:0;border-right:1px solid var(--line);padding:28px 16px;overflow-y:auto}
+ .nav-brand{display:block;font-family:var(--display);font-size:28px;line-height:1.1;font-weight:700;padding:0 12px 28px}
+ .nav-brand small{display:block;font-family:var(--body);font-size:12px;font-weight:400;color:var(--muted);margin-top:10px;line-height:1.5}
+ .workspace nav#nav button{flex:none;flex-direction:row;justify-content:flex-start;gap:14px;text-align:left;min-height:48px;height:auto;padding:12px;border-radius:8px;font-size:15px}
+ .workspace nav#nav button[aria-current="page"]{background:var(--cane-bg)}
+ .workspace nav#nav button span{font-size:15px}
+ .workspace nav#nav button svg{width:21px;height:21px;flex-shrink:0}
+ .workspace main[data-view="stock"] .type-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px}
+ .workspace .type-grid .typeCard{margin:0}
+ .workspace #sroList{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 20px}
+ .workspace #sroList>.grp,.workspace #sroList>.empty{grid-column:1/-1}
+ .workspace .delivery-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 20px;align-items:start}
+ .workspace .card{min-width:0;overflow-wrap:anywhere}
+ .workspace .filter-panel{grid-template-columns:repeat(4,minmax(0,1fr));align-items:end}
+ .workspace .filter-panel .wide{grid-column:auto}
+ .workspace .filter-panel label:has(#deliveryQuery){grid-column:span 2}
+ .workspace .filter-panel .btn{justify-self:start}
+ .workspace main>.btn.primary.block{width:auto;min-width:180px}
+ .workspace main[data-view="clients"]>label{max-width:480px}
+ .workspace main[data-view="more"]{max-width:1000px}
+ .workspace .sheet{left:auto;right:0;top:0;bottom:0;width:min(620px,calc(100vw - 260px));max-width:none;max-height:100%;margin:0;border-radius:0;padding:28px 32px 36px;border-left:1px solid var(--line)}
+ .workspace .sheet.on{animation:none}
+ .workspace .table-scroll table{font-size:15px}
+ .workspace table.led th{font-size:12px;padding:12px 10px}
+ .workspace table.led td{padding:14px 10px}
+ .workspace .metrics{gap:28px;padding:24px 0}
+ .workspace .metrics dd{font-size:42px}
+}
+@media(min-width:1600px){
+ body.workspace{padding-left:248px}
+ .workspace nav#nav,.workspace.public-view nav#nav{width:248px;padding:32px 22px}
+ .workspace .overview-columns{gap:56px}
+}
+
 </style>
 </head>
 <body>
@@ -250,7 +301,7 @@ button:disabled{cursor:not-allowed;opacity:.5}
 <h2>Sugar Inventory</h2><p id="accountMessage" role="status">Connecting to Supabase…</p>
 <form id="loginForm"><label class="f">Email<input id="email" type="email" autocomplete="username" required></label><label class="f">Password<input id="password" type="password" autocomplete="current-password" required></label><button class="btn primary block" id="loginButton">Sign in</button></form>
 </section>
-<div style="display:flex;gap:12px;align-items:center;padding:12px 20px"><span id="cloudStatus" role="status">Sign in to continue</span><button class="btn" id="reloadCloud" type="button">Refresh</button><button class="btn" id="signOut" type="button">Sign out</button></div>
+<div class="connection-bar"><span id="cloudStatus" role="status">Sign in to continue</span><button class="btn" id="reloadCloud" type="button">Refresh</button><button class="btn" id="signOut" type="button">Sign out</button></div>
 <main id="main"></main>
 <nav id="nav" aria-label="Sections"></nav>
 <div class="scrim" id="scrim" data-act="close"></div>

@@ -116,9 +116,11 @@ const ICON={
  more:'<svg viewBox="0 0 24 24"><path d="M4 7h10"/><path d="M18 7h2"/><circle cx="16" cy="7" r="2"/><path d="M4 17h2"/><path d="M10 17h10"/><circle cx="8" cy="17" r="2"/></svg>'
 };
 function renderNav(){
-  $('#nav').innerHTML=Object.keys(TITLES).filter(k=>!readOnly||['dashboard','stock','issue','reports'].includes(k)).map(k=>'<button data-act="tab" data-tab="'+k+'"'+(k===tab?' aria-current="page"':'')+'>'+ICON[k]+'<span>'+(k==='receive'?'SRO Qty':TITLES[k])+'</span></button>').join('');
+  $('#nav').innerHTML='<div class="nav-brand">Sugar Inventory<small>'+ (readOnly?'Shared inventory':'Inventory workspace')+'</small></div>'+Object.keys(TITLES).filter(k=>!readOnly||['dashboard','stock','issue','reports'].includes(k)).map(k=>'<button data-act="tab" data-tab="'+k+'"'+(k===tab?' aria-current="page"':'')+'>'+ICON[k]+'<span>'+(k==='receive'?'SRO Qty':TITLES[k])+'</span></button>').join('');
 }
 function render(){
+  document.body.classList.toggle('workspace',ready);
+  $('#main').dataset.view=tab;
   $('#title').textContent=TITLES[tab]; $('#unitLbl').textContent='Unit: '+S.unit;
   renderNav();
   $('#main').innerHTML=({dashboard:vDashboard,reports:vReports,stock:vStock,receive:vReceive,issue:vIssue,clients:vClients,more:vMore})[tab]();
@@ -145,12 +147,12 @@ function vStock(){
   if(c.orphans.length) msgs.push(c.orphans.length+' issuance line'+(c.orphans.length>1?'s refer':' refers')+' to an SRO that is not in SRO Quantity');
   if(msgs.length) h+='<div class="alert" style="margin-top:0">'+esc(msgs.join('. '))+'. Check the Issuance tab.</div>';
   const ts=typeStats(c);
-  h+='<div class="sec" style="margin-top:'+(msgs.length?'18px':'0')+'"><h2>Total per type of sugar</h2></div>'+ts.map(t=>{
+  h+='<div class="sec" style="margin-top:'+(msgs.length?'18px':'0')+'"><h2>Total per type of sugar</h2></div><div class="type-grid">'+ts.map(t=>{
     const b=t.received-t.issued, p=t.received>0?Math.max(0,Math.min(100,b/t.received*100)):0;
     return '<div class="typeCard"><div class="row"><span class="tname">'+esc(t.name)+'</span><span class="tbal"><b class="num">'+nf(b)+'</b><span>balance</span></span></div>'+
       '<div class="gauge"><i style="width:'+p+'%"></i></div>'+
       '<div class="nums"><div><span>Received</span><b>'+nf(t.received)+'</b></div><div><span>Issued</span><b>'+nf(t.issued)+'</b></div><div><span>Left</span><b>'+Math.round(p)+'%</b></div></div></div>';
-  }).join('');
+  }).join('')+'</div>';
   h+='<div class="sec"><h2>Running balance per SRO, by sugar type</h2><span class="hint">'+c.list.length+' total</span></div>'+
     '<div class="search"><input id="q" type="search" placeholder="Search SRO, type, mill" value="'+esc(q)+'" autocomplete="off"></div>'+
     '<div class="chips" id="chips"></div><div id="sroList"></div>';
@@ -185,7 +187,7 @@ function grouped(c,items,typeOf,qtyOf,noun,cardFn){
   const order=typeStats(c).map(t=>t.name);
   return Object.keys(G).sort((a,b)=>{ const i=order.indexOf(a), j=order.indexOf(b); return (i<0?99:i)-(j<0?99:j); }).map(n=>{
     const g=G[n], tot=g.reduce((t,x)=>t+qtyOf(x),0), pl=noun==='delivery'?'deliveries':noun+'s';
-    return '<div class="grp"><span class="gname">'+esc(n)+'</span><span class="gmeta">'+g.length+' '+(g.length===1?noun:pl)+' · total '+nf(tot)+'</span></div>'+g.map(cardFn).join('');
+    return '<div class="grp"><span class="gname">'+esc(n)+'</span><span class="gmeta">'+g.length+' '+(g.length===1?noun:pl)+' · total '+nf(tot)+'</span></div><div class="delivery-grid">'+g.map(cardFn).join('')+'</div>';
   }).join('');
 }
 let rq='', rcrop='all', rtype='all';

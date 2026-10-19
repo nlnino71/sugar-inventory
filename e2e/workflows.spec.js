@@ -18,6 +18,14 @@ test('overview, stock report, delivery search and client editing',async({page},i
  await expect(page.getByRole('button',{name:/SRO-001.*Low/})).toBeVisible();
  await page.screenshot({path:'.impeccable/review/'+info.project.name+'.png',fullPage:true});
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+ const navBounds=await page.locator('#nav').boundingBox(),mainBounds=await page.locator('main').boundingBox();
+ if(page.viewportSize().width>=1024){expect(navBounds.x).toBe(0);expect(navBounds.y).toBe(0);expect(mainBounds.x).toBeGreaterThanOrEqual(navBounds.width);}
+ else expect(navBounds.y).toBeGreaterThan(page.viewportSize().height-100);
+ await page.getByRole('button',{name:'Stock',exact:true}).click();
+ await page.screenshot({path:'.impeccable/review/stock-'+info.project.name+'.png',fullPage:true});
+ await page.getByRole('button',{name:/SRO-001.*Low/}).click();
+ if(page.viewportSize().width>=1024){const panel=await page.locator('#sheet').boundingBox();expect(panel.x+panel.width).toBe(page.viewportSize().width);expect(panel.y).toBe(0);}
+ await page.getByRole('button',{name:'Close',exact:true}).click();
  await page.getByRole('button',{name:'Reports',exact:true}).click();
  await page.locator('[data-report="from"]').fill('2026-10-01');await page.locator('[data-report="to"]').fill('2026-10-31');
  await expect(page.getByRole('cell',{name:'100.00',exact:true})).toBeVisible();
