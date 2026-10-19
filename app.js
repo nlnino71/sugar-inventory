@@ -1082,9 +1082,8 @@ document.addEventListener('click',async e=>{
   if(!ready||saving) return; const t=e.target.closest('[data-act]'); if(!t) return; const a=t.dataset.act, d=t.dataset;
   if(readOnly&&!['tab','filter','sro','close','resetDelivery'].includes(a))return;
   switch(a){
-    case 'savePublicSlug': {const slug=$('#publicSlug').value.trim().toLowerCase();if(!validSlug(slug)){toast('Use 3–64 lowercase letters, numbers and single hyphens.');return;} await updateSharing({slug});break;}
     case 'toggleSharing': await updateSharing({enabled:!shareSettings.enabled}); break;
-    case 'rotateSharing': if(await ask('Replace public link','The previous link will stop working. Anyone with the new link can view inventory, client names and delivery references. Contact details and change history remain private.','Replace link'))await updateSharing({token:crypto.randomUUID(),slug:'inventory-'+uid(),enabled:true}); break;
+    case 'rotateSharing': if(await ask('Replace public link','The previous link will stop working. A new random 6-character address will replace it. Your sharing setting stays the same.','Replace link'))await replaceSharingLink(); break;
     case 'copySharing': try{await navigator.clipboard.writeText(publicLink());toast('View-only link copied');}catch{ $('#publicLink').select();toast('Select and copy the link above.');} break;
     case 'navMenu': openSheet(sheetHead('Menu')+'<div class="section-menu">'+['receive','clients','reports','more'].map(k=>'<button class="btn" data-act="tab" data-tab="'+k+'"'+(tab===k?' aria-current="page"':'')+'>'+ICON[k]+'<span>'+(k==='more'?'Settings & sharing':TITLES[k])+'</span></button>').join('')+'</div>');break;
     case 'newClient': clientEditor(); break;
@@ -1155,7 +1154,14 @@ async function loadSharing(){
  shareSettings=data; shareError=error?'Public sharing could not be loaded. Try refreshing your inventory.':'';
 }
 function sharingPanel(){
- return '<section class="setting"><h2>Public view-only sharing</h2><p>Anyone with the link can view stock, client names, quantities and delivery references. Client contacts, notes and change history stay private. Visitors cannot edit or export records.</p>'+(shareError?'<p role="status">'+esc(shareError)+'</p>':!shareSettings?'<p>Open More again to load sharing settings.</p>':'<p><strong>'+(shareSettings.enabled?'Sharing is enabled':'Sharing is disabled')+'</strong></p>'+(shareSettings.enabled?'<label class="f">View-only link<input id="publicLink" readonly value="'+esc(publicLink())+'"></label><button class="btn" data-act="copySharing">Copy public link</button>':'')+'<label class="f">Public link slug<input id="publicSlug" maxlength="64" value="'+esc(shareSettings.slug||'public')+'" placeholder="public"></label><button class="btn" data-act="savePublicSlug">Save slug</button><p class="hint">Use lowercase letters, numbers and hyphens. Changing the slug stops the previous slug URL from working. This is a public, discoverable address.</p><div class="btns"><button class="btn" data-act="toggleSharing">'+(shareSettings.enabled?'Disable public sharing':'Enable public sharing')+'</button><button class="btn" data-act="rotateSharing">Replace link</button></div>')+'</section>';
+ return '<section class="setting"><h2>Public view-only sharing</h2><p>Anyone with the link can view stock, client names, quantities and delivery references. Client contacts, notes and change history stay private. Visitors cannot edit or export records.</p>'+(shareError?'<p role="status">'+esc(shareError)+'</p>':!shareSettings?'<p>Open More again to load sharing settings.</p>':'<p><strong>'+(shareSettings.enabled?'Sharing is enabled':'Sharing is disabled')+'</strong></p>'+(shareSettings.enabled?'<label class="f">View-only link<input id="publicLink" readonly value="'+esc(publicLink())+'"></label><button class="btn" data-act="copySharing">Copy public link</button>':'')+'<p class="hint">Public links use a random 6-character code. Replace the link to get a new code. Sharing stays off until you enable it.</p><div class="btns"><button class="btn" data-act="toggleSharing">'+(shareSettings.enabled?'Disable public sharing':'Enable public sharing')+'</button><button class="btn" data-act="rotateSharing">Replace link</button></div>')+'</section>';
+}
+async function replaceSharingLink(){
+ if(readOnly||!ready||saving||!shareSettings)return;
+ saving=true;lock(true);
+ try{const {error}=await db.rpc('replace_inventory_link');if(error)throw error;await loadSharing();render();toast(shareError||'Public link replaced');}
+ catch(error){toast('Link could not be replaced: '+error.message);}
+ finally{saving=false;lock(false);}
 }
 async function updateSharing(changes){
  if(readOnly||!ready||saving||!shareSettings)return;

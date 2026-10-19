@@ -6,7 +6,7 @@ Existing inventory interface, packaged with Vite for Vercel, using Supabase Auth
 
 For the existing deployment, `supabase/account-inventories.sql` has been applied after setup.sql, public-sharing.sql and public-slugs.sql. It preserves the original `main` inventory for the verified owner email, adds owner-only row policies, backfills other accounts with empty records, and provisions each future signup automatically. `ensure_inventory()` repairs a missing inventory only for the signed-in caller. New public links start disabled and have unique slugs; `/view/public` stays with the original owner.
 
-For a fresh installation, run setup.sql, create the original owner account (update the verified owner email in the migration), then run public-sharing.sql, public-slugs.sql and account-inventories.sql in that order. Enable Supabase email signups and confirmation. Do not run the historical setup/share scripts again after upgrading, since they describe the old shared installation.
+For a fresh installation, run setup.sql, create the original owner account (update the verified owner email in the migration), then run public-sharing.sql, public-slugs.sql, account-inventories.sql and short-public-links.sql in that order. Enable Supabase email signups and confirmation. Do not run the historical setup/share scripts again after upgrading, since they describe the old shared installation.
 
 The migration transaction keeps pre-upgrade inventory and sharing snapshots in an inaccessible `inventory_backup` schema. Database owners can inspect those snapshots; browser clients cannot. Never use a service-role key in the frontend.
 
@@ -94,7 +94,7 @@ Supabase must have email signup enabled and Site URL / allowed redirect URLs set
 
 ## Readable public URLs
 
-Run `supabase/public-slugs.sql` after public-sharing.sql to enable `/view/public`. While signed in, change **More → Public view-only sharing → Public link slug**, then choose **Save slug**. Slugs use 3–64 lowercase letters, numbers and single hyphens. Changing the slug invalidates its previous path; the old token URL remains valid until replaced. **Replace link** rotates both the token and slug. **Disable public sharing** blocks both formats. Readable slugs are public, discoverable addresses and preserve the existing public projection and read-only database permissions.
+Run `supabase/short-public-links.sql` after account-inventories.sql. New accounts receive a unique random 6-character lowercase letter/number code, such as `/view/a7b2c9`, with sharing **disabled**. Enable public sharing explicitly to expose the read-only projection. **Replace link** generates a fresh code and token, invalidates the old link, and preserves the enabled/disabled setting. Codes cannot be manually edited through the client. Database uniqueness checks retry collisions. Existing enabled links, including `/view/public`, are preserved. Short public codes are discoverable addresses, not authentication credentials.
 
 Vercel rewrites `/view/:slug` to the app so shared links work on direct navigation and refresh.
 
