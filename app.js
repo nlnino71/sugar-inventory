@@ -105,7 +105,7 @@ async function showAccount(session){
   await activity.stop();
   isSuperadmin=false;
   document.body.classList.toggle('login-screen',!session);
-  if(accountId!==(session?.user?.id||null)){tab='dashboard';q='';rq='';clientQuery='';deliveryFilter={query:'',from:'',to:'',client:''};}
+  if(accountId!==(session?.user?.id||null)){tab='dashboard';adminView=false;q='';rq='';clientQuery='';deliveryFilter={query:'',from:'',to:'',client:''};}
   accountId=session?.user?.id||null;shareSettings=null;shareError='';revision=0;
   ready=false; closeSheet(true); S=blank();committed=structuredClone(S); render();
   $('#account').hidden=false; $('#nav').hidden=true;
@@ -114,6 +114,7 @@ async function showAccount(session){
     const {data:adminAllowed}=await db.rpc('is_inventory_admin');
     if(accountId!==session.user.id)return;
     isSuperadmin=adminAllowed===true;
+    restoreNavigation();if(tab==='more')await loadSharing();
     activity.start({owner:session.user.id,token:session.access_token});
     trackPage(tab);
     void db.rpc('record_inventory_access',{device:deviceInfo()}).then(()=>{},()=>{});
@@ -167,7 +168,15 @@ const knownCrops=()=>[...new Set([cropOf(today()),...S.receipts.map(r=>r.crop)].
 const knownMills=()=>[...new Set(S.receipts.map(r=>r.mill).filter(Boolean))].sort();
 
 /* ---------- ui state ---------- */
-let tab='dashboard', filter='all', q='';
+let tab='dashboard', adminView=false, filter='all', q='';
+function navigationKey(){return 'sugar-navigation:'+(readOnly?'shared':accountId||'signed-out');}
+function rememberNavigation(){try{sessionStorage.setItem(navigationKey(),adminView?'superadmin':tab);}catch{}}
+function restoreNavigation(){
+ let saved;try{saved=sessionStorage.getItem(navigationKey());}catch{}
+ adminView=saved==='superadmin'&&isSuperadmin&&!readOnly;
+ const allowed=readOnly?['dashboard','stock','issue','reports']:Object.keys(TITLES);
+ tab=adminView?'more':allowed.includes(saved)?saved:'dashboard';
+}
 const TITLES={dashboard:'Overview',stock:'Stock',receive:'SRO Quantity',issue:'Issuance',clients:'Clients',reports:'Reports',more:'More'};
 const ICON={
  dashboard:'<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>',
@@ -189,6 +198,7 @@ function render(){
   $('#main').dataset.view=tab;
   $('#title').textContent=TITLES[tab]; $('#unitLbl').textContent='Unit: '+S.unit;
   renderNav();
+  if(adminView&&ready&&isSuperadmin&&!readOnly){$('#main').dataset.view='superadmin';$('#title').textContent='Superadmin';adminCleanup=openAdmin(db,$('#main'));return;}
   $('#main').innerHTML=({dashboard:vDashboard,reports:vReports,stock:vStock,receive:vReceive,issue:vIssue,clients:vClients,more:vMore})[tab]();
   if(tab==='more'&&isSuperadmin&&!readOnly)$('#main').insertAdjacentHTML('afterbegin','<section class="setting"><h2>Private administration</h2><p>Accounts, security events, IPs and device reports. Restricted to your account.</p><div class="btns"><button class="btn primary" data-act="superadmin">Open superadmin</button></div></section>');
   if(tab==='dashboard'){
@@ -1168,13 +1178,13 @@ document.addEventListener('click',async e=>{
     case 'toggleSharing': await updateSharing({enabled:!shareSettings.enabled}); break;
     case 'rotateSharing': if(await ask('Replace public link','The previous link will stop working. A new random 6-character address will replace it. Your sharing setting stays the same.','Replace link'))await replaceSharingLink(); break;
     case 'copySharing': try{await navigator.clipboard.writeText(publicLink());toast('View-only link copied');}catch{ $('#publicLink').select();toast('Select and copy the link above.');} break;
-    case 'superadmin': if(!isSuperadmin||readOnly)return; $('#title').textContent='Superadmin';track('admin.view');adminCleanup?.();adminCleanup=openAdmin(db,$('#main')); break;
+    case 'superadmin': if(!isSuperadmin||readOnly)return; tab='more';adminView=true;rememberNavigation();render();track('admin.view');break;
     case 'navMenu': openSheet(sheetHead('Menu')+'<div class="section-menu">'+['receive','clients','reports','more'].map(k=>'<button class="btn" data-act="tab" data-tab="'+k+'"'+(tab===k?' aria-current="page"':'')+'>'+ICON[k]+'<span>'+(k==='more'?'Settings & sharing':TITLES[k])+'</span></button>').join('')+'</div>');break;
     case 'newClient': clientEditor(); break;
     case 'editClient': clientEditor(d.name); break;
     case 'reportCsv': exportReport(); break;
     case 'resetDelivery': deliveryFilter={query:'',from:'',to:'',client:''}; render(); break;
-    case 'tab': if(readOnly&&!['dashboard','stock','issue','reports'].includes(d.tab))return; tab=d.tab; if(tab==='more')await loadSharing(); closeSheet(); render();trackPage(tab); window.scrollTo(0,0); break;
+    case 'tab': if(readOnly&&!['dashboard','stock','issue','reports'].includes(d.tab))return; tab=d.tab;adminView=false;rememberNavigation(); if(tab==='more')await loadSharing(); closeSheet(); render();trackPage(tab); window.scrollTo(0,0); break;
     case 'filter': filter=d.f; updateList(); break;
     case 'rcrop': rcrop=d.c; updateRList(); break;
     case 'rtype': rtype=(rtype===d.t&&d.t!=='all')?'all':d.t; updateRList(); if(rtype!=='all'){ const el=$('#rList'); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); } break;
@@ -1290,7 +1300,7 @@ async function showPublic(){
   const {data,error}=await db.rpc(slugPath?'get_public_inventory_by_slug':'get_public_inventory',slugPath?{share_slug:publicSlug}:{share_token:publicToken});
   if(error)throw new Error('Public sharing is not available. Ask the owner to finish sharing setup.');
   if(!data)throw new Error('This link is disabled or has been replaced. Ask the owner for a new link.');
-  S=Object.assign(blank(),data);ready=true;await activity.stop();startGuest(tab,{slug:publicSlug,shareToken:publicToken});$('#nav').hidden=false;render();lock(false);
+  S=Object.assign(blank(),data);ready=true;restoreNavigation();await activity.stop();startGuest(tab,{slug:publicSlug,shareToken:publicToken});$('#nav').hidden=false;render();lock(false);
  }catch(error){trackPage('public-unavailable');$('#main').innerHTML='<div class="empty"><b>Shared inventory unavailable</b>'+esc(error.message)+'</div>';$('#cloudStatus').textContent='Public view unavailable';}
 }
 

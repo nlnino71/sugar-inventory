@@ -188,3 +188,5 @@ The service-only `inventory_ip_networks` table caches each result for 24 hours. 
 ### Authentication history availability
 
 Supabase Authentication → Audit Logs → **Write audit logs to the database** must be enabled for provider history and sign-in charts. It was off and was enabled on 20 October 2026; missing older provider events cannot be reconstructed from the inventory audit. Apply `supabase/auth-history.sql` after network enrichment and verify with `auth-history.verify.sql`. The admin dashboard shows an explicit empty state for provider history and a separate list of stored Supabase sessions (creation, account, IP/network and browser only). Stored sessions are not a full sign-in history or proof that a session remains active; tokens and authentication secrets are never selected.
+
+Navigation remembers the selected page in per-account browser `sessionStorage`, so refreshing the same tab restores it. Shared views restore only public-safe pages. Superadmin restoration always waits for the database role check; the stored page name never grants access. If browser storage is unavailable, navigation falls back to Overview.

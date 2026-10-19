@@ -106,6 +106,7 @@ test('public link '+publicAddress+' displays inventory without login or mutation
  await page.getByRole('button',{name:'Issuance',exact:true}).click();
  await expect(page.getByText('B1',{exact:true})).toBeVisible();
  await expect(page.getByRole('button',{name:'New issuance'})).toHaveCount(0);
+ await page.reload();await expect(page.locator('#title')).toHaveText('Issuance');
  await navigate(page,'Reports');
  await expect(page.getByRole('button',{name:'Export report CSV'})).toHaveCount(0);
  await expect(page.getByText('Recent changes',{exact:true})).toHaveCount(0);
