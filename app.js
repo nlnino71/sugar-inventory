@@ -262,7 +262,7 @@ function vMore(){
    '<button class="btn block" data-act="import">Import SRO quantity or issuance CSV</button></div>'+
    '<p>CSV columns must match the Excel inventory file: SRO Date, SRO Number, Type of Sugar, Mill Source, Quantity for SRO quantity; Date, SRO Number, Ref ATW Number, Type of Sugar, Client, SRA Permit No., Mill Waybill Number, Batch Codes, Quantity per Batch Code for issuance, plus optional Bill of Lading No., Vessel, Voy No., Sailing Date.</p></div>'+
    '<div class="sec"><h2>Data</h2></div><div class="setting"><div class="stack"><button class="btn block" data-act="sample">Load sample data</button><button class="btn danger block" data-act="clear">Delete all data</button></div>'+
-   '<p>Your records are stored in the shared inventory, in this browser only. Save a backup regularly, especially before clearing browser data.</p></div>';
+   '<p>Your records are saved to Supabase and shared with approved accounts. Export backups regularly.</p></div>';
 }
 
 /* ---------- sheet / dialog / toast ---------- */
@@ -891,7 +891,7 @@ function pickFile(mode,accept){ fileMode=mode; const f=$('#file'); f.accept=acce
 $('#file').addEventListener('change',async e=>{
   const file=e.target.files&&e.target.files[0]; if(!file) return;
   let text; try{ text=await file.text(); }catch(err){ toast('Could not read that file.'); return; }
-  if(fileMode==='import'){ toast(await importCSV(text)); render(); }
+  if(fileMode==='import'){ const message=await importCSV(text); if(message) toast(message); render(); }
   else if(fileMode==='restore'){
     let o; try{ o=JSON.parse(text); }catch(err){ toast('That is not a valid backup file.'); return; }
     if(!o||!Array.isArray(o.receipts)||!Array.isArray(o.issues)){ toast('That is not a valid backup file.'); return; }
@@ -910,7 +910,7 @@ async function loadSample(){
   S=blank();
   R.forEach(r=>S.receipts.push({id:uid(),date:r[0],crop:'2026-2027',sro:r[1],type:r[2],mill:r[3],qty:r[4]}));
   I.forEach(x=>{ const sro='SRO-2026-'+x[1]; x[4].forEach(b=>S.issues.push(Object.assign({id:uid(),seq:++S.seq,date:'2026-'+x[0],sro,atw:'ATW-2026-'+x[2],type:T[sro],client:x[3],permit:'SRA-P-'+x[2],waybill:'WB-'+(1000+ +x[2]),batch:b[0],qty:b[1]},SH[x[2]]||{}))); if(!S.clients.includes(x[3])) S.clients.push(x[3]); });
-  if(!await save()) return; render();
+  if(!await save()) return false; render(); return true;
 }
 
 /* ---------- events ---------- */
@@ -940,7 +940,7 @@ document.addEventListener('click',async e=>{
     case 'restore': pickFile('restore','.json,application/json'); break;
     case 'import': pickFile('import','.csv,text/csv'); break;
     case 'sample':
-      if(!S.receipts.length&&!S.issues.length || await ask('Load sample data','This replaces your current data with fictitious examples.','Replace',true)){ await loadSample(); toast('Sample data loaded'); } break;
+      if(!S.receipts.length&&!S.issues.length || await ask('Load sample data','This replaces your current data with fictitious examples.','Replace',true)){ if(await loadSample()) toast('Sample data loaded'); } break;
     case 'clear':
       if(await ask('Delete all data','All SRO quantities and issuances in the shared inventory will be removed. Save a backup first if you need one.','Delete everything',true)){ S=blank(); if(!await save()) return; render(); toast('All data deleted'); } break;
   }
@@ -957,7 +957,7 @@ document.addEventListener('input',async e=>{
   
   else if(e.target.closest&&e.target.closest('#fIss')) updateIssueInfo();
 });
-document.addEventListener('change',async e=>{ if(e.target.id==='unit'){ S.unit=e.target.value.trim()||'units'; if(!await save()) return; render(); } if(e.target.closest&&e.target.closest('#fIss')) updateIssueInfo(); });
+document.addEventListener('change',async e=>{ if(!ready||saving) return; if(e.target.id==='unit'){ S.unit=e.target.value.trim()||'units'; if(!await save()) return; render(); } if(e.target.closest&&e.target.closest('#fIss')) updateIssueInfo(); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ if($('#dlg').classList.contains('on')){ $('#dNo')&&$('#dNo').click(); } else closeSheet(); } });
 
 $('#loginForm').addEventListener('submit',async e=>{
