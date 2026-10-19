@@ -1,3 +1,4 @@
+import {UNITS,unitWeight,convertQuantity,convertInventory} from './units.js';
 import sunIcon from '@phosphor-icons/core/assets/regular/sun.svg?raw';
 import moonIcon from '@phosphor-icons/core/assets/regular/moon.svg?raw';
 
@@ -10,7 +11,7 @@ import { createClient } from '@supabase/supabase-js';
 /* ---------- helpers ---------- */
 const $ = (s,r=document)=>r.querySelector(s);
 const esc = s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const nf = n=>(+n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const nf = n=>(+n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:6});
 const pad = n=>String(n).padStart(2,'0');
 const today = ()=>{const d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());};
 const M3=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -206,6 +207,7 @@ function render(){
     inventoryCleanup=()=>{cancelled=true;dispose?.();};
     import('./inventory-charts.js').then(({mountInventory})=>{if(!cancelled)dispose=mountInventory(host,S,today(),inventoryDays,days=>{inventoryDays=days;});}).catch(()=>{if(!cancelled)host.innerHTML='<p class="hint">Charts could not load. Reload the page to try again.</p>';});
   }
+  if(tab==='more')previewUnitConversion();
   if(tab==='stock') updateList();
   if(tab==='receive') updateRList();
   if(readOnly){
@@ -347,9 +349,26 @@ let DL={async save({filename,data}){
  const blob=new Blob([data],{type:filename.endsWith('.xlsx')?'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':filename.endsWith('.json')?'application/json':'text/csv;charset=utf-8'});
  const href=URL.createObjectURL(blob),a=document.createElement('a'); a.href=href; a.download=filename; a.click(); setTimeout(()=>URL.revokeObjectURL(href),1000);
 }};
+function unitConversionPanel(){
+ const source=unitWeight(S.unit),target=source===1?'bags (LKg)':'kg';
+ return '<section class="setting"><h2>Convert inventory units</h2><p>Current unit: <strong>'+esc(S.unit)+'</strong>. Convert all received and issued quantities together; balances, charts and exports use the converted amounts.</p>'+
+ (!source?'<label class="f">Kilograms per current unit<input id="sourceUnitKg" type="number" min="0" step="any" inputmode="decimal" placeholder="Enter the weight of one '+esc(S.unit)+'"></label>':'')+
+ '<label class="f">Convert to<select id="targetUnit" aria-label="Convert to">'+UNITS.map(u=>'<option value="'+esc(u.label)+'"'+(u.label===target?' selected':'')+'>'+esc(u.label)+'</option>').join('')+'</select></label><p class="hint">1 LKg bag = 50 kg · 1 metric tonne = 1,000 kg. After conversion, enter new quantities in the selected unit.</p><p id="unitPreview" class="info" aria-live="polite"></p><p id="unitError" class="err" role="alert"></p><button class="btn primary" data-act="convertUnits">Convert and save inventory</button></section>';
+}
+function previewUnitConversion(){
+ const host=$('#unitPreview');if(!host)return;$('#unitError').textContent='';
+ const from=unitWeight(S.unit)||Number($('#sourceUnitKg')?.value),to=unitWeight($('#targetUnit').value);
+ try{const balance=S.receipts.reduce((n,r)=>n+(+r.qty||0),0)-S.issues.reduce((n,r)=>n+(+r.qty||0),0);host.textContent='1 '+({'bags (LKg)':'LKg bag','metric tonnes (t)':'metric tonne'}[S.unit]||S.unit)+' = '+nf(convertQuantity(1,from,to))+' '+$('#targetUnit').value+'. On hand: '+nf(balance)+' → '+nf(convertQuantity(balance,from,to))+' '+$('#targetUnit').value;}
+ catch{host.textContent='Enter the kilograms per current unit to preview this conversion.';}
+}
+async function saveUnitConversion(){
+ try{S=convertInventory(S,$('#targetUnit').value,unitWeight(S.unit)||Number($('#sourceUnitKg')?.value));}
+ catch(error){$('#unitError').textContent=error.message;return;}
+ if(!await save())return;render();toast('Inventory quantities converted to '+S.unit);
+}
 function vMore(){
   const dl=!!DL;
-  return sharingPanel()+'<div class="setting"><h2>Inventory preferences</h2><label class="f">Low-stock alert (% remaining)<input id="lowStockPercent" type="number" min="0" max="100" value="'+threshold(S)+'"></label><label class="f">Appearance<select id="appearance"><option value="auto">Use device setting</option><option value="light"'+(document.documentElement.dataset.theme==='light'?' selected':'')+'>Light</option><option value="dark"'+(document.documentElement.dataset.theme==='dark'?' selected':'')+'>Dark</option></select></label><label class="f">Quantity unit<input id="unit" value="'+esc(S.unit)+'" maxlength="24"></label><p>Shown next to totals. The app does not convert units.</p></div>'+
+  return unitConversionPanel()+sharingPanel()+'<div class="setting"><h2>Inventory preferences</h2><label class="f">Low-stock alert (% remaining)<input id="lowStockPercent" type="number" min="0" max="100" value="'+threshold(S)+'"></label><label class="f">Appearance<select id="appearance"><option value="auto">Use device setting</option><option value="light"'+(document.documentElement.dataset.theme==='light'?' selected':'')+'>Light</option><option value="dark"'+(document.documentElement.dataset.theme==='dark'?' selected':'')+'>Dark</option></select></label></div>'+
    '<div class="sec"><h2>Export</h2></div><div class="setting"><div class="stack">'+
    '<button class="btn block" data-act="xlsx"'+(dl?'':' disabled')+'>Excel workbook (.xlsx)</button>'+
    '<button class="btn block" data-act="csvRec"'+(dl?'':' disabled')+'>SRO Quantity (.csv)</button>'+
@@ -359,7 +378,7 @@ function vMore(){
    '<button class="btn block" data-act="backup"'+(dl?'':' disabled')+'>Save backup (.json)</button>'+
    '<button class="btn block" data-act="restore">Restore from backup</button>'+
    '<button class="btn block" data-act="import">Import SRO quantity or issuance CSV</button></div>'+
-   '<p>CSV columns must match the Excel inventory file: SRO Date, SRO Number, Type of Sugar, Mill Source, Quantity for SRO quantity; Date, SRO Number, Ref ATW Number, Type of Sugar, Client, SRA Permit No., Mill Waybill Number, Batch Codes, Quantity per Batch Code for issuance, plus optional Bill of Lading No., Vessel, Voy No., Sailing Date.</p></div>'+
+   '<p>CSV quantities without a Unit column use '+esc(S.unit)+'. A recognized Unit column is converted automatically. CSV columns must match the Excel inventory file: SRO Date, SRO Number, Type of Sugar, Mill Source, Quantity for SRO quantity; Date, SRO Number, Ref ATW Number, Type of Sugar, Client, SRA Permit No., Mill Waybill Number, Batch Codes, Quantity per Batch Code for issuance, plus optional Bill of Lading No., Vessel, Voy No., Sailing Date.</p></div>'+
    '<div class="sec"><h2>Data</h2></div><div class="setting"><div class="stack"><button class="btn block" data-act="sample">Load sample data</button><button class="btn danger block" data-act="clear">Delete all data</button></div>'+
    '<p>Your records are saved to your private Supabase inventory. Public links are read-only and controlled by you. Export backups regularly.</p></div>';
 }
@@ -576,13 +595,13 @@ const SH={
   qty:{alignment:{horizontal:'right',vertical:'center',indent:1},border:BOX}
 };
 const isDateCell=c=>c.t==='n'&&c.z&&/mmm/.test(c.z);
-const bodyStyle=c=>c.t==='n'?(isDateCell(c)?SH.date:(c.z==='#,##0.00'?SH.qty:SH.num)):SH.text;
+const bodyStyle=c=>c.t==='n'?(isDateCell(c)?SH.date:(c.z==='#,##0.00######'?SH.qty:SH.num)):SH.text;
 const cellLen=c=>{ if(c.v==null||c.v==='') return 0; if(c.t==='n') return isDateCell(c)?11:(c.z&&c.z.indexOf('%')>=0?7:(c.z==='0'?String(c.v).length:nf(c.v).length)); return String(c.v).length; };
 function fmtSheet(ws){
   const X=window.XLSX, rg=X.utils.decode_range(ws['!ref']), w=[];
   for(let R=rg.s.r;R<=rg.e.r;R++) for(let C=rg.s.c;C<=rg.e.c;C++){
     const a=X.utils.encode_cell({r:R,c:C}); let cell=ws[a]; if(!cell) cell=ws[a]={t:'s',v:''};
-    if(R>0&&cell.t==='n'&&!cell.z) cell.z='#,##0.00';
+    if(R>0&&cell.t==='n'&&!cell.z) cell.z='#,##0.00######';
     cell.s=R===0?SH.head:bodyStyle(cell);
     w[C]=Math.max(w[C]||10,Math.min(cellLen(cell)+3,44));
   }
@@ -608,12 +627,12 @@ function dashSheet(c){
   const set=(r,col,v,o)=>{
     o=o||{}; let cell;
     if(v===''||v==null) cell={t:'s',v:''};
-    else if(typeof v==='number') cell={t:'n',v:v,z:o.z||'#,##0.00'};
+    else if(typeof v==='number') cell={t:'n',v:v,z:o.z||'#,##0.00######'};
     else cell={t:'s',v:String(v)};
     const st={font:o.font||fnt(10),alignment:o.al||{horizontal:'justify',vertical:'center'}};
     if(o.fill) st.fill=FILL(o.fill);
     if(o.border!==0) st.border=o.border||BOX;
-    if(typeof v==='number'&&(!o.z||o.z==='#,##0.00')) st.alignment={horizontal:'right',vertical:'center',indent:1};
+    if(typeof v==='number'&&(!o.z||o.z==='#,##0.00######')) st.alignment={horizontal:'right',vertical:'center',indent:1};
     else if(typeof v==='number'&&!o.al) st.alignment={horizontal:'center',vertical:'center'};
     cell.s=st; ws[X.utils.encode_cell({r:r,c:col})]=cell;
   };
@@ -724,12 +743,12 @@ function sroBalanceSheet(c){
   const set=(r,col,v,o)=>{
     o=o||{}; let cell;
     if(v===''||v==null) cell={t:'s',v:''};
-    else if(typeof v==='number') cell={t:'n',v:v,z:o.z||'#,##0.00'};
+    else if(typeof v==='number') cell={t:'n',v:v,z:o.z||'#,##0.00######'};
     else cell={t:'s',v:String(v)};
     const st={font:o.font||fnt(10),alignment:o.al||{horizontal:'justify',vertical:'center'}};
     if(o.fill) st.fill=FILL(o.fill);
     if(o.border!==0) st.border=BOX;
-    if(typeof v==='number'&&(!o.z||o.z==='#,##0.00')) st.alignment={horizontal:'right',vertical:'center',indent:1};
+    if(typeof v==='number'&&(!o.z||o.z==='#,##0.00######')) st.alignment={horizontal:'right',vertical:'center',indent:1};
     else if(typeof v==='number'&&!o.al) st.alignment={horizontal:'center',vertical:'center'};
     cell.s=st; ws[X.utils.encode_cell({r:r,c:col})]=cell;
   };
@@ -776,12 +795,12 @@ function sroQuantitySheet(c){
   const set=(r,col,v,o)=>{
     o=o||{}; let cell;
     if(v===''||v==null) cell={t:'s',v:''};
-    else if(typeof v==='number') cell={t:'n',v:v,z:o.z||'#,##0.00'};
+    else if(typeof v==='number') cell={t:'n',v:v,z:o.z||'#,##0.00######'};
     else cell={t:'s',v:String(v)};
     const st={font:o.font||fnt(10),alignment:o.al||{horizontal:'justify',vertical:'center'}};
     if(o.fill) st.fill=FILL(o.fill);
     if(o.border!==0) st.border=BOX;
-    if(typeof v==='number'&&(!o.z||o.z==='#,##0.00')) st.alignment={horizontal:'right',vertical:'center',indent:1};
+    if(typeof v==='number'&&(!o.z||o.z==='#,##0.00######')) st.alignment={horizontal:'right',vertical:'center',indent:1};
     else if(typeof v==='number'&&!o.al) st.alignment={horizontal:'center',vertical:'center'};
     cell.s=st; ws[X.utils.encode_cell({r:r,c:col})]=cell;
   };
@@ -848,12 +867,12 @@ function issuanceSheet(c){
   const set=(r,col,v,o)=>{
     o=o||{}; let cell;
     if(v===''||v==null) cell={t:'s',v:''};
-    else if(typeof v==='number') cell={t:'n',v:v,z:o.z||'#,##0.00'};
+    else if(typeof v==='number') cell={t:'n',v:v,z:o.z||'#,##0.00######'};
     else cell={t:'s',v:String(v)};
     const st={font:o.font||fnt(10),alignment:o.al||{horizontal:'justify',vertical:'center'}};
     if(o.fill) st.fill=FILL(o.fill);
     if(o.border!==0) st.border=BOX;
-    if(typeof v==='number'&&(!o.z||o.z==='#,##0.00')) st.alignment={horizontal:'right',vertical:'center',indent:1};
+    if(typeof v==='number'&&(!o.z||o.z==='#,##0.00######')) st.alignment={horizontal:'right',vertical:'center',indent:1};
     else if(typeof v==='number'&&!o.al) st.alignment={horizontal:'center',vertical:'center'};
     cell.s=st; ws[X.utils.encode_cell({r:r,c:col})]=cell;
   };
@@ -933,12 +952,12 @@ function clientSummarySheet(c){
   const set=(r,col,v,o)=>{
     o=o||{}; let cell;
     if(v===''||v==null) cell={t:'s',v:''};
-    else if(typeof v==='number') cell={t:'n',v:v,z:o.z||'#,##0.00'};
+    else if(typeof v==='number') cell={t:'n',v:v,z:o.z||'#,##0.00######'};
     else cell={t:'s',v:String(v)};
     const st={font:o.font||fnt(10),alignment:o.al||{horizontal:'justify',vertical:'center'}};
     if(o.fill) st.fill=FILL(o.fill);
     if(o.border!==0) st.border=BOX;
-    if(typeof v==='number'&&(!o.z||o.z==='#,##0.00')) st.alignment={horizontal:'right',vertical:'center',indent:1};
+    if(typeof v==='number'&&(!o.z||o.z==='#,##0.00######')) st.alignment={horizontal:'right',vertical:'center',indent:1};
     else if(typeof v==='number'&&!o.al) st.alignment={horizontal:'center',vertical:'center'};
     cell.s=st; ws[X.utils.encode_cell({r:r,c:col})]=cell;
   };
@@ -1039,12 +1058,15 @@ async function importCSV(text){
   const rows=parseCSV(text); if(rows.length<2) return 'The file has no data rows.';
   const H=rows[0].map(h=>h.trim().toLowerCase()), ix=n=>H.indexOf(n.toLowerCase());
   const num=v=>parseFloat(String(v||'').replace(/,/g,''));
+  const unitColumn=ix('Unit');
+  if(unitColumn>=0&&rows.slice(1).some(r=>r[unitColumn]&&r[unitColumn]!==S.unit&&(!unitWeight(r[unitColumn])||!unitWeight(S.unit))))return 'The CSV unit cannot be converted to this inventory unit. Use a supported unit or a file in '+S.unit+'.';
+  const importedQty=(row,column)=>{const value=num(row[column]),label=unitColumn>=0?row[unitColumn]:'';if(!Number.isFinite(value))return value;try{return label&&label!==S.unit?convertQuantity(value,unitWeight(label),unitWeight(S.unit)):value;}catch{return NaN;}};
   const ixa=(...n)=>{ for(const x of n){ const k=ix(x); if(k>=0) return k; } return -1; };
   if(ix('Ref ATW Number')>=0){
     const ci={date:ix('Date'),sro:ix('SRO Number'),atw:ix('Ref ATW Number'),type:ix('Type of Sugar'),client:ix('Client'),permit:ix('SRA Permit No.'),waybill:ix('Mill Waybill Number'),batch:ix('Batch Codes'),qty:ix('Quantity per Batch Code'),bol:ixa('Bill of Lading No.','Bill of Lading #','Bill of Lading','B/L No.'),vessel:ix('Vessel'),voy:ixa('Voy No.','Voy No','Voyage No.'),sail:ix('Sailing Date')};
     if(ci.date<0||ci.sro<0||ci.qty<0) return 'Issuance CSV needs Date, SRO Number and Quantity per Batch Code columns.';
     let n=0,skip=0; const g=(r,k)=>ci[k]>=0?String(r[ci[k]]||'').trim():'';
-    rows.slice(1).forEach(r=>{ const qty=num(r[ci.qty]), sro=g(r,'sro'), date=normDate(r[ci.date]);
+    rows.slice(1).forEach(r=>{ const qty=importedQty(r,ci.qty), sro=g(r,'sro'), date=normDate(r[ci.date]);
       if(!sro||!(qty>0)||!date){ skip++; return; }
       S.issues.push({id:uid(),seq:++S.seq,date,sro,atw:g(r,'atw'),type:g(r,'type'),client:g(r,'client'),permit:g(r,'permit'),waybill:g(r,'waybill'),batch:g(r,'batch'),qty,bol:g(r,'bol'),vessel:g(r,'vessel'),voy:g(r,'voy'),sail:(ci.sail>=0&&String(r[ci.sail]||'').trim())?normDate(r[ci.sail]):''}); n++;
       const cl=g(r,'client'); if(cl&&!S.clients.includes(cl)) S.clients.push(cl); });
@@ -1053,7 +1075,7 @@ async function importCSV(text){
   const ci={date:ix('SRO Date'),sro:ix('SRO Number'),type:ix('Type of Sugar'),mill:ix('Mill Source'),qty:ix('Quantity'),crop:ix('Crop Year')};
   if(ci.date<0||ci.sro<0||ci.qty<0) return 'SRO quantity CSV needs SRO Date, SRO Number and Quantity columns.';
   let n=0,skip=0,dup=0; const g=(r,k)=>ci[k]>=0?String(r[ci[k]]||'').trim():'';
-  rows.slice(1).forEach(r=>{ const qty=num(r[ci.qty]), sro=g(r,'sro'), date=normDate(r[ci.date]);
+  rows.slice(1).forEach(r=>{ const qty=importedQty(r,ci.qty), sro=g(r,'sro'), date=normDate(r[ci.date]);
     if(!sro||!(qty>=0)||!date){ skip++; return; }
     if(S.receipts.some(x=>x.sro===sro)){ dup++; return; }
     S.receipts.push({id:uid(),date,sro,type:g(r,'type'),mill:g(r,'mill'),qty,crop:g(r,'crop')}); n++; });
@@ -1178,6 +1200,7 @@ document.addEventListener('click',async e=>{
     case 'toggleSharing': await updateSharing({enabled:!shareSettings.enabled}); break;
     case 'rotateSharing': if(await ask('Replace public link','The previous link will stop working. A new random 6-character address will replace it. Your sharing setting stays the same.','Replace link'))await replaceSharingLink(); break;
     case 'copySharing': try{await navigator.clipboard.writeText(publicLink());toast('View-only link copied');}catch{ $('#publicLink').select();toast('Select and copy the link above.');} break;
+    case 'convertUnits': await saveUnitConversion();break;
     case 'superadmin': if(!isSuperadmin||readOnly)return; tab='more';adminView=true;rememberNavigation();render();track('admin.view');break;
     case 'navMenu': openSheet(sheetHead('Menu')+'<div class="section-menu">'+['receive','clients','reports','more'].map(k=>'<button class="btn" data-act="tab" data-tab="'+k+'"'+(tab===k?' aria-current="page"':'')+'>'+ICON[k]+'<span>'+(k==='more'?'Settings & sharing':TITLES[k])+'</span></button>').join('')+'</div>');break;
     case 'newClient': clientEditor(); break;
@@ -1201,8 +1224,8 @@ document.addEventListener('click',async e=>{
       if(await ask('Delete SRO quantity',(n?n+' issuance line'+(n>1?'s':'')+' refer to '+r.sro+' and will be flagged as unmatched. ':'')+'Delete '+r.sro+'?','Delete',true)){ S.receipts=S.receipts.filter(x=>x.id!==r.id); if(!await save()) return; closeSheet(); render(); toast('SRO quantity deleted'); } break; }
     case 'delIssue': { if(await ask('Delete issuance line','This removes the batch line permanently.','Delete',true)){ S.issues=S.issues.filter(x=>x.id!==d.id); if(!await save()) return; closeSheet(); render(); toast('Line deleted'); } break; }
     case 'xlsx': exportXlsx(); break;
-    case 'csvRec': saveFile('SRO_Quantity_'+stamp()+'.csv',csv([REC_H,...recRows()])); break;
-    case 'csvIss': saveFile('Issuance_'+stamp()+'.csv',csv([ISS_H,...issRows()])); break;
+    case 'csvRec': saveFile('SRO_Quantity_'+stamp()+'.csv',csv([[...REC_H,'Unit'],...recRows().map(r=>[...r,S.unit])])); break;
+    case 'csvIss': saveFile('Issuance_'+stamp()+'.csv',csv([[...ISS_H,'Unit'],...issRows().map(r=>[...r,S.unit])])); break;
     case 'backup': saveFile('Sugar_Inventory_backup_'+stamp()+'.json',JSON.stringify(S)); break;
     case 'restore': pickFile('restore','.json,application/json'); break;
     case 'import': pickFile('import','.csv,text/csv'); break;
@@ -1214,7 +1237,8 @@ document.addEventListener('click',async e=>{
 });
 document.addEventListener('submit',e=>{ e.preventDefault(); if(!ready||saving||readOnly) return; if(e.target.id==='clientForm') saveClient(e.target); if(e.target.id==='fRec') saveReceipt(e.target); if(e.target.id==='fIss') saveIssue(e.target); });
 document.addEventListener('input',async e=>{
-  if(e.target.id==='publicCode'){
+  if(e.target.id==='sourceUnitKg'){previewUnitConversion();}
+  else if(e.target.id==='publicCode'){
    codeRequest++;clearTimeout(codeTimer);e.target.removeAttribute('aria-invalid');
    const code=e.target.value.trim(),status=$('#codeStatus');
    if(!/^[a-zA-Z0-9]{3,6}$/.test(code)){status.textContent=code?'Use 3–6 letters or numbers.':'';}
@@ -1236,7 +1260,7 @@ document.addEventListener('change',async e=>{ if(!ready||saving) return; if(read
  if(e.target.id==='lowStockPercent'){const value=Number(e.target.value); if(!Number.isFinite(value)||value<0||value>100){toast('Enter a percentage from 0 to 100.');e.target.value=threshold(S);return;} S.lowStockPercent=value;if(!await save())return;render();}
  if(e.target.dataset.delivery){deliveryFilter[e.target.dataset.delivery]=e.target.value;render();}
  if(e.target.dataset.report){reportFilter[e.target.dataset.report]=e.target.value;render();}
- if(e.target.id==='unit'){ S.unit=e.target.value.trim()||'units'; if(!await save()) return; render(); } if(e.target.closest&&e.target.closest('#fIss')) updateIssueInfo(); });
+ if(e.target.id==='targetUnit'){previewUnitConversion();} if(e.target.closest&&e.target.closest('#fIss')) updateIssueInfo(); });
 document.addEventListener('keydown',modalKeyboard,true);
 
 function restrictPublicControls(){
