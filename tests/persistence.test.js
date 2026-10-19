@@ -8,7 +8,7 @@ async function harness(rpc, cloud) {
  let source=readFileSync(new URL('../app.js',import.meta.url),'utf8');
  source=source.slice(source.indexOf('(async function(){'),source.indexOf("$('#loginForm').addEventListener"));
  source=source.replaceAll('import.meta.env.VITE_SUPABASE_URL',"'https://example.supabase.co'").replaceAll('import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY',"'public-key'");
- source+=`render=()=>{}; ready=true; globalThis.app={save,compute,state:()=>S,revision:()=>revision,set:(value)=>{S=value},commit:()=>{committed=structuredClone(S)}}; })();`;
+ source+=`render=()=>{}; ready=true; globalThis.app={save,compute,clientStats,typeStats,fd,state:()=>S,revision:()=>revision,set:(value)=>{S=value},commit:()=>{committed=structuredClone(S)}}; })();`;
  const elements=new Map();
  const element=selector=>{if(!elements.has(selector))elements.set(selector,{textContent:'',addEventListener(){},classList:{add(){},remove(){},contains(){return false;}}});return elements.get(selector);};
  const context=vm.createContext({...features,window:{location:{hash:""}},URLSearchParams,structuredClone,setTimeout:()=>0,clearTimeout(){},console,document:{body:{},querySelector:element,addEventListener(){}},createClient:()=>({rpc,from:()=>({select:()=>({eq:()=>({single:async()=>({data:cloud,error:null})})})})})});
@@ -37,4 +37,14 @@ test('save lock prevents overlapping writes',async()=>{
  const {app}=await harness(()=>{calls++;return new Promise(resolve=>complete=resolve);});
  app.set(state());const first=app.save();assert.equal(await app.save(),false);assert.equal(calls,1);
  complete({data:1,error:null});assert.equal(await first,true);
+});
+
+test('reserved property names remain valid record keys',async()=>{
+ const {app}=await harness(async()=>({data:1,error:null}));
+ app.set({unit:'bags',receipts:[{id:'constructor',sro:'__proto__',type:'constructor',date:'2026-10-01',qty:20}],issues:[{id:'__proto__',sro:'__proto__',client:'constructor',type:'constructor',date:'2026-10-02',qty:5,seq:1}],clients:['constructor'],seq:1});
+ assert.equal(app.compute().list[0].balance,15);assert.equal(app.clientStats()[0].total,5);assert.equal(app.typeStats(app.compute())[0].received,20);
+});
+test('invalid date strings display as escaped text',async()=>{
+ const {app}=await harness(async()=>({data:1,error:null}));
+ assert.equal(app.fd('<img src=x>'),'&lt;img src=x&gt;');
 });

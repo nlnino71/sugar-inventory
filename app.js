@@ -10,7 +10,7 @@ const nf = n=>(+n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFra
 const pad = n=>String(n).padStart(2,'0');
 const today = ()=>{const d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());};
 const M3=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const fd = s=>{ if(!s||!/^\d{4}-\d{2}-\d{2}$/.test(s)) return s||''; const p=s.split('-'); return (+p[2])+' '+M3[p[1]-1]+' '+p[0]; };
+const fd = s=>{ if(!s||!/^\d{4}-\d{2}-\d{2}$/.test(s)) return esc(s||''); const p=s.split('-'); return (+p[2])+' '+M3[p[1]-1]+' '+p[0]; };
 const uid = ()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 const DEFAULT_TYPES=['Raw Sugar','Refined Sugar','Washed Sugar'];
 
@@ -55,7 +55,7 @@ async function save(){
   } finally { saving=false; lock(false); }
 }
 async function showAccount(session){
-  ready=false; closeSheet(); S=blank(); render();
+  ready=false; closeSheet(true); S=blank(); render();
   $('#account').hidden=false; $('#nav').hidden=true;
   if(!session){ lock(false); $('#main').hidden=true; $('#accountMessage').textContent='Sign in with your inventory account.'; return; }
   try { await readCloud(); ready=true; $('#main').hidden=false; $('#account').hidden=true; $('#nav').hidden=false; render(); }
@@ -65,13 +65,13 @@ async function showAccount(session){
 
 /* ---------- calculations ---------- */
 function compute(){
-  const by={};
+  const by=Object.create(null);
   S.receipts.forEach(r=>{
     const o=by[r.sro]||(by[r.sro]={sro:r.sro,date:r.date,type:r.type,mill:r.mill,crop:r.crop||'',received:0,issued:0,lines:[],rids:[]});
     o.received+=+r.qty||0; o.rids.push(r.id);
   });
   const sorted=[...S.issues].sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:a.seq-b.seq);
-  const orphans=[], run={};
+  const orphans=[], run=Object.create(null);
   sorted.forEach(i=>{ const o=by[i.sro]; if(o){ o.issued+=+i.qty||0; o.lines.push(i);} else orphans.push(i); });
   const list=Object.values(by);
   list.forEach(o=>{ let r=o.received; o.lines.forEach(l=>{ r-=+l.qty||0; run[l.id]=r; }); o.balance=o.received-o.issued; });
@@ -88,15 +88,15 @@ function gauge(o){
   const s=status(o); return '<div class="gauge '+(s.k==='low'?'low':s.k==='over'?'over':'')+'"><i style="width:'+pct+'%"></i></div>';
 }
 function clientStats(){
-  const m={};
+  const m=Object.create(null);
   S.issues.forEach(i=>{ const n=(i.client||'').trim()||'(no client)';
-    const c=m[n]||(m[n]={name:n,total:0,lines:0,atw:new Set(),bySro:{},items:[],last:''});
+    const c=m[n]||(m[n]={name:n,total:0,lines:0,atw:new Set(),bySro:Object.create(null),items:[],last:''});
     c.total+=+i.qty||0; c.lines++; if(i.atw) c.atw.add(i.atw); c.bySro[i.sro]=(c.bySro[i.sro]||0)+(+i.qty||0); c.items.push(i);
     if(i.date>c.last) c.last=i.date; });
   return Object.values(m).sort((a,b)=>b.total-a.total);
 }
 function typeStats(c){
-  const m={}; const T=n=>m[n]||(m[n]={name:n,received:0,issued:0});
+  const m=Object.create(null); const T=n=>m[n]||(m[n]={name:n,received:0,issued:0});
   c.list.forEach(o=>{ T(o.type||'(no type)').received+=o.received; });
   S.issues.forEach(i=>{ const o=c.by[i.sro]; T(i.type||(o&&o.type)||'(no type)').issued+=+i.qty||0; });
   return Object.values(m).sort((a,b)=>b.received-a.received);
@@ -177,7 +177,7 @@ function updateList(){
       '<div class="nums"><div><span>Received</span><b>'+nf(o.received)+'</b></div><div><span>Issued</span><b>'+nf(o.issued)+'</b></div><div class="bal"><span>Balance</span><b>'+nf(o.balance)+'</b></div></div></button>';
   };
   if(!rows.length){ box.innerHTML='<div class="empty">No SRO matches.</div>'; return; }
-  const groups={}; rows.forEach(o=>{ const k=o.type||'(no type)'; (groups[k]||(groups[k]=[])).push(o); });
+  const groups=Object.create(null); rows.forEach(o=>{ const k=o.type||'(no type)'; (groups[k]||(groups[k]=[])).push(o); });
   const order=typeStats(c).map(t=>t.name);
   const names=Object.keys(groups).sort((x,y)=>{ const i=order.indexOf(x), j=order.indexOf(y); return (i<0?99:i)-(j<0?99:j); });
   box.innerHTML=names.map(n=>{
@@ -187,7 +187,7 @@ function updateList(){
 }
 
 function grouped(c,items,typeOf,qtyOf,noun,cardFn){
-  const G={}; items.forEach(x=>{ const k=typeOf(x)||'(no type)'; (G[k]||(G[k]=[])).push(x); });
+  const G=Object.create(null); items.forEach(x=>{ const k=typeOf(x)||'(no type)'; (G[k]||(G[k]=[])).push(x); });
   const order=typeStats(c).map(t=>t.name);
   return Object.keys(G).sort((a,b)=>{ const i=order.indexOf(a), j=order.indexOf(b); return (i<0?99:i)-(j<0?99:j); }).map(n=>{
     const g=G[n], tot=g.reduce((t,x)=>t+qtyOf(x),0), pl=noun==='delivery'?'deliveries':noun+'s';
@@ -209,7 +209,7 @@ function updateRList(){
   if(rcrop!=='all'&&crops.indexOf(rcrop)<0) rcrop='all';
   $('#rchips').innerHTML=(crops.length?[['all','All crop years']].concat(crops.map(x=>[x,'CY '+x])):[]).map(f=>'<button class="chip-b" data-act="rcrop" data-c="'+esc(f[0])+'" aria-pressed="'+(rcrop===f[0])+'">'+esc(f[1])+'</button>').join('');
   const base=S.receipts.filter(r=>rcrop==='all'||r.crop===rcrop);
-  const T={}; base.forEach(r=>{ const k=r.type||'(no type)'; const t=T[k]||(T[k]={name:k,n:0,q:0}); t.n++; t.q+=+r.qty||0; });
+  const T=Object.create(null); base.forEach(r=>{ const k=r.type||'(no type)'; const t=T[k]||(T[k]={name:k,n:0,q:0}); t.n++; t.q+=+r.qty||0; });
   if(rtype!=='all'&&!T[rtype]) rtype='all';
   const ord=typeStats(compute()).map(t=>t.name);
   $('#rcards').innerHTML=Object.values(T).sort((x,y)=>ord.indexOf(x.name)-ord.indexOf(y.name)).map(t=>
@@ -219,20 +219,20 @@ function updateRList(){
   const rows=S.receipts.filter(r=>(rtype==='all'||(r.type||'(no type)')===rtype)&&(rcrop==='all'||r.crop===rcrop)&&(!needle||[r.sro,r.mill,r.crop,r.type].join(' ').toLowerCase().includes(needle)))
     .sort((x,y)=>String(x.sro).localeCompare(String(y.sro),undefined,{numeric:true,sensitivity:'base'}));
   if(!rows.length){ box.innerHTML='<div class="empty">No SRO matches.</div>'; return; }
-  const G={}; rows.forEach(r=>{ const k=r.type||'(no type)'; (G[k]||(G[k]=[])).push(r); });
+  const G=Object.create(null); rows.forEach(r=>{ const k=r.type||'(no type)'; (G[k]||(G[k]=[])).push(r); });
   const order=typeStats(compute()).map(t=>t.name);
   box.innerHTML=Object.keys(G).sort((x,y)=>{ const i=order.indexOf(x), j=order.indexOf(y); return (i<0?99:i)-(j<0?99:j); }).map(n=>{
     const g=G[n], tot=g.reduce((t,r)=>t+(+r.qty||0),0);
     return '<div class="grp"><span class="gname">'+esc(n)+'</span><span class="gmeta">'+g.length+' SRO'+(g.length>1?'s':'')+' · total '+nf(tot)+'</span></div>'+
       '<div class="reg"><div class="rh"><span>SRO number</span><span>Crop yr</span><span>Quantity</span></div>'+
       g.map(r=>{ const dup=S.receipts.filter(x=>x.sro===r.sro).length>1;
-        return '<button class="rr" data-act="editReceipt" data-id="'+r.id+'"><span class="a"><b>'+esc(r.sro)+'</b><small>'+esc(r.mill||'No mill')+' · '+fd(r.date).replace(/ \d{2}(\d{2})$/," '$1")+'</small>'+(dup?'<small class="bad">Duplicate SRO number</small>':'')+'</span><span class="b">'+esc(r.crop||'-')+'</span><span class="c num">'+nf(r.qty)+'</span></button>'; }).join('')+
+        return '<button class="rr" data-act="editReceipt" data-id="'+esc(r.id)+'"><span class="a"><b>'+esc(r.sro)+'</b><small>'+esc(r.mill||'No mill')+' · '+fd(r.date).replace(/ \d{2}(\d{2})$/," '$1")+'</small>'+(dup?'<small class="bad">Duplicate SRO number</small>':'')+'</span><span class="b">'+esc(r.crop||'-')+'</span><span class="c num">'+nf(r.qty)+'</span></button>'; }).join('')+
       '<div class="rs"><span>'+esc(n)+' subtotal</span><span class="num">'+nf(tot)+'</span></div></div>';
   }).join('');
 }
 
 function issueGroups(c,items=S.issues){
-  const g={}; 
+  const g=Object.create(null);
   [...items].forEach(i=>{ const k=[i.date,i.atw,i.sro,i.client,i.waybill].join('|'); (g[k]||(g[k]={key:k,date:i.date,atw:i.atw,sro:i.sro,client:i.client,permit:i.permit,waybill:i.waybill,bol:i.bol,vessel:i.vessel,voy:i.voy,sail:i.sail,type:i.type,items:[],seq:0})).items.push(i); g[k].seq=Math.max(g[k].seq,i.seq); });
   return Object.values(g).sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:b.seq-a.seq);
 }
@@ -249,7 +249,7 @@ function vIssue(){
       (missing?'<div class="err" style="margin:0 0 4px">This SRO is not in SRO Quantity.</div>':'')+
       '<div class="kv"><span>Permit <b>'+esc(g.permit||'-')+'</b></span><span>Waybill <b>'+esc(g.waybill||'-')+'</b></span></div>'+
       ((g.bol||g.vessel||g.voy||g.sail)?'<div class="kv"><span>B/L <b>'+esc(g.bol||'-')+'</b></span><span>Vessel <b>'+esc(g.vessel||'-')+(g.voy?' / '+esc(g.voy):'')+'</b></span><span>Sails <b>'+(g.sail?fd(g.sail):'-')+'</b></span></div>':'')+
-      '<div class="lines">'+g.items.map(i=>'<button class="line" data-act="editIssue" data-id="'+i.id+'"><span>'+esc(i.batch||'No batch code')+'</span><b>'+nf(i.qty)+'</b></button>').join('')+'</div>'+
+      '<div class="lines">'+g.items.map(i=>'<button class="line" data-act="editIssue" data-id="'+esc(i.id)+'"><span>'+esc(i.batch||'No batch code')+'</span><b>'+nf(i.qty)+'</b></button>').join('')+'</div>'+
       '<div class="tot"><span>Total</span><span class="num" style="font-size:19px">'+nf(tot)+'</span></div></div>';
   });
 }
@@ -282,32 +282,91 @@ function vMore(){
 }
 
 /* ---------- sheet / dialog / toast ---------- */
-function openSheet(html){ $('#sheet').innerHTML=html; if(readOnly)restrictPublicControls(); $('#sheet').classList.add('on'); $('#scrim').classList.add('on'); $('#sheet').scrollTop=0; }
-function closeSheet(){ $('#sheet').classList.remove('on'); $('#scrim').classList.remove('on'); $('#sheet').innerHTML=''; }
+let sheetTrigger=null, confirmationTrigger=null, priorBodyOverflow=null;
+const priorInert=new Map();
+const modalOpen=id=>$('#'+id).classList.contains('on');
+function syncModalLayers(){
+ const active=modalOpen('dlg')?$('#dlg'):modalOpen('sheet')?$('#sheet'):null;
+ if(active){
+  if(priorBodyOverflow===null){priorBodyOverflow=document.body.style.overflow;document.body.style.overflow='hidden';}
+  for(const el of document.body.children){
+   if(['sheet','dlg','scrim','toast'].includes(el.id)||el.tagName==='SCRIPT')continue;
+   if(!priorInert.has(el))priorInert.set(el,el.inert);
+   el.inert=true;
+  }
+ }else{
+  for(const [el,inert] of priorInert)el.inert=inert;
+  priorInert.clear();
+  if(priorBodyOverflow!==null){document.body.style.overflow=priorBodyOverflow;priorBodyOverflow=null;}
+ }
+ $('#sheet').inert=modalOpen('dlg');
+ $('#scrim').classList.toggle('on',!!active);
+}
+function restoreFocus(trigger){
+ if(trigger?.isConnected&&!trigger.closest('[inert]')&&trigger.getClientRects().length){trigger.focus({preventScroll:true});return;}
+ const fallback=ready?$('#main'):$('#account');
+ if(!fallback.hidden)fallback.focus({preventScroll:true});
+}
+function openSheet(html){
+ if(!modalOpen('sheet'))sheetTrigger=document.activeElement;
+ const sheet=$('#sheet');sheet.innerHTML=html;
+ if(readOnly)restrictPublicControls();
+ sheet.classList.add('on');sheet.scrollTop=0;syncModalLayers();
+ const initial=sheet.querySelector('form input:not([type="hidden"])')||sheet.querySelector('#sheetTitle')||sheet;
+ initial.focus({preventScroll:true});
+}
+function closeSheet(force=false){
+ if(modalOpen('dlg')){$('#dNo')?.click();if(!force)return;}
+ const wasOpen=modalOpen('sheet'),trigger=sheetTrigger;
+ $('#sheet').classList.remove('on');$('#sheet').innerHTML='';sheetTrigger=null;syncModalLayers();
+ if(wasOpen)queueMicrotask(()=>restoreFocus(trigger));
+}
+function modalKeyboard(e){
+ const active=modalOpen('dlg')?$('#dlg'):modalOpen('sheet')?$('#sheet'):null;
+ if(!active)return;
+ if(e.key==='Escape'){e.preventDefault();e.stopPropagation();if(!saving){if(modalOpen('dlg'))$('#dNo').click();else closeSheet();}return;}
+ if(e.key!=='Tab')return;
+ const stops=[...active.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')].filter(el=>el.getClientRects().length&&!el.closest('[inert]'));
+ const current=stops.indexOf(document.activeElement);
+ if(!stops.length){e.preventDefault();active.focus();}
+ else if(e.shiftKey&&current<=0){e.preventDefault();stops.at(-1).focus();}
+ else if(!e.shiftKey&&(current<0||current===stops.length-1)){e.preventDefault();stops[0].focus();}
+}
 let toastT; function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('on'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('on'),3200); }
 function ask(title,msg,okLabel,danger){
-  return new Promise(res=>{
-    const d=$('#dlg');
-    d.innerHTML='<h3 style="font-family:var(--display);font-size:22px;margin:0 0 6px">'+esc(title)+'</h3><p>'+esc(msg)+'</p><div class="btns"><button class="btn" id="dNo">Cancel</button><button class="btn '+(danger?'danger':'primary')+'" id="dYes">'+esc(okLabel)+'</button></div>';
-    d.classList.add('on'); $('#scrim').classList.add('on');
-    const done=v=>{ d.classList.remove('on'); if(!$('#sheet').classList.contains('on')) $('#scrim').classList.remove('on'); res(v); };
-    $('#dNo').onclick=()=>done(false); $('#dYes').onclick=()=>done(true); $('#dYes').focus();
-  });
+ return new Promise(res=>{
+  const d=$('#dlg');confirmationTrigger=document.activeElement;let settled=false;
+  d.innerHTML='<h3 id="dialogTitle" style="font-family:var(--display);font-size:22px;margin:0 0 6px">'+esc(title)+'</h3><p id="dialogDescription">'+esc(msg)+'</p><div class="btns"><button class="btn" id="dNo">Cancel</button><button class="btn '+(danger?'danger':'primary')+'" id="dYes">'+esc(okLabel)+'</button></div>';
+  d.classList.add('on');syncModalLayers();
+  const done=value=>{
+   if(settled)return;settled=true;const trigger=confirmationTrigger;confirmationTrigger=null;
+   d.classList.remove('on');d.innerHTML='';syncModalLayers();restoreFocus(trigger);res(value);
+  };
+  $('#dNo').onclick=()=>done(false);$('#dYes').onclick=()=>done(true);$('#dNo').focus();
+ });
 }
-const sheetHead=(t,sub)=>'<div class="head"><div><h3>'+esc(t)+'</h3>'+(sub?'<div class="sub" style="margin:4px 0 0">'+sub+'</div>':'')+'</div><button class="x" data-act="close" aria-label="Close">×</button></div>';
+const sheetHead=(t,sub)=>'<div class="head"><div><h3 id="sheetTitle" tabindex="-1">'+esc(t)+'</h3>'+(sub?'<div class="sub" style="margin:4px 0 0">'+sub+'</div>':'')+'</div><button class="x" data-act="close" aria-label="Close">×</button></div>';
+const ledgerAction=(act,id,label)=>readOnly?'':'<td><button type="button" class="ledger-edit" data-act="'+act+'" data-id="'+esc(id)+'" aria-label="'+esc(label)+'">Edit</button></td>';
+function formError(form,message,fields=[]){
+ const error=form.querySelector('#err');error.textContent=message;
+ const controls=fields.flatMap(field=>typeof field==='string'?[...form.querySelectorAll('[name="'+field+'"]')]:[field]);
+ controls.forEach(control=>{control.setAttribute('aria-invalid','true');control.setAttribute('aria-describedby','err');});
+ (controls.find(control=>!control.value.trim())||controls[0]||error).focus();
+}
+function clearFormError(form){form.querySelectorAll('[aria-invalid]').forEach(el=>{el.removeAttribute('aria-invalid');el.removeAttribute('aria-describedby');});}
 
 /* ---------- SRO detail ---------- */
 function sroSheet(id){
   const c=compute(), o=c.by[id]; if(!o) return;
   const s=status(o), rcp=S.receipts.find(r=>r.sro===id);
-  let rows='<tr data-act="editReceipt" data-id="'+(rcp?rcp.id:'')+'"><td>'+fd(o.date)+'</td><td>SRO quantity<small>'+esc(o.mill||'')+'</small></td><td class="r"><b>+'+nf(o.received)+'</b></td><td class="r"><b>'+nf(o.received)+'</b></td></tr>';
-  rows+=o.lines.map(l=>'<tr data-act="editIssue" data-id="'+l.id+'"><td>'+fd(l.date)+'</td><td>'+esc(l.client||'No client')+'<small>'+esc((l.atw||'')+(l.batch?' · '+l.batch:''))+'</small></td><td class="r"><b>−'+nf(l.qty)+'</b></td><td class="r"><b'+(c.run[l.id]<0?' style="color:var(--alert)"':'')+'>'+nf(c.run[l.id])+'</b></td></tr>').join('');
+  let rows='<tr><td>'+fd(o.date)+'</td><td>SRO quantity<small>'+esc(o.mill||'')+'</small></td><td class="r"><b>+'+nf(o.received)+'</b></td><td class="r"><b>'+nf(o.received)+'</b></td>'+ledgerAction('editReceipt',rcp?rcp.id:'','Edit SRO quantity '+o.sro)+'</tr>';
+  rows+=o.lines.map(l=>'<tr><td>'+fd(l.date)+'</td><td>'+esc(l.client||'No client')+'<small>'+esc((l.atw||'')+(l.batch?' · '+l.batch:''))+'</small></td><td class="r"><b>−'+nf(l.qty)+'</b></td><td class="r"><b'+(c.run[l.id]<0?' style="color:var(--alert)"':'')+'>'+nf(c.run[l.id])+'</b></td>'+ledgerAction('editIssue',l.id,'Edit issuance '+(l.batch||l.atw||l.id))+'</tr>').join('');
   openSheet(sheetHead(o.sro,esc(o.type||'No type')+' · '+esc(o.mill||'No mill'))+
     gauge(o)+'<div class="nums"><div><span>Received</span><b>'+nf(o.received)+'</b></div><div><span>Issued</span><b>'+nf(o.issued)+'</b></div><div class="bal"><span>Balance</span><b>'+nf(o.balance)+'</b></div></div>'+
     '<div style="margin-top:8px"><span class="chip '+s.k+'">'+s.t+'</span></div>'+
     '<div class="btns"><button class="btn primary" data-act="newIssue" data-sro="'+esc(id)+'">Issue from this SRO</button></div>'+
-    '<div class="sec" style="margin-top:18px"><h2>Ledger</h2><span class="hint">Tap a row to edit</span></div>'+
-    '<div class="tabwrap"><table class="led"><thead><tr><th>Date</th><th>Details</th><th class="r">Qty</th><th class="r">Balance</th></tr></thead><tbody>'+rows+'</tbody></table></div>');
+    '<div class="sec" style="margin-top:18px"><h2>Ledger</h2><span class="hint">'+(readOnly?'Stock movements':'Use Edit to update a record')+'</span></div>'+
+    '<div class="tabwrap" tabindex="0" role="region" aria-label="Stock ledger"><table class="led"><thead><tr><th>Date</th><th>Details</th><th class="r">Qty</th><th class="r">Balance</th>'+(!readOnly?'<th scope="col">Action</th>':'')+'</tr></thead><tbody>'+rows+'</tbody></table></div>');
 }
 
 /* ---------- receipt form ---------- */
@@ -315,7 +374,7 @@ const dl=(id,arr)=>'<datalist id="'+id+'">'+arr.map(v=>'<option value="'+esc(v)+
 function receiptSheet(id){
   const r=id?S.receipts.find(x=>x.id===id):null;
   openSheet(sheetHead(r?'Edit SRO quantity':'New SRO quantity')+
-   '<form id="fRec" data-id="'+(r?r.id:'')+'" novalidate>'+
+   '<form id="fRec" data-id="'+esc(r?r.id:'')+'" novalidate>'+
    '<label class="f">SRO date<input type="date" name="date" value="'+esc(r?r.date:today())+'" required></label>'+
    '<label class="f">Crop year<input name="crop" list="dlCrop" value="'+esc(r?(r.crop||''):cropOf(today()))+'" placeholder="e.g. 2026-2027" autocomplete="off"></label>'+
    '<label class="f">SRO number<input name="sro" value="'+esc(r?r.sro:'')+'" autocomplete="off" required></label>'+
@@ -323,12 +382,13 @@ function receiptSheet(id){
    '<label class="f">Mill source<input name="mill" list="dlMills" value="'+esc(r?r.mill:'')+'" autocomplete="off"></label>'+
    '<label class="f">Quantity<input name="qty" type="number" inputmode="decimal" step="any" min="0" value="'+esc(r?r.qty:'')+'" required></label>'+
    dl('dlTypes',knownTypes())+dl('dlMills',knownMills())+dl('dlCrop',knownCrops())+
-   '<div class="err" id="err"></div><div class="btns">'+(r?'<button type="button" class="btn danger" data-act="delReceipt" data-id="'+r.id+'">Delete</button>':'')+'<button type="submit" class="btn primary">Save SRO quantity</button></div></form>');
+   '<div class="err" id="err" role="alert" tabindex="-1"></div><div class="btns">'+(r?'<button type="button" class="btn danger" data-act="delReceipt" data-id="'+esc(r.id)+'">Delete</button>':'')+'<button type="submit" class="btn primary">Save SRO quantity</button></div></form>');
 }
 async function saveReceipt(f){
   const v=n=>f.elements[n].value.trim(), id=f.dataset.id, err=$('#err');
+  clearFormError(f);
   const rec={date:v('date'),crop:v('crop'),sro:v('sro'),type:v('type'),mill:v('mill'),qty:parseFloat(v('qty'))};
-  if(!rec.date||!rec.sro||!(rec.qty>=0)){ err.textContent='Enter the date, SRO number and quantity.'; return; }
+  if(!rec.date||!rec.sro||!Number.isFinite(rec.qty)||rec.qty<0){formError(f,'Enter the date, SRO number and a finite quantity of zero or more.',[!rec.date&&'date',!rec.sro&&'sro',(!Number.isFinite(rec.qty)||rec.qty<0)&&'qty'].filter(Boolean));return;}
   const dup=S.receipts.some(r=>r.sro===rec.sro&&r.id!==id);
   if(dup && !(await ask('Duplicate SRO number',rec.sro+' is already in SRO Quantity. Each SRO should be logged once. Save anyway?','Save anyway'))) return;
   if(id){
@@ -341,7 +401,7 @@ async function saveReceipt(f){
 
 /* ---------- issue form ---------- */
 function batchRow(code,qty){
-  return '<div class="batch"><input name="bcode" placeholder="Batch code" value="'+esc(code||'')+'" autocomplete="off"><input name="bqty" type="number" inputmode="decimal" step="any" min="0" placeholder="Qty" value="'+esc(qty==null?'':qty)+'"><button type="button" data-act="rmBatch" aria-label="Remove batch code">×</button></div>';
+  return '<div class="batch"><input name="bcode" aria-label="Batch code" placeholder="Batch code" value="'+esc(code||'')+'" autocomplete="off"><input name="bqty" aria-label="Batch quantity" type="number" inputmode="decimal" step="any" min="0" placeholder="Qty" value="'+esc(qty==null?'':qty)+'"><button type="button" data-act="rmBatch" aria-label="Remove batch code">×</button></div>';
 }
 function issueSheet(opt){
   opt=opt||{}; const c=compute(), e=opt.edit||null;
@@ -349,7 +409,7 @@ function issueSheet(opt){
   const sel=e?e.sro:(opt.sro||'');
   const orphanOpt=(e&&!c.by[e.sro])?'<option value="'+esc(e.sro)+'" selected>'+esc(e.sro)+' (not in SRO Quantity)</option>':'';
   openSheet(sheetHead(e?'Edit issuance line':'New issuance')+
-   '<form id="fIss" data-id="'+(e?e.id:'')+'" novalidate>'+
+   '<form id="fIss" data-id="'+esc(e?e.id:'')+'" novalidate>'+
    '<label class="f">Date<input type="date" name="date" value="'+esc(e?e.date:today())+'" required></label>'+
    '<label class="f">SRO number<select name="sro" required><option value="">Select SRO</option>'+orphanOpt+
      list.map(o=>'<option value="'+esc(o.sro)+'"'+(o.sro===sel?' selected':'')+'>'+esc(o.sro)+' · '+esc(o.type||'')+' · '+nf(o.balance)+' left</option>').join('')+'</select></label>'+
@@ -365,7 +425,7 @@ function issueSheet(opt){
    dl('dlClients',knownClients())+
    '<label class="f" style="margin-bottom:0">Batch codes and quantity</label><div id="batches">'+(e?batchRow(e.batch,e.qty):batchRow()+batchRow())+'</div>'+
    (e?'':'<button type="button" class="btn block" style="margin-top:8px;height:40px" data-act="addBatch">Add batch code</button>')+
-   '<div class="err" id="err"></div><div class="btns">'+(e?'<button type="button" class="btn danger" data-act="delIssue" data-id="'+e.id+'">Delete</button>':'')+'<button type="submit" class="btn primary">Save</button></div></form>');
+   '<div class="err" id="err" role="alert" tabindex="-1"></div><div class="btns">'+(e?'<button type="button" class="btn danger" data-act="delIssue" data-id="'+esc(e.id)+'">Delete</button>':'')+'<button type="submit" class="btn primary">Save</button></div></form>');
   updateIssueInfo();
 }
 function issueTotals(f){
@@ -381,10 +441,11 @@ function updateIssueInfo(){
 }
 async function saveIssue(f){
   const v=n=>f.elements[n].value.trim(), id=f.dataset.id, err=$('#err'), c=compute(), o=c.by[v('sro')];
+  clearFormError(f);
   const codes=[...f.querySelectorAll('[name=bcode]')], qtys=[...f.querySelectorAll('[name=bqty]')];
   const lines=codes.map((x,i)=>({batch:x.value.trim(),qty:parseFloat(qtys[i].value)})).filter(l=>l.batch||!isNaN(l.qty));
-  if(!v('date')||!v('sro')||!v('client')){ err.textContent='Select the date, SRO number and client.'; return; }
-  if(!lines.length||lines.some(l=>!(l.qty>0))){ err.textContent='Every batch code needs a quantity above zero.'; return; }
+  if(!v('date')||!v('sro')||!v('client')){formError(f,'Select the date, SRO number and client.',['date','sro','client'].filter(name=>!v(name)));return;}
+  if(!lines.length||lines.some(l=>!Number.isFinite(l.qty)||l.qty<=0)){formError(f,'Every batch line needs a finite quantity above zero.',lines.length?qtys.filter((input,i)=>(input.value.trim()||codes[i].value.trim())&&(!Number.isFinite(input.valueAsNumber)||input.valueAsNumber<=0)):[qtys[0]]);return;}
   const tot=lines.reduce((a,l)=>a+l.qty,0), cur=id?S.issues.find(i=>i.id===id):null;
   const avail=o?o.balance+(cur&&cur.sro===o.sro?(+cur.qty||0):0):null;
   if(o && tot>avail && !(await ask('Over-issuing',nf(tot-avail)+' more than the '+nf(avail)+' available on '+o.sro+'. Save anyway?','Save anyway'))) return;
@@ -403,8 +464,8 @@ function clientSheet(name){
   openSheet(sheetHead(c.name,nf(c.total)+' issued in total')+
    '<div class="sec" style="margin-top:6px"><h2>By SRO number</h2></div><div class="card" style="padding:4px 14px">'+
    sro.map(e=>'<div class="typeRow" style="grid-template-columns:1fr auto"><b>'+esc(e[0])+'</b><b class="num" style="font-size:19px">'+nf(e[1])+'</b></div>').join('')+'</div>'+
-   '<div class="sec"><h2>Deliveries</h2></div><div class="tabwrap"><table class="led"><thead><tr><th>Date</th><th>Details</th><th class="r">Qty</th></tr></thead><tbody>'+
-   items.map(i=>'<tr data-act="editIssue" data-id="'+i.id+'"><td>'+fd(i.date)+'</td><td>'+esc(i.sro)+'<small>'+esc((i.atw||'')+(i.batch?' · '+i.batch:''))+'</small></td><td class="r"><b>'+nf(i.qty)+'</b></td></tr>').join('')+'</tbody></table></div>');
+   '<div class="sec"><h2>Deliveries</h2></div><div class="tabwrap" tabindex="0" role="region" aria-label="Client delivery history"><table class="led"><thead><tr><th>Date</th><th>Details</th><th class="r">Qty</th>'+(!readOnly?'<th scope="col">Action</th>':'')+'</tr></thead><tbody>'+
+   items.map(i=>'<tr><td>'+fd(i.date)+'</td><td>'+esc(i.sro)+'<small>'+esc((i.atw||'')+(i.batch?' · '+i.batch:''))+'</small></td><td class="r"><b>'+nf(i.qty)+'</b></td>'+ledgerAction('editIssue',i.id,'Edit issuance '+(i.batch||i.atw||i.id))+'</tr>').join('')+'</tbody></table></div>');
 }
 
 /* ---------- export / import ---------- */
@@ -732,7 +793,7 @@ function issuanceSheet(c){
   r++;
   span(r,0,6,'TOTAL ISSUANCE PER ATW NUMBER',{font:fnt(12,true,'FFFFFF'),fill:GREEN,al:{horizontal:'left',vertical:'center',indent:1},border:0}); H[r]=22; r++;
   head(r,['Ref ATW Number','Date','Client','SRO Number','Type of Sugar','Batch Codes','Total Quantity']); r++;
-  const am0={}, al=[];
+  const am0=Object.create(null), al=[];
   c.sorted.forEach(i=>{ const k=i.atw||'(no ATW)'; if(!am0[k]){ am0[k]={k:k,items:[]}; al.push(am0[k]); } am0[k].items.push(i); });
   al.forEach((a,ix)=>{
     const f=ix%2?BAND:'FFFFFF', it=a.items, uniq=fn=>[...new Set(it.map(fn).filter(Boolean))].join(', ');
@@ -748,7 +809,7 @@ function issuanceSheet(c){
     const g=x.g;
     span(r,0,LAST,x.t.name.toUpperCase()+'   |   '+g.length+' batch code'+(g.length>1?'s':''),{font:fnt(12,true,GREEN),fill:'A9D08E',al:{horizontal:'left',vertical:'center',indent:1}}); H[r]=24; r++;
     head(r,['Date','SRO Number','Ref ATW Number','Client','SRA Permit No.','Mill Waybill Number','Batch Codes','Quantity per Batch Code','Bill of Lading No.','Vessel','Voy No.','Sailing Date','SRO Balance After This Line']); r++;
-    const ag=[], amm={};
+    const ag=[], amm=Object.create(null);
     g.forEach(i=>{ const k=i.atw||'(no ATW)'; if(!amm[k]){ amm[k]={k:k,items:[]}; ag.push(amm[k]); } amm[k].items.push(i); });
     let ix=0;
     ag.forEach(a=>{
@@ -857,7 +918,7 @@ function clientSummarySheet(c){
   return ws;
 }
 async function exportXlsx(){
-  const wb=xlsxBook(); if(!wb){ toast('Excel export needs the spreadsheet library. Check your connection, or use CSV.'); return; }
+  const wb=xlsxBook(); if(!wb){ toast('Excel export is still loading or unavailable. Retry shortly, or use CSV.'); return; }
   const buf=window.XLSX.write(wb,{bookType:'xlsx',type:'array'}); await saveFile('Sugar_Inventory_'+stamp()+'.xlsx',buf);
 }
 function parseCSV(t){
@@ -920,7 +981,7 @@ $('#file').addEventListener('change',async e=>{
 /* ---------- sample data ---------- */
 async function loadSample(){
   const R=[['2026-09-01','SRO-2026-001','Raw Sugar','Mill A',10000],['2026-09-03','SRO-2026-002','Refined Sugar','Mill B',8000],['2026-09-08','SRO-2026-003','Washed Sugar','Mill C',6000],['2026-09-10','SRO-2026-004','Raw Sugar','Mill A',12000],['2026-09-15','SRO-2026-005','Refined Sugar','Mill D',5000],['2026-09-18','SRO-2026-006','Raw Sugar','Mill B',9000],['2026-09-22','SRO-2026-007','Washed Sugar','Mill C',4000],['2026-09-25','SRO-2026-008','Refined Sugar','Mill A',7000]];
-  const T={}; R.forEach(r=>T[r[1]]=r[2]);
+  const T=Object.create(null); R.forEach(r=>T[r[1]]=r[2]);
   const I=[['09-02','001','0001','Client A',[['B-0901-A',1500],['B-0901-B',1500]]],['09-04','002','0002','Client B',[['B-0903-A',2000],['B-0903-B',1000]]],['09-05','001','0003','Client C',[['B-0901-C',2000]]],['09-09','003','0004','Client A',[['B-0908-A',1200],['B-0908-B',1300]]],['09-12','004','0005','Client D',[['B-0910-A',3000],['B-0910-B',2500]]],['09-14','002','0006','Client E',[['B-0903-C',1800]]],['09-16','005','0007','Client B',[['B-0915-A',2500],['B-0915-B',2500]]],['09-19','006','0008','Client C',[['B-0918-A',2000],['B-0918-B',1500]]],['09-20','001','0009','Client D',[['B-0901-D',1000]]],['09-23','004','0010','Client A',[['B-0910-C',2000]]],['09-24','003','0011','Client F',[['B-0908-C',1500]]],['09-26','006','0012','Client E',[['B-0918-C',2500]]],['09-27','007','0013','Client B',[['B-0922-A',1000],['B-0922-B',1000]]],['09-28','002','0014','Client F',[['B-0903-D',1200]]],['09-29','008','0015','Client C',[['B-0925-A',1500]]],['09-30','004','0016','Client E',[['B-0910-D',1500]]],['09-30','001','0017','Client B',[['B-0901-E',1000]]]];
   const SH={'0005':{bol:'BL-MNL-88101',vessel:'MV Pacific Star',voy:'V.012',sail:'2026-09-15'},'0010':{bol:'BL-MNL-88117',vessel:'MV Visayas Trader',voy:'V.044',sail:'2026-09-25'},'0016':{bol:'BL-MNL-88130',vessel:'MV Pacific Star',voy:'V.013',sail:'2026-10-03'}};
   S=blank();
@@ -966,7 +1027,7 @@ function vReports(){
  let h='<h2>Stock movement report</h2><p class="hint">Opening stock is the balance before the start date. Closing stock includes all movements through the end date.</p><div class="filter-panel"><label class="f">From<input type="date" data-report="from" value="'+esc(reportFilter.from)+'"></label><label class="f">To<input type="date" data-report="to" value="'+esc(reportFilter.to)+'"></label><label class="f wide">Sugar type<select data-report="type">'+options(knownTypes(),reportFilter.type,'All sugar types')+'</select></label></div>';
  if(invalid)return h+'<p class="alert" role="alert">The start date must be on or before the end date.</p>';
  h+='<div class="btns"><button class="btn primary" data-act="reportCsv"'+(!rows.length?' disabled':'')+'>Export report CSV</button></div><dl class="metrics">'+Object.entries(sums).map(([label,total])=>'<div><dt>'+label[0].toUpperCase()+label.slice(1)+'</dt><dd>'+nf(total)+'</dd></div>').join('')+'</dl>';
- h+='<div class="table-scroll"><table class="led"><caption>SRO movement · '+esc(S.unit)+'</caption><thead><tr><th>SRO / Sugar type</th><th class="r">Opening</th><th class="r">Received</th><th class="r">Issued</th><th class="r">Closing</th></tr></thead><tbody>'+rows.map(r=>'<tr><td>'+esc(r.sro)+'<small>'+esc(r.type)+'</small></td><td class="r">'+nf(r.opening)+'</td><td class="r">'+nf(r.received)+'</td><td class="r">'+nf(r.issued)+'</td><td class="r">'+nf(r.closing)+'</td></tr>').join('')+'</tbody></table></div>';
+ h+='<div class="table-scroll" tabindex="0" role="region" aria-label="SRO movement report"><table class="led"><caption>SRO movement · '+esc(S.unit)+'</caption><thead><tr><th>SRO / Sugar type</th><th class="r">Opening</th><th class="r">Received</th><th class="r">Issued</th><th class="r">Closing</th></tr></thead><tbody>'+rows.map(r=>'<tr><td>'+esc(r.sro)+'<small>'+esc(r.type)+'</small></td><td class="r">'+nf(r.opening)+'</td><td class="r">'+nf(r.received)+'</td><td class="r">'+nf(r.issued)+'</td><td class="r">'+nf(r.closing)+'</td></tr>').join('')+'</tbody></table></div>';
  if(!rows.length)h+='<p class="empty">No stock movements in this period.</p>';
  const selected=matchingIssues(S.issues,{from:reportFilter.from,to:reportFilter.to}).filter(i=>!reportFilter.type||(i.type||S.receipts.find(r=>r.sro===i.sro)?.type)===reportFilter.type), clients=new Map();
  selected.forEach(i=>clients.set(i.client||'No client',(clients.get(i.client||'No client')||0)+(+i.qty||0)));
@@ -1054,7 +1115,7 @@ document.addEventListener('change',async e=>{ if(!ready||saving) return; if(read
  if(e.target.dataset.delivery){deliveryFilter[e.target.dataset.delivery]=e.target.value;render();}
  if(e.target.dataset.report){reportFilter[e.target.dataset.report]=e.target.value;render();}
  if(e.target.id==='unit'){ S.unit=e.target.value.trim()||'units'; if(!await save()) return; render(); } if(e.target.closest&&e.target.closest('#fIss')) updateIssueInfo(); });
-document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ if($('#dlg').classList.contains('on')){ $('#dNo')&&$('#dNo').click(); } else closeSheet(); } });
+document.addEventListener('keydown',modalKeyboard,true);
 
 function restrictPublicControls(){
  const allowed=['tab','filter','sro','close','resetDelivery'];

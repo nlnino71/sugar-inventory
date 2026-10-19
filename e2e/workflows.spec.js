@@ -1,4 +1,6 @@
 import {test,expect} from '@playwright/test';
+// Core workflows must stay available when the optional Excel CDN fails.
+test.beforeEach(async({page})=>{await page.route('https://cdn.jsdelivr.net/**',route=>route.abort());});
 test('overview, stock report, delivery search and client editing',async({page},info)=>{
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  let sharing={token:'11111111-1111-4111-8111-111111111111',enabled:true,slug:'public'};

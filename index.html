@@ -317,26 +317,30 @@ button:disabled{cursor:not-allowed;opacity:.5}
  .workspace .overview-columns{gap:56px}
 }
 
+.ledger-edit{min-height:44px;min-width:44px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--cane);font-weight:600;padding:8px 12px;white-space:nowrap}
+.sheet .head h3{overflow-wrap:anywhere}
+.sheet .head>div{min-width:0}
+.sheet .head .x{flex-shrink:0}
 </style>
 </head>
 <body>
 <header class="top"><h1 id="title">Stock</h1><span class="unit" id="unitLbl"></span></header>
-<section id="account" class="setting" style="max-width:420px;margin:40px auto">
+<section id="account" role="main" aria-labelledby="accountTitle" tabindex="-1" class="setting" style="max-width:420px;margin:40px auto">
 <h2 id="accountTitle">Sign in to Sugar Inventory</h2><p id="accountMessage" role="status">Connecting to Supabase…</p>
 <form id="loginForm"><label class="f">Email<input id="email" type="email" autocomplete="username" required></label><label class="f">Password<input id="password" type="password" autocomplete="current-password" required></label><button class="btn primary block" id="loginButton">Sign in</button></form>
 <p id="signupNote" class="hint" hidden>Confirm your email after signing up. An administrator must approve access before you can edit the shared inventory.</p>
 <button id="switchAuth" class="btn block" type="button" style="margin-top:12px">Create an account</button>
 </section>
 <div class="connection-bar"><span id="cloudStatus" role="status">Sign in to continue</span><button class="btn" id="reloadCloud" type="button">Refresh</button><button class="btn" id="signOut" type="button">Sign out</button></div>
-<main id="main"></main>
-<nav id="nav" aria-label="Sections"></nav>
+<main id="main" hidden tabindex="-1"></main>
+<nav id="nav" hidden aria-label="Sections"></nav>
 <div class="scrim" id="scrim" data-act="close"></div>
-<div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
-<div class="dlg" id="dlg" role="alertdialog" aria-modal="true"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" tabindex="-1"></div>
+<div class="dlg" id="dlg" role="alertdialog" aria-modal="true" aria-labelledby="dialogTitle" aria-describedby="dialogDescription" tabindex="-1"></div>
 <div class="toast" id="toast" role="status"></div>
 <input type="file" id="file" hidden>
 
-<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<script async src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <script type="module" src="/app.js"></script>
 </body>
 </html>
