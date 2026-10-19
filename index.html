@@ -89,7 +89,6 @@ main{max-width:640px;margin:0 auto;padding:14px 16px}
 .hero .big small{font-size:18px;font-weight:500;margin-left:6px;opacity:.85}
 .hero .gauge{background:rgba(255,255,255,.25)}
 .hero .gauge i{background:var(--cane-ink)}
-:root:not([data-theme="light"]) .hero .gauge{}
 .hero .pair{display:flex;gap:24px;margin-top:10px}
 .hero .pair div span{display:block;font-size:12px;opacity:.85}
 .hero .pair div b{font-family:var(--display);font-size:24px;font-weight:600}
@@ -164,7 +163,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);b
 nav button{background:none;border:0;height:62px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
   font-size:11.5px;color:var(--muted)}
 nav button svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-nav button[aria-current="page"]{color:var(--stock-ink);font-weight:600}
+nav button[aria-current="page"]{color:var(--stock-ink);font-weight:600;background:var(--cane-bg)}
 
 /* sheet + dialog */
 .scrim{position:fixed;inset:0;background:rgba(6,14,10,.55);z-index:20;display:none}
@@ -281,8 +280,8 @@ button:disabled{cursor:not-allowed;opacity:.5}
 .connection-bar{display:flex;gap:12px;align-items:center;padding:12px 20px;flex-wrap:wrap}
 .type-grid,.delivery-grid{min-width:0}
 @media(hover:hover){
- nav#nav button:hover{background:var(--soft);color:var(--ink)}
- button.card:hover,.attention-row[data-act]:hover{background:var(--soft)}
+ nav#nav button:hover:not([aria-current="page"]){background:var(--soft);color:var(--ink)}
+ button.card:hover,.ledger-edit:hover,.chip-b:hover:not([aria-pressed="true"]),.attention-row[data-act]:hover{background:var(--soft)}
  .btn:hover:not(:disabled){filter:brightness(.96)}
 }
 @media(min-width:1024px){
@@ -332,6 +331,7 @@ button:disabled{cursor:not-allowed;opacity:.5}
 .sheet .head>div{min-width:0}
 .sheet .head .x{flex-shrink:0}
 label.f input,label.f select,.search input,.batch input,textarea{border-color:var(--control-line)}
+input,textarea{caret-color:var(--focus)}
 input::placeholder,textarea::placeholder{color:var(--muted);opacity:1}
 input[aria-invalid="true"],select[aria-invalid="true"],textarea[aria-invalid="true"]{border-color:var(--alert)}
 .public-view #cloudStatus{color:var(--info-ink)}

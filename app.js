@@ -158,7 +158,7 @@ function vStock(){
       '<div class="nums"><div><span>Received</span><b>'+nf(t.received)+'</b></div><div><span>Issued</span><b>'+nf(t.issued)+'</b></div><div><span>Left</span><b>'+Math.round(p)+'%</b></div></div></div>';
   }).join('')+'</div>';
   h+='<div class="sec"><h2>Running balance per SRO, by sugar type</h2><span class="hint">'+c.list.length+' total</span></div>'+
-    '<div class="search"><input id="q" type="search" placeholder="Search SRO, type, mill" value="'+esc(q)+'" autocomplete="off"></div>'+
+    '<div class="search"><input id="q" aria-label="Search stock by SRO, type or mill" type="search" placeholder="Search SRO, type, mill" value="'+esc(q)+'" autocomplete="off"></div>'+
     '<div class="chips" id="chips"></div><div id="sroList"></div>';
   return h;
 }
@@ -201,7 +201,7 @@ function vReceive(){
   if(!S.receipts.length) return h0+'<div class="empty" style="margin-top:14px"><b>No SRO quantities</b>Log each SRO and its quantity when the sugar is received.</div>';
   return h0+'<div class="sec"><h2>SRO register</h2><span class="hint">'+S.receipts.length+' logged</span></div>'+
     '<div class="tcards" id="rcards"></div>'+
-    '<div class="search"><input id="rq" type="search" placeholder="Search SRO, mill, crop year" value="'+esc(rq)+'" autocomplete="off"></div><div class="chips" id="rchips"></div><div id="rList"></div>';
+    '<div class="search"><input id="rq" aria-label="Search SRO quantities by SRO, mill or crop year" type="search" placeholder="Search SRO, mill, crop year" value="'+esc(rq)+'" autocomplete="off"></div><div class="chips" id="rchips"></div><div id="rList"></div>';
 }
 function updateRList(){
   const box=$('#rList'); if(!box) return;
@@ -262,7 +262,7 @@ function vClients(){
 function clientResults(){
  const clients=visibleClients, needle=clientQuery.toLowerCase();
  const rows=clients.filter(c=>[c.name,c.contact,c.phone,c.email].join(' ').toLowerCase().includes(needle));
- return !rows.length?'<div class="empty">No clients match. Add a client to start your directory.</div>':rows.map(c=>'<article class="card"><div class="row"><strong>'+esc(c.name)+'</strong><b class="num">'+nf(c.total)+'</b></div><p class="sub">'+esc([c.contact,c.phone,c.email].filter(Boolean).join(' · ')||'No contact details')+'</p><p class="hint">'+c.lines+' batch lines'+(c.last?' · Last delivery '+fd(c.last):' · No deliveries yet')+'</p><div class="btns"><button class="btn" data-act="editClient" data-name="'+esc(c.name)+'">Edit details</button>'+(c.lines?'<button class="btn" data-act="client" data-name="'+esc(c.name)+'">Delivery history</button>':'')+'</div></article>').join('');
+ return !rows.length?(clients.length?'<div class="empty" role="status">No clients match this search. Try another name, contact, phone or email.</div>':'<div class="empty"><b>Your client directory is empty</b>Add a client to keep contact details and delivery history together.</div>'):rows.map(c=>'<article class="card"><div class="row"><strong>'+esc(c.name)+'</strong><b class="num">'+nf(c.total)+'</b></div><p class="sub">'+esc([c.contact,c.phone,c.email].filter(Boolean).join(' · ')||'No contact details')+'</p><p class="hint">'+c.lines+' batch lines'+(c.last?' · Last delivery '+fd(c.last):' · No deliveries yet')+'</p><div class="btns"><button class="btn" data-act="editClient" data-name="'+esc(c.name)+'">Edit details</button>'+(c.lines?'<button class="btn" data-act="client" data-name="'+esc(c.name)+'">Delivery history</button>':'')+'</div></article>').join('');
 }
 
 let DL={async save({filename,data}){

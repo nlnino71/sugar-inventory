@@ -1,4 +1,6 @@
 import {test,expect} from '@playwright/test';
+// Exercise font fallback deterministically; third-party font outages must not stall workflows.
+test.beforeEach(async({page})=>{await page.route(/https:\/\/fonts\.(googleapis|gstatic)\.com\//,route=>route.abort());});
 // No core workflow depends on an external spreadsheet CDN.
 test.beforeEach(async({page})=>{await page.route('https://cdn.jsdelivr.net/**',route=>route.abort());});
 test('overview, stock report, delivery search and client editing',async({page},info)=>{
