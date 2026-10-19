@@ -25,7 +25,12 @@
   "rewrites": [
     {
       "source": "/view/:slug",
-      "destination": "/index.html"
+      "destination": "/api/public-view?slug=:slug"
     }
-  ]
+  ],
+  "functions": {
+    "api/public-view.js": {
+      "includeFiles": "dist/index.html"
+    }
+  }
 }

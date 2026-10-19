@@ -96,3 +96,9 @@ Supabase must have email signup enabled and Site URL / allowed redirect URLs set
 Run `supabase/public-slugs.sql` after public-sharing.sql to enable `/view/public`. While signed in, change **More → Public view-only sharing → Public link slug**, then choose **Save slug**. Slugs use 3–64 lowercase letters, numbers and single hyphens. Changing the slug invalidates its previous path; the old token URL remains valid until replaced. **Replace link** rotates both the token and slug. **Disable public sharing** blocks both formats. Readable slugs are public, discoverable addresses and preserve the existing public projection and read-only database permissions.
 
 Vercel rewrites `/view/:slug` to the app so shared links work on direct navigation and refresh.
+
+## Messenger and Viber link previews
+
+Public `/view/:slug` requests serve the app through `api/public-view.js`, which includes the exact canonical URL, Open Graph title/description, PNG image metadata and Twitter large-image tags in the initial HTML. No crawler JavaScript or account login is needed. Vercel includes the built `dist/index.html` in the function bundle. The 1200×630 preview at `/share-preview-v1.png` contains generic branding, not live inventory records or private client details.
+
+Regenerate the committed preview image with `node scripts/generate-preview.mjs` (requires local Google Chrome). The image is already included in the repository; Vercel does not run Chrome during builds. Messenger/Viber control actual preview rendering and caching. Previously shared messages may retain their old previews; test by pasting the URL in a fresh message. Facebook's Sharing Debugger can request a fresh scrape.
