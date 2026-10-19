@@ -93,6 +93,6 @@ Supabase must have email signup enabled and Site URL / allowed redirect URLs set
 
 ## Readable public URLs
 
-Run `supabase/public-slugs.sql` after public-sharing.sql to enable `/view/sugar-inventory`. While signed in, change **More → Public view-only sharing → Public link slug**, then choose **Save slug**. Slugs use 3–64 lowercase letters, numbers and single hyphens. Changing the slug invalidates its previous path; the old token URL remains valid until replaced. **Replace link** rotates both the token and slug. **Disable public sharing** blocks both formats. Readable slugs are public, discoverable addresses and preserve the existing public projection and read-only database permissions.
+Run `supabase/public-slugs.sql` after public-sharing.sql to enable `/view/public`. While signed in, change **More → Public view-only sharing → Public link slug**, then choose **Save slug**. Slugs use 3–64 lowercase letters, numbers and single hyphens. Changing the slug invalidates its previous path; the old token URL remains valid until replaced. **Replace link** rotates both the token and slug. **Disable public sharing** blocks both formats. Readable slugs are public, discoverable addresses and preserve the existing public projection and read-only database permissions.
 
 Vercel rewrites `/view/:slug` to the app so shared links work on direct navigation and refresh.
