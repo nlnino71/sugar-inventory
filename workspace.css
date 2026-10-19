@@ -94,3 +94,23 @@ body.login-screen #account{border:0;background:transparent;padding:30px 22px;max
 .chart-empty{display:grid;place-items:center;text-align:center;min-height:240px;color:var(--muted);font-size:13px;background:var(--soft);border-radius:8px;padding:20px;margin:0}
 .stats-loading{min-height:220px;padding:28px;color:var(--muted);border:1px solid var(--line);border-radius:12px;background:var(--surface)}
 @media(max-width:767px){.admin-chart-grid{grid-template-columns:1fr}.admin-chart{padding:18px}.stats-toolbar{align-items:flex-start;flex-wrap:wrap}.stats-toolbar label.f{width:100%}.chart-canvas,.chart-wide .chart-canvas{height:240px}.admin-stats-metrics dd{font-size:28px}.admin-stats-metrics dt{font-size:12px}}
+
+/* Keep page context and actions on one compact row at every width. */
+.top,.workspace .top{flex-wrap:nowrap;gap:16px;min-height:68px;padding-block:12px}
+.top .page-heading{flex:1;flex-direction:row;align-items:center;justify-content:flex-start;gap:16px;width:auto;min-width:0}
+.top h1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.top .unit,.workspace .top .unit{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal;max-width:none;min-width:0;text-align:left}
+.top .connection-bar,.workspace .top .connection-bar{flex-wrap:nowrap;width:auto;gap:8px;flex-shrink:0}
+.top .theme-toggle{margin:0}
+.top .header-actions{gap:8px;flex-shrink:0}
+@media(max-width:767px){
+ .top,.workspace .top{gap:8px;padding:8px 12px;min-height:60px}
+ .top .page-heading{gap:8px}
+ .top h1,.workspace .top h1{font-size:20px}
+ .top .unit,.workspace .top .unit{font-size:11px}
+ .top .connection-bar,.workspace .top .connection-bar,.top .header-actions{gap:2px}
+ .top .header-actions .btn,.top .theme-toggle{width:44px;height:44px;min-height:44px;padding:11px;justify-content:center}
+ .top .header-actions .btn span{display:none}
+ .top .header-actions svg{width:20px;height:20px}
+ .top #cloudStatus:not([hidden]){order:0;flex:none;min-width:0;max-width:52px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:10px}
+}

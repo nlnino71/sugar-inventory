@@ -25,6 +25,11 @@ test('overview, stock report, delivery search and client editing',async({page},i
  await page.goto('/');await page.getByLabel('Email',{exact:true}).fill('staff@example.com');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();
  await expect(page.getByRole('heading',{name:'Inventory at a glance'})).toBeVisible();
  await expect(page.locator('header.top')).toBeVisible();
+ const toolbar=await page.locator('header.top').boundingBox();
+ const toolbarItems=await page.locator('#title,#unitLbl,#themeToggle,#reloadCloud,#signOut').evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return {top:r.top,bottom:r.bottom};}));
+ expect(Math.max(...toolbarItems.map(r=>r.top))).toBeLessThan(Math.min(...toolbarItems.map(r=>r.bottom)));
+ expect(toolbar.height).toBeLessThanOrEqual(80);
+ await page.locator('header.top').screenshot({path:'.impeccable/review/compact-header-'+info.project.name+'.png'});
  await expect(page.locator('#inventoryCharts canvas')).toHaveCount(5);
  await page.getByRole('combobox',{name:'Inventory chart period'}).selectOption('7');
  await expect(page.locator('#inventoryCharts .chart-empty')).toHaveCount(3);
