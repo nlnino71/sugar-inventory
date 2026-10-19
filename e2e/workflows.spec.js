@@ -129,7 +129,7 @@ test('signup errors allow retry without granting inventory access',async({page})
  await expect(page.getByRole('button',{name:'Create account',exact:true})).toBeEnabled();
  await expect(page.locator('#nav')).toBeHidden();
 });
-test('unapproved account signs in but cannot open inventory',async({page})=>{
+test('database setup failure keeps inventory unavailable with retry guidance',async({page})=>{
  const user={id:'22222222-2222-4222-8222-222222222222',aud:'authenticated',role:'authenticated',email:'new@example.com',app_metadata:{provider:'email'},user_metadata:{},created_at:'2026-01-01T00:00:00Z'};
  await page.route('https://nvkawrmoacikzdfowvem.supabase.co/**',route=>{
   if(route.request().url().includes('/auth/v1/token'))return route.fulfill({json:{access_token:'test-token',refresh_token:'refresh-token',expires_in:3600,token_type:'bearer',user}});
@@ -137,6 +137,6 @@ test('unapproved account signs in but cannot open inventory',async({page})=>{
   return route.fulfill({json:user});
  });
  await page.goto('/');await page.getByLabel('Email',{exact:true}).fill('new@example.com');await page.getByLabel('Password',{exact:true}).fill('example-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();
- await expect(page.getByText(/awaiting inventory access approval/)).toBeVisible();
+ await expect(page.getByText(/private inventory could not be opened/)).toBeVisible();
  await expect(page.locator('#nav')).toBeHidden();await expect(page.locator('#main')).toBeHidden();
 });

@@ -20,7 +20,7 @@ const slugPath=(window.location.pathname||'/').startsWith('/view/');
 const publicSlug=slugPath?(window.location.pathname.split('/')[2]||''):'';
 const validSlug=value=>value.length>=3&&value.length<=64&&/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value);
 const readOnly=!!publicToken||slugPath;
-let shareSettings=null, shareError='';
+let shareSettings=null, shareError='', accountId=null;
 let authMode='signin', authBusy=false;
 const KEY='sugar-inventory.v1';
 const blank = ()=>({unit:'bags (LKg)',receipts:[],issues:[],clients:[],seq:0,clientProfiles:{},activity:[],lowStockPercent:20});
@@ -30,7 +30,7 @@ const key=import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const db=url&&key?createClient(url,key):null;
 function lock(on){ document.body.inert=on; $('#cloudStatus').textContent=on?'Saving…':(readOnly?'Public view · Read only':ready?'Saved to Supabase':'Sign in to continue'); }
 async function readCloud(){
-  const {data,error}=await db.from('inventory').select('data,revision').eq('id','main').single();
+  const {data,error}=await db.from('inventory').select('data,revision').eq('owner_id',accountId).single();
   if(error) throw error;
   S=Object.assign(blank(),data.data); revision=data.revision; committed=structuredClone(S);
 }
@@ -56,11 +56,13 @@ async function save(){
 }
 async function showAccount(session){
   document.body.classList.toggle('login-screen',!session);
-  ready=false; closeSheet(true); S=blank(); render();
+  if(accountId!==(session?.user?.id||null)){tab='dashboard';q='';rq='';clientQuery='';deliveryFilter={query:'',from:'',to:'',client:''};}
+  accountId=session?.user?.id||null;shareSettings=null;shareError='';revision=0;
+  ready=false; closeSheet(true); S=blank();committed=structuredClone(S); render();
   $('#account').hidden=false; $('#nav').hidden=true;
   if(!session){ lock(false); $('#main').hidden=true; $('#accountMessage').textContent='Sign in with your inventory account.'; return; }
-  try { await readCloud(); ready=true; $('#main').hidden=false; $('#account').hidden=true; $('#nav').hidden=false; render(); }
-  catch(error){ $('#main').hidden=true; $('#accountMessage').textContent=(error.code==='PGRST116'||error.code==='42501')?'Your account is signed in and awaiting inventory access approval. Ask the administrator to approve your email, then select Refresh.':'Could not load inventory. Select Refresh to retry. '+error.message; }
+  try { const {error:setupError}=await db.rpc('ensure_inventory');if(setupError)throw setupError; await readCloud(); ready=true; $('#main').hidden=false; $('#account').hidden=true; $('#nav').hidden=false; render(); }
+  catch(error){ $('#main').hidden=true; $('#accountMessage').textContent=(error.code==='PGRST116'||error.code==='42501')?'Your private inventory could not be opened. Select Refresh to retry. If this continues, ask the site owner to finish the account-inventories database upgrade.':'Could not load inventory. Select Refresh to retry. '+error.message; }
   lock(false);
 }
 
@@ -284,7 +286,7 @@ function vMore(){
    '<button class="btn block" data-act="import">Import SRO quantity or issuance CSV</button></div>'+
    '<p>CSV columns must match the Excel inventory file: SRO Date, SRO Number, Type of Sugar, Mill Source, Quantity for SRO quantity; Date, SRO Number, Ref ATW Number, Type of Sugar, Client, SRA Permit No., Mill Waybill Number, Batch Codes, Quantity per Batch Code for issuance, plus optional Bill of Lading No., Vessel, Voy No., Sailing Date.</p></div>'+
    '<div class="sec"><h2>Data</h2></div><div class="setting"><div class="stack"><button class="btn block" data-act="sample">Load sample data</button><button class="btn danger block" data-act="clear">Delete all data</button></div>'+
-   '<p>Your records are saved to Supabase and shared with approved accounts. Export backups regularly.</p></div>';
+   '<p>Your records are saved to your private Supabase inventory. Public links are read-only and controlled by you. Export backups regularly.</p></div>';
 }
 
 /* ---------- sheet / dialog / toast ---------- */
@@ -990,7 +992,7 @@ $('#file').addEventListener('change',async e=>{
   else if(fileMode==='restore'){
     let o; try{ o=JSON.parse(text); }catch(err){ toast('That is not a valid backup file.'); return; }
     if(!o||!Array.isArray(o.receipts)||!Array.isArray(o.issues)){ toast('That is not a valid backup file.'); return; }
-    if(await ask('Restore backup','This replaces all data in the shared inventory with the backup ('+o.receipts.length+' SRO quantities, '+o.issues.length+' issuance lines).','Restore',true)){
+    if(await ask('Restore backup','This replaces all data in your inventory with the backup ('+o.receipts.length+' SRO quantities, '+o.issues.length+' issuance lines).','Restore',true)){
       S=Object.assign(blank(),o); S.seq=Math.max(S.seq||0,...S.issues.map(i=>i.seq||0)); if(!await save()) return; render(); toast('Backup restored');
     }
   }
@@ -1114,7 +1116,7 @@ document.addEventListener('click',async e=>{
     case 'sample':
       if(!S.receipts.length&&!S.issues.length || await ask('Load sample data','This replaces your current data with fictitious examples.','Replace',true)){ if(await loadSample()) toast('Sample data loaded'); } break;
     case 'clear':
-      if(await ask('Delete all data','All SRO quantities and issuances in the shared inventory will be removed. Save a backup first if you need one.','Delete everything',true)){ S=blank(); if(!await save()) return; render(); toast('All data deleted'); } break;
+      if(await ask('Delete all data','All SRO quantities and issuances in your inventory will be removed. Save a backup first if you need one.','Delete everything',true)){ S=blank(); if(!await save()) return; render(); toast('All data deleted'); } break;
   }
 });
 document.addEventListener('submit',e=>{ e.preventDefault(); if(!ready||saving||readOnly) return; if(e.target.id==='clientForm') saveClient(e.target); if(e.target.id==='fRec') saveReceipt(e.target); if(e.target.id==='fIss') saveIssue(e.target); });
@@ -1149,8 +1151,8 @@ function restrictPublicControls(){
 }
 function publicLink(){return shareSettings.slug?window.location.origin+'/view/'+shareSettings.slug:window.location.origin+'/#view='+shareSettings.token;}
 async function loadSharing(){
- const {data,error}=await db.from('inventory_shares').select('token,enabled,slug').eq('id','main').single();
- shareSettings=data; shareError=error?'Public sharing needs database setup. Run supabase/public-slugs.sql after public-sharing.sql in the Supabase SQL editor.':'';
+ const {data,error}=await db.from('inventory_shares').select('token,enabled,slug').eq('owner_id',accountId).single();
+ shareSettings=data; shareError=error?'Public sharing could not be loaded. Try refreshing your inventory.':'';
 }
 function sharingPanel(){
  return '<section class="setting"><h2>Public view-only sharing</h2><p>Anyone with the link can view stock, client names, quantities and delivery references. Client contacts, notes and change history stay private. Visitors cannot edit or export records.</p>'+(shareError?'<p role="status">'+esc(shareError)+'</p>':!shareSettings?'<p>Open More again to load sharing settings.</p>':'<p><strong>'+(shareSettings.enabled?'Sharing is enabled':'Sharing is disabled')+'</strong></p>'+(shareSettings.enabled?'<label class="f">View-only link<input id="publicLink" readonly value="'+esc(publicLink())+'"></label><button class="btn" data-act="copySharing">Copy public link</button>':'')+'<label class="f">Public link slug<input id="publicSlug" maxlength="64" value="'+esc(shareSettings.slug||'public')+'" placeholder="public"></label><button class="btn" data-act="savePublicSlug">Save slug</button><p class="hint">Use lowercase letters, numbers and hyphens. Changing the slug stops the previous slug URL from working. This is a public, discoverable address.</p><div class="btns"><button class="btn" data-act="toggleSharing">'+(shareSettings.enabled?'Disable public sharing':'Enable public sharing')+'</button><button class="btn" data-act="rotateSharing">Replace link</button></div>')+'</section>';
@@ -1158,7 +1160,7 @@ function sharingPanel(){
 async function updateSharing(changes){
  if(readOnly||!ready||saving||!shareSettings)return;
  saving=true;lock(true);
- try{const {data,error}=await db.from('inventory_shares').update(changes).eq('id','main').select('token,enabled,slug').single();if(error)throw error;shareSettings=data;render();toast(data.enabled?'Public link is ready':'Public sharing disabled');}
+ try{const {data,error}=await db.from('inventory_shares').update(changes).eq('owner_id',accountId).select('token,enabled,slug').single();if(error)throw error;shareSettings=data;render();toast(data.enabled?'Public link is ready':'Public sharing disabled');}
  catch(error){toast('Sharing could not be updated: '+error.message);}
  finally{saving=false;lock(false);}
 }
@@ -1199,7 +1201,7 @@ $('#loginForm').addEventListener('submit',async e=>{
   const {data,error}=signup?await db.auth.signUp({...credentials,options:{emailRedirectTo:window.location.origin+'/'} }):await db.auth.signInWithPassword(credentials);
   if(error)throw error;
   $('#password').value='';
-  if(signup&&!data.session){setAuthMode('signin');$('#accountMessage').textContent='Check your email for a confirmation link. After confirming, sign in here. Inventory editing requires administrator approval.';}
+  if(signup&&!data.session){setAuthMode('signin');$('#accountMessage').textContent='Check your email for a confirmation link. After confirming, sign in to open your own private inventory.';}
   else await showAccount(data.session);
  }catch(error){$('#accountMessage').textContent=error.message;}
  finally{authBusy=false;button.disabled=false;$('#switchAuth').disabled=false;}

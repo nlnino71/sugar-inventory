@@ -12,7 +12,7 @@ Sugar Inventory records SRO quantities and issuance batch lines and computes sto
 
 ## Operating Context
 
-The app is deployed on Vercel with Supabase email/password authentication. Approved inventory members share a single inventory. Existing receipts, issues, JSON backup compatibility and quantity units must be preserved.
+The app is deployed on Vercel with Supabase email/password authentication. Each registered account owns a private inventory, enforced by owner-only database row policies. New accounts start empty with public sharing disabled; the original owner keeps the existing records and /view/public link. Existing receipts, issues, JSON backup compatibility and quantity units must be preserved.
 
 ## Capabilities and Constraints
 
@@ -20,4 +20,4 @@ Vite and plain JavaScript frontend. Supabase stores the inventory as a JSONB doc
 
 ## Open Decisions
 
-Specific staff roles and warehouse organization have not been established. Activity history in the shared document is operational history, not an immutable compliance audit.
+Specific staff roles and warehouse organization have not been established. Activity history in each account’s document is operational history, not an immutable compliance audit.

@@ -1,13 +1,14 @@
 # Sugar Inventory
 
-Existing inventory interface, packaged with Vite for Vercel, using Supabase Auth and PostgreSQL. Approved accounts share one inventory. Receipts, issuance lines, clients and settings are stored together in a JSONB document; revision checks prevent concurrent browser sessions from silently overwriting each other. This preserves the original backup format and atomic multi-record edits.
+Existing inventory interface, packaged with Vite for Vercel, using Supabase Auth and PostgreSQL. Every registered account owns a separate private inventory. Receipts, issuance lines, clients and settings are stored together in a JSONB document; revision checks prevent concurrent browser sessions from silently overwriting each other. This preserves the original backup format and atomic multi-record edits.
 
 ## Supabase setup
 
-1. Open https://supabase.com/dashboard/project/nvkawrmoacikzdfowvem/sql/new and run `supabase/setup.sql` once.
-2. Under Authentication → Users, create your email/password account. Disable public signups under Auth settings if only invited staff should sign in.
-3. Run the membership insert shown at the bottom of `supabase/setup.sql`, with your email. Repeat for each staff member who should access the shared inventory.
-4. Anonymous visitors and accounts without membership cannot read or update inventory. Never use a service-role key in this frontend.
+For the existing deployment, `supabase/account-inventories.sql` has been applied after setup.sql, public-sharing.sql and public-slugs.sql. It preserves the original `main` inventory for the verified owner email, adds owner-only row policies, backfills other accounts with empty records, and provisions each future signup automatically. `ensure_inventory()` repairs a missing inventory only for the signed-in caller. New public links start disabled and have unique slugs; `/view/public` stays with the original owner.
+
+For a fresh installation, run setup.sql, create the original owner account (update the verified owner email in the migration), then run public-sharing.sql, public-slugs.sql and account-inventories.sql in that order. Enable Supabase email signups and confirmation. Do not run the historical setup/share scripts again after upgrading, since they describe the old shared installation.
+
+The migration transaction keeps pre-upgrade inventory and sharing snapshots in an inaccessible `inventory_backup` schema. Database owners can inspect those snapshots; browser clients cannot. Never use a service-role key in the frontend.
 
 The app uses the supplied project URL and public publishable key. These identify the project; database access is enforced with Auth and row level security.
 
@@ -42,9 +43,9 @@ git push -u origin main
 2. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` using `.env.example` for the values, in Production and Preview environments.
 3. Deploy. `vercel.json` configures Vite, the build command, and the `dist` output directory.
 4. In Supabase Authentication → URL Configuration set Site URL to the production Vercel URL.
-5. Sign in, add an SRO quantity, refresh, and confirm it remains. Sign in on another device to verify shared access. Verify an unapproved account cannot load inventory.
+5. Sign in, add an SRO quantity, refresh, and confirm it remains. Sign in on another device to verify the same account’s records persist. Register a second account and verify it starts empty and cannot access the first account’s records.
 
-Existing data in the original file remains in that browser. Export a JSON backup there and use More → Restore from backup in the deployed app after signing in. Restore, sample data and delete-all affect the shared inventory for every approved account.
+Existing data in the original file remains in that browser. Export a JSON backup there and use More → Restore from backup in the deployed app after signing in. Restore, sample data and delete-all affect only the signed-in account’s inventory.
 
 ## Verification
 
@@ -87,7 +88,7 @@ At 1024px and wider, the workspace uses a fixed left sidebar, wider content area
 
 ## Self-service accounts
 
-The sign-in screen includes **Create an account**. Anyone can register an email/password account, confirm the email from Supabase, and sign in. Registration does not add users to `inventory_members`; a project administrator grants inventory access with the membership insert in `supabase/setup.sql`. New users see a pending-approval message until granted access. Public sharing still works without an account.
+The sign-in screen includes **Create an account**. Anyone can register an email/password account, confirm the email from Supabase, and sign in. Registration automatically creates a private empty inventory; administrator approval is no longer required. Database row policies scope reads, edits and sharing settings to `auth.uid()`. Public sharing still works without an account.
 
 Supabase must have email signup enabled and Site URL / allowed redirect URLs set to `https://sugar-inventory.vercel.app/`. The live project had signup enabled and confirmation required when this feature was implemented. Email sending limits and delivery are controlled by Supabase's mail configuration.
 
@@ -99,7 +100,7 @@ Vercel rewrites `/view/:slug` to the app so shared links work on direct navigati
 
 ## Messenger and Viber link previews
 
-Public `/view/:slug` requests serve the app through `api/public-view.js`, which includes the exact canonical URL, Open Graph title/description, PNG image metadata and Twitter large-image tags in the initial HTML. No crawler JavaScript or account login is needed. Vercel includes the built `dist/index.html` in the function bundle. The 1200×630 preview at `/share-preview-v1.png` contains generic branding, not live inventory records or private client details.
+Public `/view/:slug` requests serve the app through `api/public-view.js`, which includes the exact canonical URL, Open Graph title/description, PNG image metadata and Twitter large-image tags in the initial HTML. No crawler JavaScript or account login is needed. Vercel includes the built `dist/index.html` in the function bundle. The 1200×630 preview at `/share-preview-v2.png` contains generic branding, not live inventory records or private client details.
 
 Regenerate the committed preview image with `node scripts/generate-preview.mjs` (requires local Google Chrome). The image is already included in the repository; Vercel does not run Chrome during builds. Messenger/Viber control actual preview rendering and caching. Previously shared messages may retain their old previews; test by pasting the URL in a fresh message. Facebook's Sharing Debugger can request a fresh scrape.
 
@@ -130,3 +131,5 @@ Reports and client totals use indexed aggregation. Client search updates results
 The sugar-cube and cane-sprout mark is available as `public/app-icon.svg`, with a matching `public/logo.svg` wordmark. Browser favicon, Apple touch icon, 192/512px app icons and the web manifest use the same mark. `node scripts/generate-icons.mjs` renders PNGs using Chrome; `magick public/app-icon-512.png -define icon:auto-resize=64,48,32,16 public/favicon.ico` regenerates the ICO. `node scripts/generate-preview.mjs` renders the Messenger/Viber Open Graph artwork. Preview artwork uses a versioned URL so services can fetch the refreshed branding; previously shared messages may retain their cached preview.
 
 On phones and tablets below 1024px, staff navigation has four buttons: Overview, Stock, Issuance and Menu. Menu opens SRO Quantity, Clients, Reports and Settings & sharing in a keyboard-accessible sheet. The desktop sidebar retains all sections. Public viewers retain their four read-only destinations.
+
+Account-isolation database checks were rehearsed against Supabase in a rolled-back transaction using account-inventories.sql followed by account-inventories.verify.sql in place of COMMIT. The verification fixture asserts the original deployment snapshot (8 receipts / 24 issuance lines); adapt those snapshot assertions for other datasets. Browser account tests use mocks; they supplement rather than prove database authorization.

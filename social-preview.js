@@ -4,7 +4,7 @@ export const validPublicSlug=slug=>typeof slug==='string'&&slug.length>=3&&slug.
 export function socialMetadata(slug){
  const shared=validPublicSlug(slug),url=shared?origin+'/view/'+slug:origin+'/';
  const title=shared?'Sugar Inventory — Public View':'Sugar Inventory';
- const description=shared?'View sugar stock, SRO balances and delivery records. Read-only access; no sign-in required.':'Track sugar stock, SRO quantities and deliveries in one shared inventory workspace.';
+ const description=shared?'View sugar stock, SRO balances and delivery records. Read-only access; no sign-in required.':'Track sugar stock, SRO quantities and deliveries in your private inventory workspace.';
  return `<!-- social-preview:start -->
 <meta name="description" content="${escape(description)}">
 <link rel="canonical" href="${url}">
