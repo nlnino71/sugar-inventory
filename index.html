@@ -34,6 +34,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<script>
+try{const theme=localStorage.getItem('sugar-theme');document.documentElement.dataset.theme=['light','dark','auto'].includes(theme)?theme:'auto';}catch{}
+</script>
 <style>
 :root{
   --bg:#EEF2EF; --surface:#FFFFFF; --ink:#14231D; --muted:#5B6B64; --line:#D3DCD7; --soft:#E3EBE6;
@@ -391,13 +394,20 @@ body.login-screen .top{display:none}
 body.login-screen{display:flex;flex-direction:column;min-height:100vh;min-height:100dvh;padding:24px 16px;padding-top:max(24px,env(safe-area-inset-top,0px));padding-bottom:max(24px,env(safe-area-inset-bottom,0px))}
 body.login-screen #account{width:100%;flex-shrink:0;margin:auto!important}
 </style>
+<link rel="stylesheet" href="/workspace.css">
 </head>
 <body class="login-screen">
 <header class="top"><div class="page-heading"><h1 id="title">Stock</h1><span class="unit" id="unitLbl"></span></div>
-<div class="connection-bar"><span id="cloudStatus" role="status">Sign in to continue</span><div class="header-actions"><button class="btn" id="reloadCloud" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></svg><span>Refresh</span></button><button class="btn" id="signOut" type="button">Sign out</button></div></div></header>
+<div class="connection-bar"><span id="auditStatus" role="status" class="hint" hidden></span><button id="themeToggle" class="btn theme-toggle" type="button" aria-label="Switch to dark mode" title="Switch to dark mode"></button><span id="cloudStatus" role="status">Sign in to continue</span><div class="header-actions"><button class="btn" id="reloadCloud" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></svg><span>Refresh</span></button><button class="btn" id="signOut" type="button">Sign out</button></div></div></header>
+<aside class="login-intro" aria-label="About Sugar Inventory">
+<div class="login-brand"><img src="/app-icon.svg" width="40" height="40" alt=""><span>Sugar Inventory</span></div>
+<div class="login-intro-copy"><h1>A clear view of<br>every movement.</h1><p>Stock on hand. Deliveries in motion.<br>Your inventory, in one place.</p></div>
+<div class="login-intro-foot"><span>SRO quantities</span><span>Issuance &amp; deliveries</span><span>Stock reports</span></div>
+</aside>
 <section id="account" role="main" aria-labelledby="accountTitle" tabindex="-1" class="setting" style="max-width:420px;margin:40px auto">
 <img class="account-logo" src="/app-icon.svg" width="64" height="64" alt="">
 <h2 id="accountTitle">Sign in to Sugar Inventory</h2><p id="accountMessage" role="status">Connecting to Supabase…</p>
+<p class="hint">Visits, sign-ins and inventory activity are logged for security, including available IP and browser/device details.</p>
 <form id="loginForm"><label class="f">Email<input id="email" type="email" autocomplete="username" required></label><label class="f">Password<input id="password" type="password" autocomplete="current-password" required></label><button class="btn primary block" id="loginButton">Sign in</button></form>
 <p id="signupNote" class="hint" hidden>Confirm your email after signing up, then sign in to your own private inventory. Your records are separate from other accounts.</p>
 <button id="switchAuth" class="btn block" type="button" style="margin-top:12px">Create an account</button>

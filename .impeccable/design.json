@@ -1,0 +1,154 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-19T22:07:25.238929+00:00",
+  "title": "Design System: Sugar Inventory",
+  "extensions": {
+    "colorMeta": {
+      "cane": {
+        "role": "primary",
+        "displayName": "Cane Green",
+        "tonalRamp": [
+          "oklch(15% 0.075 155)",
+          "oklch(27% 0.075 155)",
+          "oklch(38% 0.075 155)",
+          "oklch(49% 0.075 155)",
+          "oklch(61% 0.075 155)",
+          "oklch(72% 0.075 155)",
+          "oklch(84% 0.075 155)",
+          "oklch(95% 0.075 155)"
+        ]
+      },
+      "bg": {
+        "role": "neutral",
+        "displayName": "Pale Neutral",
+        "tonalRamp": [
+          "oklch(15% 0.006 155)",
+          "oklch(27% 0.006 155)",
+          "oklch(38% 0.006 155)",
+          "oklch(49% 0.006 155)",
+          "oklch(61% 0.006 155)",
+          "oklch(72% 0.006 155)",
+          "oklch(84% 0.006 155)",
+          "oklch(95% 0.006 155)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "quantity": {
+        "displayName": "Quantity",
+        "purpose": "Tabular overview balances; responsive sizing in DESIGN.md."
+      }
+    },
+    "shadows": [
+      {
+        "name": "button",
+        "value": "0 3px 7px rgb(0 0 0 / .08)",
+        "purpose": "Primary action emphasis."
+      },
+      {
+        "name": "mobile-nav",
+        "value": "0 -4px 20px rgb(0 0 0 / .05)",
+        "purpose": "Bottom navigation separation."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state",
+        "value": ".18s ease",
+        "purpose": "Background, color and transform changes only when reduced motion is not requested."
+      },
+      {
+        "name": "sheet",
+        "value": ".18s ease-out",
+        "purpose": "Mobile sheet entrance only when motion is allowed."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "form-columns",
+        "value": "480px"
+      },
+      {
+        "name": "compact-header",
+        "value": "600px"
+      },
+      {
+        "name": "mobile-layout-max",
+        "value": "767px"
+      },
+      {
+        "name": "desktop",
+        "value": "1024px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Standard inventory action.",
+      "html": "<button class=\"ds-button-primary\">Save changes</button>",
+      "css": ".ds-button-primary{font-family:var(--body,Barlow,sans-serif);font-size:14px;font-weight:600;min-height:44px;padding:11px 17px;border-radius:8px;border:1px solid var(--line,#dce4df);background:var(--surface,#fff);color:var(--ink,#192d26);cursor:pointer}.ds-button-primary{background:var(--cane,#226b4d);border-color:var(--cane,#226b4d);color:var(--cane-ink,#fff);box-shadow:0 3px 7px rgb(0 0 0 / .08)}.ds-button-primary:hover{filter:brightness(.96)}.ds-button-primary:focus-visible{outline:2px solid var(--focus,#155B3B);outline-offset:2px}.ds-button-primary:active{transform:translateY(1px)}"
+    },
+    {
+      "name": "Secondary button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Standard inventory action.",
+      "html": "<button class=\"ds-button-secondary\">Save changes</button>",
+      "css": ".ds-button-secondary{font-family:var(--body,Barlow,sans-serif);font-size:14px;font-weight:600;min-height:44px;padding:11px 17px;border-radius:8px;border:1px solid var(--line,#dce4df);background:var(--surface,#fff);color:var(--ink,#192d26);cursor:pointer}.ds-button-secondary:hover{filter:brightness(.96)}.ds-button-secondary:focus-visible{outline:2px solid var(--focus,#155B3B);outline-offset:2px}.ds-button-secondary:active{transform:translateY(1px)}"
+    },
+    {
+      "name": "Text field",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "Labeled operational input.",
+      "html": "<label class=\"ds-field\">Reference<input placeholder=\"Enter reference\"></label>",
+      "css": ".ds-field{display:grid;gap:4px;font:500 13px var(--body,Barlow,sans-serif);color:var(--muted,#5e7068)}.ds-field input{height:46px;padding:0 12px;border:1px solid var(--control-line,#748a7b);border-radius:8px;background:var(--surface,#fff);color:var(--ink,#192d26);font:16px var(--body,Barlow,sans-serif)}.ds-field input:hover{border-color:var(--focus,#155B3B)}.ds-field input:focus-visible{outline:2px solid var(--focus,#155B3B);outline-offset:2px}"
+    },
+    {
+      "name": "Stock card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Illustrative quantity surface; the number is sample content.",
+      "html": "<article class=\"ds-card\"><h3>Stock on hand</h3><strong>1,240</strong><p>Current balance</p></article>",
+      "css": ".ds-card{padding:20px;border:1px solid var(--line,#dce4df);border-radius:12px;background:var(--surface,#fff);color:var(--ink,#192d26);font-family:var(--body,Barlow,sans-serif)}.ds-card h3{margin:0;font-size:20px;font-weight:600}.ds-card strong{display:block;font-size:35px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--stock-ink,#175D3E)}.ds-card p{margin:5px 0 0;color:var(--muted,#5e7068);font-size:13px}"
+    },
+    {
+      "name": "Status chip",
+      "kind": "chip",
+      "refersTo": "",
+      "description": "Noninteractive status label.",
+      "html": "<span class=\"ds-chip\">Attention</span>",
+      "css": ".ds-chip{display:inline-block;border-radius:999px;padding:4px 10px;font:600 11px var(--body,Barlow,sans-serif);background:var(--tag-bg,#FBEBC4);color:var(--tag,#775000);white-space:nowrap}"
+    },
+    {
+      "name": "Desktop navigation",
+      "kind": "nav",
+      "refersTo": "",
+      "description": "Forest navigation with pale active selection.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Sections\"><button aria-current=\"page\">Stock</button><button>Deliveries</button></nav>",
+      "css": ".ds-nav{display:grid;gap:7px;padding:16px;background:#163d2e;width:200px}.ds-nav button{padding:13px 16px;min-height:48px;border:0;border-radius:8px;text-align:left;font:500 14px var(--body,Barlow,sans-serif);background:transparent;color:#c4d5cb;cursor:pointer}.ds-nav button[aria-current]{background:#e2eee6;color:#17452f}.ds-nav button:hover:not([aria-current]){background:#244e3d;color:#fff}.ds-nav button:focus-visible{outline:2px solid var(--focus,#155B3B);outline-offset:2px}"
+    }
+  ],
+  "narrative": {
+    "overview": "A calm operational workspace for inspecting stock, SRO quantities, issuance and deliveries. Forest navigation anchors the desktop while pale neutral surfaces keep records and actions readable. Barlow headings and tabular figures give quantities a clear hierarchy.",
+    "keyCharacteristics": [
+      "Forest desktop navigation with neutral work surfaces.",
+      "Prominent tabular quantities and restrained borders.",
+      "Responsive bottom navigation and a split desktop sign-in."
+    ],
+    "rules": [],
+    "dos": [
+      "Do use tabular figures for quantities and balances.",
+      "Do preserve visible focus and clear labels alongside status colors.",
+      "Do use the existing dark theme tokens and responsive navigation patterns."
+    ],
+    "donts": [
+      "Don\u2019t infer pricing, warehouse roles or audit guarantees from the visual design.",
+      "Don\u2019t replace operational quantities with decorative metrics.",
+      "Don\u2019t introduce unconditional animation; respect reduced motion."
+    ]
+  }
+}

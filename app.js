@@ -1,4 +1,8 @@
+import sunIcon from '@phosphor-icons/core/assets/regular/sun.svg?raw';
+import moonIcon from '@phosphor-icons/core/assets/regular/moon.svg?raw';
 
+import {createActivityTracker} from './activity.js';
+import {deviceInfo,openAdmin} from './admin.js';
 import { stockReport, matchingIssues, changeSummary, clientDirectory, threshold } from './features.js';
 import { createClient } from '@supabase/supabase-js';
 (async function(){
@@ -21,6 +25,7 @@ const publicSlug=slugPath?(window.location.pathname.split('/')[2]||''):'';
 const validSlug=value=>value.length>=3&&value.length<=64&&/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value);
 const readOnly=!!publicToken||slugPath;
 let shareSettings=null, shareError='', accountId=null;
+let isSuperadmin=false;
 let authMode='signin', authBusy=false;
 const KEY='sugar-inventory.v1';
 const blank = ()=>({unit:'bags (LKg)',receipts:[],issues:[],clients:[],seq:0,clientProfiles:{},activity:[],lowStockPercent:20});
@@ -28,7 +33,48 @@ let S=blank(), committed=structuredClone(S), revision=0, saving=false, ready=fal
 const url=import.meta.env.VITE_SUPABASE_URL;
 const key=import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const db=url&&key?createClient(url,key):null;
-function lock(on){ document.body.inert=on; $('#cloudStatus').textContent=on?'Saving…':(readOnly?'Public view · Read only':ready?'Saved to Supabase':'Sign in to continue'); }
+let activityPage='signin';
+const activity=createActivityTracker({
+ send:async(events,context)=>{
+  if(context.guest){
+   const response=await fetch('/api/activity',{method:'POST',keepalive:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({events,share_slug:context.slug||null,share_token:context.shareToken||null})});
+   if(!response.ok)throw new Error('Guest activity sync failed');return;
+  }
+  let token=context.token||key;
+  if(context.owner){const {data}=await db.auth.getSession();if(data.session?.user?.id===context.owner)token=data.session.access_token;}
+  const response=await fetch(url+'/rest/v1/rpc/record_inventory_events',{method:'POST',keepalive:true,headers:{'Content-Type':'application/json',apikey:key,Authorization:'Bearer '+token},body:JSON.stringify({events,share_slug:context.slug||null,share_token:context.shareToken||null})});
+  if(!response.ok)throw new Error('Activity sync failed');
+ },
+ onError:message=>{const status=$('#auditStatus');if(status){status.hidden=false;status.textContent=message;}},
+ onSynced:()=>{const status=$('#auditStatus');if(status)status.hidden=true;}
+});
+const track=(event,details={})=>activity.track(event,{page:activityPage,...details});
+function trackPage(page){activityPage=page;track('page.view',{page,device:deviceInfo()});}
+function startGuest(page,context={}){activity.start({guest:true,...context});trackPage(page);}
+
+function lock(on){
+ document.body.inert=on;
+ const status=$('#cloudStatus');
+ status.hidden=!on&&ready&&!readOnly;
+ status.textContent=on?'Saving…':readOnly?'Public view · Read only':ready?'':'Sign in to continue';
+}
+function effectiveDark(){return document.documentElement.dataset.theme==='dark'||(document.documentElement.dataset.theme!=='light'&&window.matchMedia('(prefers-color-scheme: dark)').matches);}
+function syncThemeControl(){
+ const dark=effectiveDark(),button=$('#themeToggle');
+ button.innerHTML=dark?sunIcon:moonIcon;
+ button.querySelector('svg').setAttribute('aria-hidden','true');
+ button.setAttribute('aria-label',dark?'Switch to light mode':'Switch to dark mode');
+ button.title=dark?'Switch to light mode':'Switch to dark mode';
+ document.querySelector('meta[name="theme-color"]').content=dark?'#101a15':'#f4f6f5';
+ const select=$('#appearance');if(select)select.value=document.documentElement.dataset.theme||'auto';
+}
+function applyTheme(theme){
+ if(!['light','dark','auto'].includes(theme))return;
+ document.documentElement.dataset.theme=theme;
+ try{localStorage.setItem('sugar-theme',theme);}catch{}
+ syncThemeControl();
+}
+
 async function readCloud(){
   const {data,error}=await db.from('inventory').select('data,revision').eq('owner_id',accountId).single();
   if(error) throw error;
@@ -44,24 +90,35 @@ async function save(){
     const {data,error}=await db.rpc('save_inventory',{expected_revision:revision,new_data:next});
     if(error) throw error;
     if(data===null) {
+      track('save.conflict',{revision});
       await readCloud(); render();
       toast('Inventory changed on another device. Latest records loaded; please reapply your edit.');
       return false;
     }
     revision=data; S=next; committed=structuredClone(next); return true;
   } catch(error){
+    track('save.failed',{revision,code:String(error.code||'unknown').slice(0,80)});
     S=structuredClone(committed); render();
     toast('Save failed. Your change was not confirmed: '+error.message); return false;
   } finally { saving=false; lock(false); }
 }
 async function showAccount(session){
+  await activity.stop();
+  isSuperadmin=false;
   document.body.classList.toggle('login-screen',!session);
   if(accountId!==(session?.user?.id||null)){tab='dashboard';q='';rq='';clientQuery='';deliveryFilter={query:'',from:'',to:'',client:''};}
   accountId=session?.user?.id||null;shareSettings=null;shareError='';revision=0;
   ready=false; closeSheet(true); S=blank();committed=structuredClone(S); render();
   $('#account').hidden=false; $('#nav').hidden=true;
-  if(!session){ lock(false); $('#main').hidden=true; $('#accountMessage').textContent='Sign in with your inventory account.'; return; }
-  try { const {error:setupError}=await db.rpc('ensure_inventory');if(setupError)throw setupError; await readCloud(); ready=true; $('#main').hidden=false; $('#account').hidden=true; $('#nav').hidden=false; render(); }
+  if(!session){startGuest(authMode==='signup'?'signup':'signin'); lock(false); $('#main').hidden=true; $('#accountMessage').textContent='Sign in with your inventory account.'; return; }
+  try { const {error:setupError}=await db.rpc('ensure_inventory');if(setupError)throw setupError; await readCloud();
+    const {data:adminAllowed}=await db.rpc('is_inventory_admin');
+    if(accountId!==session.user.id)return;
+    isSuperadmin=adminAllowed===true;
+    activity.start({owner:session.user.id,token:session.access_token});
+    trackPage(tab);
+    void db.rpc('record_inventory_access',{device:deviceInfo()}).then(()=>{},()=>{});
+    ready=true; $('#main').hidden=false; $('#account').hidden=true; $('#nav').hidden=false; render(); }
   catch(error){ $('#main').hidden=true; $('#accountMessage').textContent=(error.code==='PGRST116'||error.code==='42501')?'Your private inventory could not be opened. Select Refresh to retry. If this continues, ask the site owner to finish the account-inventories database upgrade.':'Could not load inventory. Select Refresh to retry. '+error.message; }
   lock(false);
 }
@@ -126,11 +183,13 @@ function renderNav(){
   $('#nav').innerHTML='<div class="nav-brand"><img src="/app-icon.svg" width="44" height="44" alt="">Sugar Inventory<small>'+ (readOnly?'Shared inventory':'Inventory workspace')+'</small></div>'+Object.keys(TITLES).filter(k=>!readOnly||['dashboard','stock','issue','reports'].includes(k)).map(k=>'<button class="'+(!readOnly&&['receive','clients','reports','more'].includes(k)?'nav-overflow':'')+'" data-act="tab" data-tab="'+k+'"'+(k===tab?' aria-current="page"':'')+'>'+ICON[k]+'<span>'+(k==='receive'?'SRO Qty':TITLES[k])+'</span></button>').join('')+(!readOnly?'<button class="nav-menu" data-act="navMenu" aria-haspopup="dialog"'+(['receive','clients','reports','more'].includes(tab)?' aria-current="page"':'')+'><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span>Menu</span></button>':'');
 }
 function render(){
+  $('#main').onclick=null;
   document.body.classList.toggle('workspace',ready);
   $('#main').dataset.view=tab;
   $('#title').textContent=TITLES[tab]; $('#unitLbl').textContent='Unit: '+S.unit;
   renderNav();
   $('#main').innerHTML=({dashboard:vDashboard,reports:vReports,stock:vStock,receive:vReceive,issue:vIssue,clients:vClients,more:vMore})[tab]();
+  if(tab==='more'&&isSuperadmin&&!readOnly)$('#main').insertAdjacentHTML('afterbegin','<section class="setting"><h2>Private administration</h2><p>Accounts, security events, IPs and device reports. Restricted to your account.</p><div class="btns"><button class="btn primary" data-act="superadmin">Open superadmin</button></div></section>');
   if(tab==='stock') updateList();
   if(tab==='receive') updateRList();
   if(readOnly){
@@ -319,7 +378,7 @@ function openSheet(html){
  if(!modalOpen('sheet'))sheetTrigger=document.activeElement;
  const sheet=$('#sheet');sheet.innerHTML=html;
  if(readOnly)restrictPublicControls();
- sheet.classList.add('on');sheet.scrollTop=0;syncModalLayers();
+ sheet.classList.add('on');track('panel.view',{panel:$('#sheetTitle')?.textContent||'Details'});sheet.scrollTop=0;syncModalLayers();
  const initial=sheet.querySelector('form input:not([type="hidden"])')||sheet.querySelector('#sheetTitle')||sheet;
  initial.focus({preventScroll:true});
 }
@@ -327,6 +386,7 @@ function closeSheet(force=false){
  if(modalOpen('dlg')){$('#dNo')?.click();if(!force)return;}
  const wasOpen=modalOpen('sheet'),trigger=sheetTrigger;
  $('#sheet').classList.remove('on');$('#sheet').innerHTML='';sheetTrigger=null;syncModalLayers();
+ if(wasOpen)track('panel.close');
  if(wasOpen)queueMicrotask(()=>restoreFocus(trigger));
 }
 function modalKeyboard(e){
@@ -345,9 +405,9 @@ function ask(title,msg,okLabel,danger){
  return new Promise(res=>{
   const d=$('#dlg');confirmationTrigger=document.activeElement;let settled=false;
   d.innerHTML='<h3 id="dialogTitle" style="font-family:var(--display);font-size:22px;margin:0 0 6px">'+esc(title)+'</h3><p id="dialogDescription">'+esc(msg)+'</p><div class="btns"><button class="btn" id="dNo">Cancel</button><button class="btn '+(danger?'danger':'primary')+'" id="dYes">'+esc(okLabel)+'</button></div>';
-  d.classList.add('on');syncModalLayers();
+  d.classList.add('on');track('panel.view',{panel:title,kind:'confirmation'});syncModalLayers();
   const done=value=>{
-   if(settled)return;settled=true;const trigger=confirmationTrigger;confirmationTrigger=null;
+   if(settled)return;settled=true;track('action.requested',{action:value?'confirmation.accept':'confirmation.cancel',panel:title});const trigger=confirmationTrigger;confirmationTrigger=null;
    d.classList.remove('on');d.innerHTML='';syncModalLayers();restoreFocus(trigger);res(value);
   };
   $('#dNo').onclick=()=>done(false);$('#dYes').onclick=()=>done(true);$('#dNo').focus();
@@ -485,7 +545,7 @@ const recRows=()=>[...S.receipts].sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0
 const issRows=()=>compute().sorted.map(i=>[i.date,i.sro,i.atw,i.type,i.client,i.permit,i.waybill,i.batch,i.qty,i.bol,i.vessel,i.voy,i.sail]);
 async function saveFile(name,data){
   if(!DL){ toast('Downloads are not available in this view.'); return; }
-  try{ await DL.save({filename:name,data}); toast('Saved '+name); }
+  try{ await DL.save({filename:name,data}); track('file.exported',{filename:name});toast('Saved '+name); }
   catch(e){ if(e&&e.code==='declined') return; toast('Could not save: '+((e&&e.message)||'unknown error')); }
 }
 const serial=s=>{ const p=s.split('-'); return (Date.UTC(+p[0],+p[1]-1,+p[2])-Date.UTC(1899,11,30))/86400000; };
@@ -1077,6 +1137,21 @@ async function saveClient(form){
  if(!await save())return;closeSheet();render();toast('Client details saved');
 }
 
+/* Browser activity: never collect passwords, typed values, tokens, or whole DOM. */
+document.addEventListener('click',e=>{
+ const button=e.target.closest('button,[data-act]');if(!button||button.disabled)return;
+ const d=button.dataset;
+ track('action.requested',{action:d.act||d.admin||(d.ip?'isp.lookup':button.id||'button'),record:d.id?.slice(0,512)||'',client:d.name?.slice(0,512)||'',target:(d.tab||d.f||d.c||d.t||'').slice(0,512),control:button.id||'',form:button.form?.id||''});
+},true);
+document.addEventListener('submit',e=>{track('form.submit',{form:e.target.id||'form'});},true);
+document.addEventListener('change',e=>{
+ if(e.target.type==='password'||e.target.closest('#account'))return;
+ const el=e.target;track('field.change',{field:el.name||el.id||el.dataset.delivery||el.dataset.report||'field',form:el.form?.id||'',kind:el.type||el.tagName});
+},true);
+document.addEventListener('visibilitychange',()=>{track('visibility.change',{state:document.visibilityState});if(document.visibilityState==='hidden')void activity.flush();});
+window.addEventListener('pagehide',()=>{track('session.end',{reason:'pagehide'});void activity.flush();});
+window.addEventListener('pageshow',e=>{if(e.persisted)trackPage(activityPage);});
+window.addEventListener('online',()=>void activity.flush());
 /* ---------- events ---------- */
 document.addEventListener('click',async e=>{
   if(!ready||saving) return; const t=e.target.closest('[data-act]'); if(!t) return; const a=t.dataset.act, d=t.dataset;
@@ -1086,12 +1161,13 @@ document.addEventListener('click',async e=>{
     case 'toggleSharing': await updateSharing({enabled:!shareSettings.enabled}); break;
     case 'rotateSharing': if(await ask('Replace public link','The previous link will stop working. A new random 6-character address will replace it. Your sharing setting stays the same.','Replace link'))await replaceSharingLink(); break;
     case 'copySharing': try{await navigator.clipboard.writeText(publicLink());toast('View-only link copied');}catch{ $('#publicLink').select();toast('Select and copy the link above.');} break;
+    case 'superadmin': if(!isSuperadmin||readOnly)return; $('#title').textContent='Superadmin';track('admin.view'); await openAdmin(db,$('#main')); break;
     case 'navMenu': openSheet(sheetHead('Menu')+'<div class="section-menu">'+['receive','clients','reports','more'].map(k=>'<button class="btn" data-act="tab" data-tab="'+k+'"'+(tab===k?' aria-current="page"':'')+'>'+ICON[k]+'<span>'+(k==='more'?'Settings & sharing':TITLES[k])+'</span></button>').join('')+'</div>');break;
     case 'newClient': clientEditor(); break;
     case 'editClient': clientEditor(d.name); break;
     case 'reportCsv': exportReport(); break;
     case 'resetDelivery': deliveryFilter={query:'',from:'',to:'',client:''}; render(); break;
-    case 'tab': if(readOnly&&!['dashboard','stock','issue','reports'].includes(d.tab))return; tab=d.tab; if(tab==='more')await loadSharing(); closeSheet(); render(); window.scrollTo(0,0); break;
+    case 'tab': if(readOnly&&!['dashboard','stock','issue','reports'].includes(d.tab))return; tab=d.tab; if(tab==='more')await loadSharing(); closeSheet(); render();trackPage(tab); window.scrollTo(0,0); break;
     case 'filter': filter=d.f; updateList(); break;
     case 'rcrop': rcrop=d.c; updateRList(); break;
     case 'rtype': rtype=(rtype===d.t&&d.t!=='all')?'all':d.t; updateRList(); if(rtype!=='all'){ const el=$('#rList'); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); } break;
@@ -1139,7 +1215,7 @@ document.addEventListener('input',async e=>{
   
   else if(e.target.closest&&e.target.closest('#fIss')) updateIssueInfo();
 });
-document.addEventListener('change',async e=>{ if(!ready||saving) return; if(readOnly&&!e.target.dataset.delivery&&!e.target.dataset.report)return; if(e.target.id==='appearance'){ const theme=e.target.value; document.documentElement.dataset.theme=theme; try{localStorage.setItem('sugar-theme',theme);}catch{} return; }
+document.addEventListener('change',async e=>{ if(!ready||saving) return; if(readOnly&&!e.target.dataset.delivery&&!e.target.dataset.report)return; if(e.target.id==='appearance'){applyTheme(e.target.value);return;}
  if(e.target.id==='lowStockPercent'){const value=Number(e.target.value); if(!Number.isFinite(value)||value<0||value>100){toast('Enter a percentage from 0 to 100.');e.target.value=threshold(S);return;} S.lowStockPercent=value;if(!await save())return;render();}
  if(e.target.dataset.delivery){deliveryFilter[e.target.dataset.delivery]=e.target.value;render();}
  if(e.target.dataset.report){reportFilter[e.target.dataset.report]=e.target.value;render();}
@@ -1196,9 +1272,10 @@ async function updateSharing(changes){
  finally{saving=false;lock(false);}
 }
 async function showPublic(){
+ await activity.stop();startGuest('public-loading');
  document.body.classList.remove('login-screen');
  ready=false;$('#account').hidden=true;$('#nav').hidden=true;$('#signOut').hidden=true;$('#main').hidden=false;
- $('#cloudStatus').textContent='Loading public inventory…';
+ $('#cloudStatus').hidden=false;$('#cloudStatus').textContent='Loading public inventory…';
  $('#main').innerHTML='<p class="setting" role="status">Loading shared inventory…</p>';
  try{
   if(slugPath&&!validSlug(publicSlug))throw new Error('This sharing address is invalid.');
@@ -1206,8 +1283,8 @@ async function showPublic(){
   const {data,error}=await db.rpc(slugPath?'get_public_inventory_by_slug':'get_public_inventory',slugPath?{share_slug:publicSlug}:{share_token:publicToken});
   if(error)throw new Error('Public sharing is not available. Ask the owner to finish sharing setup.');
   if(!data)throw new Error('This link is disabled or has been replaced. Ask the owner for a new link.');
-  S=Object.assign(blank(),data);ready=true;$('#nav').hidden=false;render();lock(false);
- }catch(error){$('#main').innerHTML='<div class="empty"><b>Shared inventory unavailable</b>'+esc(error.message)+'</div>';$('#cloudStatus').textContent='Public view unavailable';}
+  S=Object.assign(blank(),data);ready=true;await activity.stop();startGuest(tab,{slug:publicSlug,shareToken:publicToken});$('#nav').hidden=false;render();lock(false);
+ }catch(error){trackPage('public-unavailable');$('#main').innerHTML='<div class="empty"><b>Shared inventory unavailable</b>'+esc(error.message)+'</div>';$('#cloudStatus').textContent='Public view unavailable';}
 }
 
 function setAuthMode(mode){
@@ -1220,6 +1297,7 @@ function setAuthMode(mode){
  $('#password').minLength=signup?8:0;
  $('#accountMessage').textContent=signup?'Register with your email and a password of at least 8 characters.':'Sign in with your inventory account.';
  $('#password').value='';
+ trackPage(signup?'signup':'signin');
 }
 $('#switchAuth').addEventListener('click',()=>{if(!authBusy)setAuthMode(authMode==='signup'?'signin':'signup');});
 $('#loginForm').addEventListener('submit',async e=>{
@@ -1231,22 +1309,25 @@ $('#loginForm').addEventListener('submit',async e=>{
   const credentials={email:$('#email').value.trim(),password:$('#password').value};
   const {data,error}=signup?await db.auth.signUp({...credentials,options:{emailRedirectTo:window.location.origin+'/'} }):await db.auth.signInWithPassword(credentials);
   if(error)throw error;
+  track('auth.result',{action:signup?'signup':'signin',outcome:'success'});
   $('#password').value='';
   if(signup&&!data.session){setAuthMode('signin');$('#accountMessage').textContent='Check your email for a confirmation link. After confirming, sign in to open your own private inventory.';}
   else await showAccount(data.session);
- }catch(error){$('#accountMessage').textContent=error.message;}
+ }catch(error){track('auth.result',{action:signup?'signup':'signin',outcome:'failed'});$('#accountMessage').textContent=error.message;}
  finally{authBusy=false;button.disabled=false;$('#switchAuth').disabled=false;}
 });
-$('#signOut').addEventListener('click',async()=>{ if(saving||!db) return; const {error}=await db.auth.signOut(); if(error){toast(error.message);return;} await showAccount(null); });
+$('#signOut').addEventListener('click',async()=>{ if(saving||!db) return;track('session.end',{reason:'sign_out'});await activity.stop(); const {error}=await db.auth.signOut(); if(error){toast(error.message);return;} await showAccount(null); });
 $('#reloadCloud').addEventListener('click',async()=>{ if(!db||saving) return; if(readOnly){await showPublic();return;} const {data,error}=await db.auth.getSession(); if(error){toast(error.message);return;} await showAccount(data.session); });
-try{document.documentElement.dataset.theme=localStorage.getItem('sugar-theme')||'auto';}catch{}
+syncThemeControl();
+$('#themeToggle').addEventListener('click',()=>applyTheme(effectiveDark()?'light':'dark'));
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',syncThemeControl);
 render();
 if(!db){ $('#accountMessage').textContent='Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY before building.'; $('#loginButton').disabled=true; }
 else if(readOnly){await showPublic();}
 else {
  db.auth.onAuthStateChange((event,session)=>{ if(event==='SIGNED_OUT') setTimeout(()=>showAccount(null),0); });
  const {data,error}=await db.auth.getSession();
- if(error) $('#accountMessage').textContent=error.message;
+ if(error){startGuest('signin');$('#accountMessage').textContent=error.message;}
  else await showAccount(data.session);
 }
 })();

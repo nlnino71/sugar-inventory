@@ -83,6 +83,7 @@ for(const publicAddress of ['/#view=11111111-1111-4111-8111-111111111111','/view
 test('public link '+publicAddress+' displays inventory without login or mutation controls',async({page})=>{
  let writes=0;
  await page.route('https://nvkawrmoacikzdfowvem.supabase.co/**',async route=>{
+  if(route.request().url().includes('/rpc/record_inventory_events'))return route.fulfill({status:204,body:''});
   if(route.request().url().includes('/rpc/get_public_inventory'))return route.fulfill({json:{unit:'bags',seq:1,receipts:[{id:'r',sro:'SHARED-001',type:'Raw Sugar',mill:'Mill A',date:'2026-09-01',qty:100}],issues:[{id:'i',sro:'SHARED-001',type:'Raw Sugar',client:'Client A',atw:'ATW-1',date:'2026-10-05',qty:20,batch:'B1',seq:1}],clients:[],activity:[],clientProfiles:{}}});
   writes++;return route.fulfill({status:403,json:{message:'Forbidden'}});
  });
