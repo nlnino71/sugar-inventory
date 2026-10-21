@@ -169,3 +169,5 @@ Visitor traffic expands the private admin with the reference dashboard's five ra
 ## Client HTML reference
 
 Use the supplied Wilmar Sugar Inventory Monitoring HTML as a reference for dashboard widgets and information only. Keep this app’s existing workspace layout, typography, palette, navigation and responsive behavior. Retain sugar-type totals, received/issued/balance values, stock meters, grouped running SRO balances, search and status filters, alongside all additional app features. Do not copy the HTML’s branding, condensed font, narrow stacked layout or bottom navigation.
+
+Wilmar personalization uses the client-supplied wordmark, the full company name “WILMAR EDIBLE OIL PHILIPPINES INC.” and product name “Sugar Inventory Monitoring” on sign-in and workspace navigation. Preserve the existing workspace styling; present the unchanged logo on white for both themes.

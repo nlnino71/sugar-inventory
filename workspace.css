@@ -229,3 +229,11 @@ body.login-screen #account{border:0;background:transparent;padding:30px 22px;max
 .grid-toolbar .btns{display:flex;flex-wrap:wrap;gap:8px}.grid-toolbar .btns .btn{flex:0 1 auto}
 .spreadsheet-editor .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 @media(max-width:767px){.grid-toolbar .btns{display:grid;grid-template-columns:1fr 1fr}}
+
+/* Client identity uses the supplied logo without changing the workspace layout. */
+.wilmar-logo{display:block;object-fit:contain;width:168px;height:54px;padding:7px 10px;background:#fff;border-radius:4px;box-sizing:content-box}
+.company-name{display:block;font-size:16px;font-weight:600;line-height:1.4;letter-spacing:0;overflow-wrap:normal}
+.product-name{display:block;font-size:13px;font-weight:400;line-height:1.5;letter-spacing:0;margin-top:6px}
+.login-brand{display:block}.login-brand .wilmar-logo{margin-bottom:20px}.login-brand .company-name{max-width:340px;font-size:20px}.login-brand .product-name{color:#bfd5c7;font-size:15px}
+.account-brand{margin-bottom:28px}.account-brand .wilmar-logo{margin-bottom:18px}.account-brand .company-name{font-size:16px}.account-brand .product-name{color:var(--muted)}
+@media(min-width:1000px){.nav-brand .wilmar-logo{width:168px;height:54px;margin-bottom:20px}.nav-brand .product-name{color:#d8e9df}.nav-brand small{margin-top:10px}}
