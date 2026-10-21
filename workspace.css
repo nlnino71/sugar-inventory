@@ -237,3 +237,6 @@ body.login-screen #account{border:0;background:transparent;padding:30px 22px;max
 .login-brand{display:block}.login-brand .wilmar-logo{margin-bottom:20px}.login-brand .company-name{max-width:340px;font-size:20px}.login-brand .product-name{color:#bfd5c7;font-size:15px}
 .account-brand{margin-bottom:28px}.account-brand .wilmar-logo{margin-bottom:18px}.account-brand .company-name{font-size:16px}.account-brand .product-name{color:var(--muted)}
 @media(min-width:1000px){.nav-brand .wilmar-logo{width:168px;height:54px;margin-bottom:20px}.nav-brand .product-name{color:#d8e9df}.nav-brand small{margin-top:10px}}
+
+/* White transparent wordmark on the forest sidebar and sign-in panel. */
+.nav-brand .wilmar-logo,.login-brand .wilmar-logo{background:transparent;padding:0;border-radius:0;filter:url(#wilmar-white)}

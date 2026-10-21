@@ -26,6 +26,7 @@ test('overview, stock report, delivery search and client editing',async({page},i
  await expect(page.locator('#nav').getByRole('button',{name:'Stock',exact:true})).toBeVisible();
  await expect(page.locator('#title')).toHaveText('Stock');
  await navigate(page,'Overview');
+ if(info.project.name==='desktop'){await expect(page.locator('.nav-brand .wilmar-logo')).toHaveAttribute('src','/wilmar-logo.png');await expect(page.locator('.nav-brand .wilmar-logo')).toHaveCSS('background-color','rgba(0, 0, 0, 0)');await page.locator('#nav').screenshot({path:'.impeccable/review/wilmar-white-sidebar.png'});}
  await expect(page.getByRole('heading',{name:'Inventory at a glance'})).toBeVisible();
  await expect(page.locator('header.top')).toBeVisible();
  const toolbar=await page.locator('header.top').boundingBox();
