@@ -243,3 +243,8 @@ body.login-screen #account{border:0;background:transparent;padding:30px 22px;max
 
 /* Desktop sign-in already carries the company identity in its left panel. */
 @media(min-width:1000px){body.login-screen .account-brand{display:none}}
+
+/* Mobile sign-in uses the supplied transparent wordmark in both appearances. */
+.account-brand .wilmar-logo{background:transparent;padding:0;border-radius:0;filter:brightness(0)}
+:root[data-theme="dark"] .account-brand .wilmar-logo{filter:none}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]) .account-brand .wilmar-logo{filter:none}}
