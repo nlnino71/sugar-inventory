@@ -23,6 +23,9 @@ test('overview, stock report, delivery search and client editing',async({page},i
   return route.fulfill({json:{}});
  });
  await page.goto('/');await page.getByLabel('Email',{exact:true}).fill('staff@example.com');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();
+ await expect(page.locator('#nav').getByRole('button',{name:'Stock',exact:true})).toBeVisible();
+ await expect(page.locator('#title')).toHaveText('Stock');
+ await navigate(page,'Overview');
  await expect(page.getByRole('heading',{name:'Inventory at a glance'})).toBeVisible();
  await expect(page.locator('header.top')).toBeVisible();
  const toolbar=await page.locator('header.top').boundingBox();

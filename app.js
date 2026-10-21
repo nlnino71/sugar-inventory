@@ -107,7 +107,7 @@ async function showAccount(session){
   await activity.stop();
   isSuperadmin=false;
   document.body.classList.toggle('login-screen',!session);
-  if(accountId!==(session?.user?.id||null)){tab='dashboard';adminView=false;q='';rq='';clientQuery='';deliveryFilter={query:'',from:'',to:'',client:''};}
+  if(accountId!==(session?.user?.id||null)){tab='stock';adminView=false;q='';rq='';clientQuery='';deliveryFilter={query:'',from:'',to:'',client:''};}
   accountId=session?.user?.id||null;shareSettings=null;shareError='';revision=0;
   ready=false; closeSheet(true); S=blank();committed=structuredClone(S); render();
   $('#account').hidden=false; $('#nav').hidden=true;
@@ -174,14 +174,14 @@ const knownCrops=()=>[...new Set([cropOf(today()),...S.receipts.map(r=>r.crop)].
 const knownMills=()=>[...new Set(S.receipts.map(r=>r.mill).filter(Boolean))].sort();
 
 /* ---------- ui state ---------- */
-let tab='dashboard', adminView=false, filter='all', q='',stockType=null;
+let tab='stock', adminView=false, filter='all', q='',stockType=null;
 function navigationKey(){return 'sugar-navigation:'+(readOnly?'shared':accountId||'signed-out');}
 function rememberNavigation(){try{sessionStorage.setItem(navigationKey(),adminView?'superadmin':tab);}catch{}}
 function restoreNavigation(){
  let saved;try{saved=sessionStorage.getItem(navigationKey());}catch{}
  adminView=saved==='superadmin'&&isSuperadmin&&!readOnly;
  const allowed=readOnly?['dashboard','stock','issue','reports']:Object.keys(TITLES);
- tab=adminView?'more':allowed.includes(saved)?saved:'dashboard';
+ tab=adminView?'more':allowed.includes(saved)?saved:'stock';
 }
 const TITLES={dashboard:'Overview',stock:'Stock',receive:'SRO Quantity',issue:'Issuance',clients:'Clients',reports:'Reports',spreadsheet:'Spreadsheet',more:'More'};
 const ICON={
