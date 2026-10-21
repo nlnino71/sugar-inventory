@@ -6,9 +6,9 @@ const scalar=v=>v===undefined?'Not present':v===null?'Not provided':typeof v==='
 function value(v){if(Array.isArray(v))return v.length?'<ol class="audit-values">'+v.map(x=>'<li>'+value(x)+'</li>').join('')+'</ol>':'<span class="hint">None</span>';if(v&&typeof v==='object')return fields(v);return esc(scalar(v));}
 function fields(obj){const entries=Object.entries(obj||{});return entries.length?'<dl class="audit-fields">'+entries.map(([k,v])=>'<div><dt>'+esc(title(k))+'</dt><dd>'+(/^(client_at|looked_up_at|at|created_at)$/.test(k)&&v?esc(date(v)):value(v))+'</dd></div>').join('')+'</dl>':'<p class="hint">No additional details.</p>';}
 const omit=(obj,keys)=>Object.fromEntries(Object.entries(obj||{}).filter(([k])=>!keys.includes(k)));
-function browserInfo(ua=''){
+export function browserInfo(ua=''){
  const browser=/Edg\/|EdgA\/|EdgiOS\//i.test(ua)?'Edge':/OPR\/|Opera/i.test(ua)?'Opera':/Firefox|FxiOS/i.test(ua)?'Firefox':/Chrome|CriOS|Chromium/i.test(ua)?'Chrome':/Safari/i.test(ua)?'Safari':ua?'Other browser':'Browser not recorded';
- const os=/Android/i.test(ua)?'Android':/iPhone|iPad|iPod/i.test(ua)||(/Macintosh/i.test(ua)&&/Mobile/i.test(ua))?'iOS / iPadOS':/Windows/i.test(ua)?'Windows':/Macintosh|Mac OS X/i.test(ua)?'macOS':/Linux/i.test(ua)?'Linux':'';return [browser,os].filter(Boolean).join(' · ');
+ const os=/Android/i.test(ua)?'Android':/iPhone|iPad|iPod/i.test(ua)||(/Macintosh/i.test(ua)&&/Mobile/i.test(ua))?'iOS / iPadOS':/Windows/i.test(ua)?'Windows':/Macintosh|Mac OS X/i.test(ua)?'macOS':/CrOS/i.test(ua)?'ChromeOS':/Linux/i.test(ua)?'Linux':'';return [browser,os].filter(Boolean).join(' · ');
 }
 export function eventTitle(event,context={}){
  const kind=String(event||'').replace(/^(browser|guest)\./,'');
