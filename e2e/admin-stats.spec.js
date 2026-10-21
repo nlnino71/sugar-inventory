@@ -14,7 +14,7 @@ async function setup(page,{empty=false,missing=false}={}){
  if(u.includes('/inventory_shares'))return r.fulfill({json:{enabled:false,token:user.id,slug:'private'}});
  if(u.includes('/rest/v1/inventory'))return r.fulfill({json:{data:{unit:'bags',receipts:[],issues:[],clients:[],seq:0},revision:0}});
  return r.fulfill({json:null});});
- await page.goto('/');await page.getByLabel('Email',{exact:true}).fill(user.email);await page.getByLabel('Password',{exact:true}).fill('password-example');await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.getByRole('heading',{name:'Inventory at a glance'})).toBeVisible();await navigate(page,'More');await page.getByRole('button',{name:'Open superadmin'}).click();return {requested,errors};
+ await page.goto('/');await page.getByLabel('Email',{exact:true}).fill(user.email);await page.getByLabel('Password',{exact:true}).fill('password-example');await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.getByRole('heading',{name:'Inventory at a glance'})).toBeVisible();await navigate(page,'More');await page.getByRole('button',{name:'Open superadmin'}).click();await page.getByRole('tab',{name:'Statistics',exact:true}).click();return {requested,errors};
 }
 test('nine charts render, date range updates, theme changes and navigation clean up',async({page},info)=>{
  const {requested,errors}=await setup(page);await expect(page.locator('#adminStats canvas')).toHaveCount(9);await expect(page.locator('.admin-stats-metrics')).toContainText('1,200');
@@ -28,4 +28,4 @@ test('nine charts render, date range updates, theme changes and navigation clean
  await page.getByRole('button',{name:'Stock',exact:true}).click();await expect(page.locator('#adminStats')).toHaveCount(0);expect(errors).toEqual([]);
 });
 test('empty stats show honest empty states',async({page})=>{const {errors}=await setup(page,{empty:true});await expect(page.locator('.chart-empty')).toHaveCount(9);await expect(page.locator('#adminStats canvas')).toHaveCount(0);expect(errors).toEqual([]);});
-test('missing stats migration preserves admin records and shows retry',async({page})=>{await setup(page,{missing:true});await expect(page.getByText(/Statistics unavailable/)).toBeVisible();await expect(page.getByRole('button',{name:'Retry statistics'})).toBeVisible();await expect(page.getByRole('heading',{name:'Accounts (1)',exact:true})).toBeVisible();});
+test('missing stats migration preserves admin records and shows retry',async({page})=>{await setup(page,{missing:true});await expect(page.getByText(/Statistics unavailable/)).toBeVisible();await expect(page.getByRole('button',{name:'Retry statistics'})).toBeVisible();await page.getByRole('tab',{name:'Accounts',exact:true}).click();await expect(page.getByRole('heading',{name:'Accounts (1)',exact:true})).toBeVisible();});

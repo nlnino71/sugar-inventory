@@ -19,11 +19,12 @@ for(const mode of ['not-admin','history','sessions'])test('superadmin visibility
  await expect(page.getByRole('heading',{name:'Inventory at a glance'})).toBeVisible();
  await navigate(page,'More');const button=page.getByRole('button',{name:'Open superadmin'});
  if(!admin){await expect(button).toHaveCount(0);return;}
- await button.click();await expect(page.getByRole('heading',{name:'Superadmin',exact:true,level:2})).toBeVisible();await expect(page.getByText('203.0.113.1',{exact:true})).toBeVisible();await expect(page.locator('.audit-device').getByText('Screen 390 × 844',{exact:true})).toBeVisible();
+ await button.click();await expect(page.getByRole('heading',{name:'Superadmin',exact:true,level:2})).toBeVisible();await page.getByRole('tab',{name:mode==='sessions'?'Sessions':'Authentication',exact:true}).click();await expect(page.getByText('203.0.113.1',{exact:true})).toBeVisible();
  await expect(page.getByText('Test Network · AS64500',{exact:true})).toBeVisible();
- if(mode==='sessions'){await expect(page.getByText(/No authentication audit records yet/)).toBeVisible();await expect(page.getByRole('heading',{name:'Stored authentication sessions',exact:true})).toBeVisible();await expect(page.getByText('Existing session browser',{exact:true})).toBeVisible();}
+ if(mode==='sessions'){await page.getByRole('tab',{name:'Authentication',exact:true}).click();await expect(page.getByText(/No authentication audit records yet/)).toBeVisible();await page.getByRole('tab',{name:'Sessions',exact:true}).click();await expect(page.getByRole('heading',{name:'Stored authentication sessions',exact:true})).toBeVisible();await expect(page.getByText('Existing session browser',{exact:true})).toBeVisible();}
+ await page.getByRole('tab',{name:'Activity',exact:true}).click();await expect(page.locator('.audit-device').getByText('Screen 390 × 844',{exact:true})).toBeVisible();
  expect(device.screen).toMatch(/\d+ × \d+/);expect(device.viewport).toMatch(/\d+ × \d+/);
- await page.reload();await expect(page.getByRole('heading',{name:'Superadmin',exact:true,level:2})).toBeVisible();
+ await page.reload();await expect(page.getByRole('heading',{name:'Superadmin',exact:true,level:2})).toBeVisible();await expect(page.getByRole('tab',{name:'Activity',exact:true})).toHaveAttribute('aria-selected','true');await expect(page.locator('[role=tabpanel]:visible')).toHaveCount(1);await page.getByRole('tab',{name:'Activity',exact:true}).press('Home');await expect(page.getByRole('tab',{name:'Traffic',exact:true})).toBeFocused();await page.getByRole('tab',{name:'Traffic',exact:true}).press('ArrowRight');await expect(page.getByRole('tab',{name:'Statistics',exact:true})).toBeFocused();
  await page.getByRole('button',{name:'Stock',exact:true}).click();await expect(page.getByRole('heading',{name:'Superadmin',exact:true,level:2})).toHaveCount(0);
  await page.reload();await expect(page.locator('#title')).toHaveText('Stock');
 });

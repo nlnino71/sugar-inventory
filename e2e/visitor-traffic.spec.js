@@ -32,5 +32,5 @@ test('empty and unavailable visitor traffic stay honest',async({page})=>{
  await setup(page,{empty:true});await expect(page.locator('#adminTraffic .traffic-metrics')).toContainText('Not available');await expect(page.getByText('No page views match these filters. Try another period or clear the filters.',{exact:true})).toBeVisible();
 });
 test('traffic database error offers retry without hiding admin records',async({page})=>{
- await setup(page,{missing:true});await expect(page.getByText(/Visitor traffic unavailable/)).toBeVisible();await expect(page.getByRole('button',{name:'Retry visitor traffic',exact:true})).toBeVisible();await expect(page.getByRole('heading',{name:'Accounts (1)',exact:true})).toBeVisible();
+ await setup(page,{missing:true});await expect(page.getByText(/Visitor traffic unavailable/)).toBeVisible();await expect(page.getByRole('button',{name:'Retry visitor traffic',exact:true})).toBeVisible();await page.getByRole('tab',{name:'Accounts',exact:true}).click();await expect(page.getByRole('heading',{name:'Accounts (1)',exact:true})).toBeVisible();
 });
