@@ -239,4 +239,4 @@ body.login-screen #account{border:0;background:transparent;padding:30px 22px;max
 @media(min-width:1000px){.nav-brand .wilmar-logo{width:168px;height:54px;margin-bottom:20px}.nav-brand .product-name{color:#d8e9df}.nav-brand small{margin-top:10px}}
 
 /* White transparent wordmark on the forest sidebar and sign-in panel. */
-.nav-brand .wilmar-logo,.login-brand .wilmar-logo{background:transparent;padding:0;border-radius:0;filter:url(#wilmar-white)}
+.nav-brand .wilmar-logo,.login-brand .wilmar-logo{background:transparent;padding:0;border-radius:0;filter:none}
