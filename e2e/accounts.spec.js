@@ -12,7 +12,7 @@ test('accounts use separate inventories and sharing settings across sign-out and
    current=req.postDataJSON().email.startsWith('new')?'new':'owner';
    return route.fulfill({json:{access_token:'token-'+current,refresh_token:'refresh-'+current,expires_in:3600,token_type:'bearer',user:{id:ids[current],aud:'authenticated',role:'authenticated',email:current+'@example.com',app_metadata:{},user_metadata:{}}}});
   }
-  if(url.pathname.endsWith('/logout'))return route.fulfill({json:{}});
+  if(url.pathname.endsWith('/logout')){expect(url.searchParams.get('scope')).toBe('local');return route.fulfill({json:{}});}
   if(url.pathname.endsWith('/ensure_inventory')){provisioning.push(current);return route.fulfill({json:null});}
   if(url.pathname.endsWith('/save_inventory')){states[current]=req.postDataJSON().new_data;return route.fulfill({json:1});}
   if(url.pathname.endsWith('/inventory_shares')){
@@ -27,7 +27,7 @@ test('accounts use separate inventories and sharing settings across sign-out and
  });
  const signIn=async name=>{
   await page.getByLabel('Email',{exact:true}).fill(name+'@example.com');await page.getByLabel('Password',{exact:true}).fill('example-password');
-  await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.getByRole('heading',{name:'Inventory at a glance'})).toBeVisible();
+  await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.locator('#account')).toBeHidden();await expect(page.locator('#nav')).toBeVisible();
  };
  await page.goto('/');await signIn('owner');await navigate(page,'More');await expect(page.getByLabel('View-only link')).toHaveValue(/\/view\/public$/);
  await page.getByRole('button',{name:'Sign out',exact:true}).click();await expect(page.getByRole('button',{name:'Sign in',exact:true})).toBeVisible();

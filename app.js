@@ -1357,7 +1357,7 @@ $('#loginForm').addEventListener('submit',async e=>{
  }catch(error){track('auth.result',{action:signup?'signup':'signin',outcome:'failed'});$('#accountMessage').textContent=error.message;}
  finally{authBusy=false;button.disabled=false;$('#switchAuth').disabled=false;}
 });
-$('#signOut').addEventListener('click',async()=>{ if(saving||!db) return;track('session.end',{reason:'sign_out'});await activity.stop(); const {error}=await db.auth.signOut(); if(error){toast(error.message);return;} await showAccount(null); });
+$('#signOut').addEventListener('click',async()=>{ if(saving||!db) return;track('session.end',{reason:'sign_out'});await activity.stop(); const {error}=await db.auth.signOut({scope:'local'}); if(error){toast(error.message);return;} await showAccount(null); });
 $('#reloadCloud').addEventListener('click',async()=>{ if(!db||saving) return; if(readOnly){await showPublic();return;} const {data,error}=await db.auth.getSession(); if(error){toast(error.message);return;} await showAccount(data.session); });
 syncThemeControl();
 $('#themeToggle').addEventListener('click',()=>applyTheme(effectiveDark()?'light':'dark'));
