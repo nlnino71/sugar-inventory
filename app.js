@@ -256,13 +256,14 @@ function updateList(){
   const box=$('#sroList'); if(!box) return;
   const c=compute();
   const types=typeStats(c).map(t=>t.name);
-  if(!types.includes(stockType))stockType=types[0]||null;
-  $('#stockTypeTabs').innerHTML=types.map((name,index)=>'<button type="button" role="tab" id="stock-type-'+index+'" aria-controls="sroList" aria-selected="'+(stockType===name)+'" tabindex="'+(stockType===name?'0':'-1')+'" data-act="stockType" data-t="'+esc(name)+'">'+esc(name)+'</button>').join('');
-  if(types.length)box.setAttribute('aria-labelledby','stock-type-'+types.indexOf(stockType));else box.removeAttribute('aria-labelledby');
+  if(stockType!==null&&!types.includes(stockType))stockType=null;
+  const typeTabs=[null,...types];
+  $('#stockTypeTabs').innerHTML=typeTabs.map((name,index)=>'<button type="button" role="tab" id="stock-type-'+index+'" aria-controls="sroList" aria-selected="'+(stockType===name)+'" tabindex="'+(stockType===name?'0':'-1')+'" data-act="stockType" data-all="'+(name===null)+'" data-t="'+esc(name)+'">'+esc(name===null?'All':name)+'</button>').join('');
+  box.setAttribute('aria-labelledby','stock-type-'+typeTabs.indexOf(stockType));
   const F=[['all','All'],['ok','In stock'],['low','Low'],['empty','Fully issued'],['over','Over-issued']];
   $('#chips').innerHTML=F.map(f=>'<button class="chip-b" data-act="filter" data-f="'+f[0]+'" aria-pressed="'+(filter===f[0])+'">'+f[1]+'</button>').join('');
   const needle=q.trim().toLowerCase();
-  const rows=c.list.filter(o=>(o.type||'(no type)')===stockType&&(filter==='all'||status(o).k===filter)&&(!needle||(o.sro+' '+o.type+' '+o.mill).toLowerCase().includes(needle)))
+  const rows=c.list.filter(o=>(stockType===null||(o.type||'(no type)')===stockType)&&(filter==='all'||status(o).k===filter)&&(!needle||(o.sro+' '+o.type+' '+o.mill).toLowerCase().includes(needle)))
     .sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:a.sro<b.sro?1:-1);
   const card=o=>{
     const s=status(o), p=o.received>0?Math.max(0,Math.round(o.balance/o.received*100)):0;
@@ -1222,7 +1223,7 @@ document.addEventListener('click',async e=>{
     case 'reportCsv': exportReport(); break;
     case 'resetDelivery': deliveryFilter={query:'',from:'',to:'',client:''}; render(); break;
     case 'tab': if(readOnly&&!['dashboard','stock','issue','reports'].includes(d.tab))return; tab=d.tab;adminView=false;rememberNavigation(); if(tab==='more')await loadSharing(); closeSheet(); render();trackPage(tab); window.scrollTo(0,0); break;
-    case 'stockType': stockType=d.t;updateList();$('#stockTypeTabs [aria-selected="true"]')?.focus({preventScroll:true});break;
+    case 'stockType': stockType=d.all==='true'?null:d.t;updateList();$('#stockTypeTabs [aria-selected="true"]')?.focus({preventScroll:true});break;
     case 'filter': filter=d.f; updateList(); break;
     case 'rcrop': rcrop=d.c; updateRList(); break;
     case 'rtype': rtype=(rtype===d.t&&d.t!=='all')?'all':d.t; updateRList(); if(rtype!=='all'){ const el=$('#rList'); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); } break;
