@@ -13,7 +13,7 @@ test('stock summary cards fit five types and keep large decimal quantities on on
 
  await page.goto('/');await page.getByLabel('Email',{exact:true}).fill('staff@example.com');await page.getByLabel('Password',{exact:true}).fill('password-example');await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('heading',{name:'Inventory at a glance'}).waitFor();await page.getByRole('button',{name:'Stock',exact:true}).click();
  await expect(page.locator('.typeCard')).toHaveCount(5);
- const values=await page.locator('.typeCard .tbal b,.typeCard .nums b').evaluateAll(nodes=>nodes.map(n=>{const r=document.createRange();r.selectNodeContents(n);return {lines:r.getClientRects().length,fits:n.scrollWidth<=n.clientWidth};}));expect(values.every(v=>v.lines===1&&v.fits)).toBe(true);
+ const values=await page.locator('.typeCard .tbal b,.typeCard .nums b,#sroList .nums b').evaluateAll(nodes=>nodes.map(n=>{const r=document.createRange();r.selectNodeContents(n);return {lines:r.getClientRects().length,fits:n.scrollWidth<=n.clientWidth};}));expect(values.every(v=>v.lines===1&&v.fits)).toBe(true);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.locator('.type-grid').screenshot({path:'.impeccable/review/stock-cards-'+info.project.name+'.png'});
 });

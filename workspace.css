@@ -171,3 +171,10 @@ body.login-screen #account{border:0;background:transparent;padding:30px 22px;max
 .typeCard .nums{display:flex;flex-wrap:wrap;gap:14px 24px}
 .typeCard .nums>div{flex:1 1 auto;min-width:max-content}
 .typeCard .nums b{font-size:clamp(16px,6cqi,20px);white-space:nowrap;overflow-wrap:normal;font-variant-numeric:tabular-nums}
+/* Keep decimal fractions attached in SRO cards, totals and quantity tables too. */
+.num,.nums b,table.led td.r{white-space:nowrap;overflow-wrap:normal;word-break:normal}
+.row>.num{flex-shrink:0}
+.nums{display:flex;flex-wrap:wrap}
+.nums>div{flex:1 1 auto;min-width:max-content}
+.tcards{grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr))}
+.tc{container-type:inline-size}.tc .num{font-size:clamp(20px,12cqi,27px)}
