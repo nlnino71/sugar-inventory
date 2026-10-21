@@ -55,7 +55,7 @@ test('overview, stock report, delivery search and client editing',async({page},i
  await page.getByRole('button',{name:'Stock',exact:true}).click();
  await page.screenshot({path:'.impeccable/review/stock-'+info.project.name+'.png',fullPage:true});
  await page.getByRole('button',{name:/SRO-001.*Low/}).click();
- if(page.viewportSize().width>=1024){const panel=await page.locator('#sheet').boundingBox();expect(panel.x+panel.width).toBe(page.viewportSize().width);expect(panel.y).toBe(0);}
+ if(page.viewportSize().width>=1024){await expect.poll(async()=>{const panel=await page.locator('#sheet').boundingBox();return Math.round(panel.x+panel.width);}).toBe(page.viewportSize().width);const panel=await page.locator('#sheet').boundingBox();expect(panel.y).toBe(0);}
  await page.getByRole('button',{name:'Close',exact:true}).click();
  await navigate(page,'Reports');
  await page.locator('[data-report="from"]').fill('2026-10-01');await page.locator('[data-report="to"]').fill('2026-10-31');

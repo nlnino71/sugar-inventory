@@ -178,3 +178,23 @@ body.login-screen #account{border:0;background:transparent;padding:30px 22px;max
 .nums>div{flex:1 1 auto;min-width:max-content}
 .tcards{grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr))}
 .tc{container-type:inline-size}.tc .num{font-size:clamp(20px,12cqi,27px)}
+/* Short state transitions; no motion is required to use the inventory. */
+@media(prefers-reduced-motion:no-preference){
+ .btn,nav#nav button,.admin-tabs [role=tab],.chip-b,.ledger-edit,.line,button.card,.attention-row,.traffic-page{transition:background-color 150ms ease,color 150ms ease,border-color 150ms ease,transform 100ms ease}
+ .card[data-act],.tc{transition:border-color 150ms ease,background-color 150ms ease}
+ .scrim.on{animation:inventory-fade 160ms ease-out}
+ .sheet.on{animation:inventory-sheet 200ms cubic-bezier(.16,1,.3,1)}
+ .dlg.on{animation:inventory-dialog 180ms ease-out}
+ .toast.on{animation:inventory-toast 180ms ease-out}
+ #account:not([hidden]),[role=tabpanel]:not([hidden]){animation:inventory-fade 160ms ease-out}
+ .audit-detail[open]>.audit-detail-grid,.chart-values[open]>.table-scroll{animation:inventory-fade 140ms ease-out}
+ @media(min-width:1024px){.workspace .sheet.on{animation:inventory-side-sheet 200ms cubic-bezier(.16,1,.3,1)}}
+ @media(hover:hover){.ledger-edit:hover,.admin-tabs [role=tab]:hover{border-color:var(--cane)}}
+ .ledger-edit:active,.chip-b:active,.admin-tabs [role=tab]:active{transform:translateY(1px)}
+}
+@keyframes inventory-fade{from{opacity:.45}to{opacity:1}}
+@keyframes inventory-sheet{from{opacity:.6;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+@keyframes inventory-side-sheet{from{opacity:.6;transform:translateX(18px)}to{opacity:1;transform:translateX(0)}}
+@keyframes inventory-dialog{from{opacity:.6;transform:translateY(calc(-50% + 8px))}to{opacity:1;transform:translateY(-50%)}}
+@keyframes inventory-toast{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){.btn:active,.ledger-edit:active,.chip-b:active,.admin-tabs [role=tab]:active{transform:none}}

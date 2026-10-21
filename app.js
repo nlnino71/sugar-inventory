@@ -196,7 +196,13 @@ function render(){
   inventoryCleanup?.();inventoryCleanup=null;
   $('#main').onclick=null;$('#main').onchange=null;
   document.body.classList.toggle('workspace',ready);
-  $('#main').dataset.view=tab;
+  const nextView=adminView&&ready&&isSuperadmin&&!readOnly?'superadmin':tab;
+  const main=$('#main');
+  if(main.dataset.view!==nextView&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&typeof main.animate==='function'){
+    main.getAnimations().forEach(animation=>animation.cancel());
+    main.animate([{opacity:.6},{opacity:1}],{duration:160,easing:'ease-out'});
+  }
+  main.dataset.view=nextView;
   $('#title').textContent=TITLES[tab]; $('#unitLbl').textContent='Unit: '+S.unit;
   renderNav();
   if(adminView&&ready&&isSuperadmin&&!readOnly){$('#main').dataset.view='superadmin';$('#title').textContent='Superadmin';adminCleanup=openAdmin(db,$('#main'));return;}
