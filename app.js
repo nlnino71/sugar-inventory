@@ -66,7 +66,7 @@ function syncThemeControl(){
  button.querySelector('svg').setAttribute('aria-hidden','true');
  button.setAttribute('aria-label',dark?'Switch to light mode':'Switch to dark mode');
  button.title=dark?'Switch to light mode':'Switch to dark mode';
- document.querySelector('meta[name="theme-color"]').content=dark?'#101a15':'#f4f6f5';
+ document.querySelector('meta[name="theme-color"]').content=document.body.classList.contains('client-stock')?(dark?'#0E1613':'#EEF2EF'):(dark?'#101a15':'#f4f6f5');
  const select=$('#appearance');if(select)select.value=document.documentElement.dataset.theme||'auto';
 }
 function applyTheme(theme){
@@ -195,6 +195,7 @@ const ICON={
  more:'<svg viewBox="0 0 24 24"><path d="M4 7h10"/><path d="M18 7h2"/><circle cx="16" cy="7" r="2"/><path d="M4 17h2"/><path d="M10 17h10"/><circle cx="8" cy="17" r="2"/></svg>'
 };
 function renderNav(){
+  if(tab==='stock'&&!adminView&&!readOnly){$('#nav').innerHTML=['stock','receive','issue','clients','more'].map(k=>'<button data-act="tab" data-tab="'+k+'"'+(k===tab?' aria-current="page"':'')+'>'+ICON[k]+'<span>'+(k==='receive'?'SRO Qty':TITLES[k])+'</span></button>').join('')+'<button class="nav-menu" data-act="navMenu" aria-haspopup="dialog"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span>Menu</span></button>';return;}
   $('#nav').innerHTML='<div class="nav-brand"><img src="/app-icon.svg" width="44" height="44" alt="">Sugar Inventory<small>'+ (readOnly?'Shared inventory':'Inventory workspace')+'</small></div>'+Object.keys(TITLES).filter(k=>!readOnly||['dashboard','stock','issue','reports'].includes(k)).map(k=>'<button class="'+(!readOnly&&['receive','clients','reports','spreadsheet','more'].includes(k)?'nav-overflow':'')+'" data-act="tab" data-tab="'+k+'"'+(k===tab?' aria-current="page"':'')+'>'+ICON[k]+'<span>'+(k==='receive'?'SRO Qty':TITLES[k])+'</span></button>').join('')+(!readOnly?'<button class="nav-menu" data-act="navMenu" aria-haspopup="dialog"'+(['receive','clients','reports','spreadsheet','more'].includes(tab)?' aria-current="page"':'')+'><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span>Menu</span></button>':'');
 }
 function render(){
@@ -203,6 +204,9 @@ function render(){
   inventoryCleanup?.();inventoryCleanup=null;
   $('#main').onclick=null;$('#main').onchange=null;
   document.body.classList.toggle('workspace',ready);
+  document.body.classList.toggle('client-stock',ready&&tab==='stock'&&!adminView);
+  document.title=ready&&tab==='stock'&&!adminView?'WILMAR EDIBLE OIL PHILIPPINES INC. Sugar Inventory Monitoring':'Sugar Inventory';
+  syncThemeControl();
   const nextView=adminView&&ready&&isSuperadmin&&!readOnly?'superadmin':tab;
   const main=$('#main');
   if(main.dataset.view!==nextView&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&typeof main.animate==='function'){
@@ -1225,7 +1229,7 @@ document.addEventListener('click',async e=>{
     case 'copySharing': try{await navigator.clipboard.writeText(publicLink());toast('View-only link copied');}catch{ $('#publicLink').select();toast('Select and copy the link above.');} break;
     case 'convertUnits': await saveUnitConversion();break;
     case 'superadmin': if(!isSuperadmin||readOnly)return;if(spreadsheetView&&!await spreadsheetView.canLeave())return; tab='more';adminView=true;rememberNavigation();render();track('admin.view');break;
-    case 'navMenu': openSheet(sheetHead('Menu')+'<div class="section-menu">'+['receive','clients','reports','spreadsheet','more'].map(k=>'<button class="btn" data-act="tab" data-tab="'+k+'"'+(tab===k?' aria-current="page"':'')+'>'+ICON[k]+'<span>'+(k==='more'?'Settings & sharing':TITLES[k])+'</span></button>').join('')+'</div>');break;
+    case 'navMenu': openSheet(sheetHead('Menu')+'<div class="section-menu">'+(tab==='stock'?['dashboard','reports','spreadsheet']:['receive','clients','reports','spreadsheet','more']).map(k=>'<button class="btn" data-act="tab" data-tab="'+k+'"'+(tab===k?' aria-current="page"':'')+'>'+ICON[k]+'<span>'+(k==='more'?'Settings & sharing':TITLES[k])+'</span></button>').join('')+'</div>');break;
     case 'newClient': clientEditor(); break;
     case 'editClient': clientEditor(d.name); break;
     case 'reportCsv': exportReport(); break;
