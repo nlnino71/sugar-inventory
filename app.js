@@ -49,7 +49,7 @@ const activity=createActivityTracker({
  }
 });
 const track=(event,details={})=>activity.track(event,{page:activityPage,...details});
-function trackPage(page){activityPage=page;track('page.view',{page,device:deviceInfo()});}
+function trackPage(page){activityPage=page;track('page.view',{page,path:window.location.pathname.slice(0,256),device:deviceInfo()});}
 function startGuest(page,context={}){activity.start({guest:true,...context});trackPage(page);}
 
 function lock(on){

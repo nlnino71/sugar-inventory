@@ -114,3 +114,27 @@ body.login-screen #account{border:0;background:transparent;padding:30px 22px;max
  .top .header-actions svg{width:20px;height:20px}
  .top #cloudStatus:not([hidden]){order:0;flex:none;min-width:0;max-width:52px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:10px}
 }
+
+/* Visitor traffic follows the existing operational analytics vocabulary. */
+#adminTraffic{margin:32px 0 44px}
+.traffic-filters{padding:20px;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.traffic-ranges{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
+.traffic-ranges [aria-pressed="true"]{background:var(--cane);border-color:var(--cane);color:var(--surface)}
+.traffic-filters form{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto auto;gap:12px;align-items:end}
+.traffic-filters label.f{margin:0;min-width:0}
+.traffic-filters input,.traffic-filters select{width:100%;min-width:0}
+.traffic-metrics dd{font-size:28px;overflow-wrap:anywhere}
+.traffic-ranking-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.traffic-ranking{padding:22px;border:1px solid var(--line);border-radius:12px;background:var(--surface);min-width:0}
+.traffic-ranking h3{margin:0 0 22px;font-size:18px}
+.traffic-ranking ol{list-style:none;margin:0;padding:0}
+.traffic-ranking li+li{margin-top:14px}
+.traffic-ranking li>div{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:14px}
+.traffic-ranking li>div>span:last-child{flex-shrink:0;color:var(--muted);font-variant-numeric:tabular-nums}
+.traffic-page{border:0;background:none;color:var(--cane);text-decoration:underline;text-underline-offset:3px;cursor:pointer;min-height:44px;padding:8px 0;font:inherit;text-align:left;overflow-wrap:anywhere}
+.traffic-ranking progress{display:block;width:100%;height:7px;appearance:none;border:0;background:var(--soft);border-radius:4px;overflow:hidden;margin-top:5px}
+.traffic-ranking progress::-webkit-progress-bar{background:var(--soft)}
+.traffic-ranking progress::-webkit-progress-value{background:var(--cane)}
+.traffic-ranking progress::-moz-progress-bar{background:var(--cane)}
+@media(max-width:767px){.traffic-filters{padding:16px}.traffic-filters form{grid-template-columns:1fr 1fr}.traffic-filters label.f{grid-column:1/-1}.traffic-ranking-grid{grid-template-columns:1fr}.traffic-ranking{padding:18px}.traffic-ranking li>div{align-items:baseline;flex-wrap:wrap;gap:2px}.traffic-metrics dd{font-size:24px}}
+@media(min-width:768px) and (max-width:1023px){.traffic-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.traffic-metrics>div:nth-child(2){border-right:0}.traffic-metrics>div:nth-child(-n+2){border-bottom:1px solid var(--line)}}
