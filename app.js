@@ -609,6 +609,8 @@ async function saveFile(name,data){
 const serial=s=>{ const p=s.split('-'); return (Date.UTC(+p[0],+p[1]-1,+p[2])-Date.UTC(1899,11,30))/86400000; };
 const THIN={style:'thin',color:{rgb:'BFBFBF'}}, BOX={top:THIN,bottom:THIN,left:THIN,right:THIN};
 const FILL=rgb=>({patternType:'solid',fgColor:{rgb:rgb}});
+const COMPANY='WILMAR EDIBLE OIL PHILIPPINES INC.';
+const APPNAME=COMPANY+' Sugar Inventory Monitoring';
 const YELLOW='FFFF00';
 const SH={
   head:{font:{bold:true,color:{rgb:'000000'}},fill:FILL(YELLOW),alignment:{horizontal:'center',vertical:'center',wrapText:true},border:BOX},
@@ -650,13 +652,14 @@ function dashSheet(c){
   const set=(r,col,v,o)=>{
     o=o||{}; let cell;
     if(v===''||v==null) cell={t:'s',v:''};
-    else if(typeof v==='number') cell={t:'n',v:v,z:o.z||'#,##0.00######'};
+    else if(typeof v==='number') cell={t:'n',v:v,z:o.z||'#,##0.00'};
     else cell={t:'s',v:String(v)};
     const st={font:o.font||fnt(10),alignment:o.al||{horizontal:'justify',vertical:'center'}};
     if(o.fill) st.fill=FILL(o.fill);
     if(o.border!==0) st.border=o.border||BOX;
-    if(typeof v==='number'&&(!o.z||o.z==='#,##0.00######')) st.alignment={horizontal:'right',vertical:'center',indent:1};
-    else if(typeof v==='number'&&!o.al) st.alignment={horizontal:'center',vertical:'center'};
+    const isDate=typeof v==='number'&&o.z&&/mmm/.test(o.z);
+    if(typeof v==='number'&&!isDate) st.alignment={horizontal:'right',vertical:'center',indent:1};
+    else if(!o.keep&&o.border!==0&&o.fill!==YELLOW&&o.fill!=='A9D08E'&&o.fill!==GREEN) st.alignment={horizontal:'center',vertical:'center'};
     cell.s=st; ws[X.utils.encode_cell({r:r,c:col})]=cell;
   };
   const span=(r,c1,c2,v,o)=>{ for(let k=c1;k<=c2;k++) set(r,k,k===c1?v:'',o); if(c2>c1) merges.push({s:{r:r,c:c1},e:{r:r,c:c2}}); };
@@ -669,8 +672,8 @@ function dashSheet(c){
   const sec=(r,t,n)=>{ span(r,0,(n||ncols)-1,t,{font:fnt(12,true,'FFFFFF'),fill:GREEN,al:{horizontal:'left',vertical:'center',indent:1},border:0}); H[r]=22; };
   const STAT={ok:['C6EFCE','006100'],low:['FFEB9C','9C5700'],empty:['D9D9D9','404040'],over:['FFC7CE','9C0006']};
   let r=0;
-  span(r,0,ncols-1,'SUGAR INVENTORY DASHBOARD',{font:fnt(20,true,'FFFFFF'),fill:GREEN,al:{horizontal:'left',vertical:'center',indent:1},border:0}); H[r]=38; r++;
-  span(r,0,ncols-1,'As of '+fd(today())+'   |   Unit: '+S.unit+'   |   SROs with balance: '+c.list.filter(o=>o.balance>0).length+'   |   Clients served: '+cs.length,
+  span(r,0,ncols-1,APPNAME,{font:fnt(20,true,'FFFFFF'),fill:GREEN,al:{horizontal:'left',vertical:'center',indent:1},border:0}); H[r]=38; r++;
+  span(r,0,ncols-1,COMPANY+'   |   As of '+fd(today())+'   |   Unit: '+S.unit+'   |   SROs with balance: '+c.list.filter(o=>o.balance>0).length+'   |   Clients served: '+cs.length,
        {font:fnt(10,false,'404040',true),fill:LG,al:{horizontal:'left',vertical:'center',indent:1},border:0}); H[r]=20; r+=2;
   /* total per type of sugar: highlighted cards */
   sec(r,'TOTAL PER TYPE OF SUGAR'); r++;
@@ -679,12 +682,12 @@ function dashSheet(c){
     ts.slice(b0,b0+per).forEach((t,i)=>{
       const c0=i*2, c1=c0+1, bal=t.received-t.issued, p=left(t.received,bal);
       span(r,c0,c1,t.name,{font:fnt(13,true,'FFFFFF'),fill:GREEN,al:{horizontal:'center',vertical:'center'},border:BOX});
-      span(r+1,c0,c1,'BALANCE',{font:fnt(9,true,'7F6000'),fill:LAMB,al:{horizontal:'center',vertical:'center'},border:BOX});
-      span(r+2,c0,c1,bal,{font:fnt(22,true,GREEN),fill:AMB,al:{horizontal:'center',vertical:'center'},border:BOX});
+      span(r+1,c0,c1,'BALANCE',{keep:true,font:fnt(9,true,'7F6000'),fill:LAMB,al:{horizontal:'center',vertical:'center'},border:BOX});
+      span(r+2,c0,c1,bal,{keep:true,font:fnt(22,true,GREEN),fill:AMB,al:{horizontal:'center',vertical:'center'},border:BOX});
       set(r+3,c0,'Received',{border:BOX}); set(r+3,c1,t.received,{border:BOX});
       set(r+4,c0,'Issued',{border:BOX});   set(r+4,c1,t.issued,{border:BOX});
-      set(r+5,c0,'% Left',{border:BOX});   set(r+5,c1,p/100,{z:'0.0%',border:BOX});
-      span(r+6,c0,c1,bar(p),{font:fnt(11,false,GREEN),al:{horizontal:'center',vertical:'center'},border:BOX});
+      set(r+5,c0,'% Left',{border:BOX});   set(r+5,c1,p/100,{z:'0.00%',border:BOX});
+      span(r+6,c0,c1,bar(p),{keep:true,font:fnt(11,false,GREEN),al:{horizontal:'center',vertical:'center'},border:BOX});
     });
     H[r]=24; H[r+1]=16; H[r+2]=40; H[r+6]=20; r+=8;
   }
@@ -702,7 +705,7 @@ function dashSheet(c){
       set(r,1,o.date?serial(o.date):'',{z:'dd-mmm-yyyy',fill:f,al:{horizontal:'center',vertical:'center'}});
       set(r,2,o.mill,{fill:f}); set(r,3,o.received,{fill:f}); set(r,4,o.issued,{fill:f});
       set(r,5,o.balance,{fill:f,font:fnt(10,true,GREEN)});
-      set(r,6,o.received?o.issued/o.received:0,{z:'0.0%',fill:f});
+      set(r,6,o.received?o.issued/o.received:0,{z:'0.00%',fill:f});
       set(r,7,bar(left(o.received,o.balance)),{fill:f,font:fnt(10,false,GREEN),al:{horizontal:'center',vertical:'center'}});
       set(r,8,st.t,{fill:sc[0],font:fnt(10,true,sc[1]),al:{horizontal:'center',vertical:'center'}});
       r++;
@@ -710,7 +713,7 @@ function dashSheet(c){
     const gr=sum(g,o=>o.received), gi=sum(g,o=>o.issued), o2={fill:AMB,font:fnt(10,true,'000000')};
     span(r,0,2,t.name+' SUBTOTAL',o2);
     set(r,3,gr,o2); set(r,4,gi,o2); set(r,5,gr-gi,{fill:AMB,font:fnt(11,true,GREEN)});
-    set(r,6,gr?gi/gr:0,Object.assign({z:'0.0%'},o2));
+    set(r,6,gr?gi/gr:0,Object.assign({z:'0.00%'},o2));
     set(r,7,bar(left(gr,gr-gi)),{fill:AMB,font:fnt(10,false,GREEN),al:{horizontal:'center',vertical:'center'}});
     set(r,8,'',o2); r+=2;
   });
@@ -725,8 +728,8 @@ function dashSheet(c){
     ts.forEach((t,j)=>set(r,1+j,sum(k.items.filter(i=>(i.type||(c.by[i.sro]&&c.by[i.sro].type)||'(no type)')===t.name),i=>+i.qty||0),{fill:f}));
     const b=1+ts.length;
     set(r,b,k.total,{fill:AMB,font:fnt(10,true,GREEN)});
-    set(r,b+1,tot?k.total/tot:0,{z:'0.0%',fill:f});
-    set(r,b+2,k.atw.size||k.lines,{z:'0',fill:f,al:{horizontal:'center',vertical:'center'}});
+    set(r,b+1,tot?k.total/tot:0,{z:'0.00%',fill:f});
+    set(r,b+2,k.atw.size||k.lines,{z:'#,##0',fill:f,al:{horizontal:'center',vertical:'center'}});
     set(r,b+3,k.last?serial(k.last):'',{z:'dd-mmm-yyyy',fill:f,al:{horizontal:'center',vertical:'center'}});
     r++;
   });
@@ -740,7 +743,7 @@ function dashSheet(c){
    ['Duplicate SRO numbers in SRO Quantity',dup],
    ['Issuance lines with sugar type different from SRO',mis]].forEach(x=>{
     const okk=x[1]===0, col=okk?['C6EFCE','006100']:['FFC7CE','9C0006'];
-    span(r,0,3,x[0],{}); set(r,4,x[1],{z:'0',al:{horizontal:'center',vertical:'center'}});
+    span(r,0,3,x[0],{}); set(r,4,x[1],{z:'#,##0',al:{horizontal:'center',vertical:'center'}});
     set(r,5,okk?'OK':'Review',{fill:col[0],font:fnt(10,true,col[1]),al:{horizontal:'center',vertical:'center'}}); r++;
   });
   /* white canvas so gridlines are hidden, and layout */
@@ -766,13 +769,14 @@ function sroBalanceSheet(c){
   const set=(r,col,v,o)=>{
     o=o||{}; let cell;
     if(v===''||v==null) cell={t:'s',v:''};
-    else if(typeof v==='number') cell={t:'n',v:v,z:o.z||'#,##0.00######'};
+    else if(typeof v==='number') cell={t:'n',v:v,z:o.z||'#,##0.00'};
     else cell={t:'s',v:String(v)};
     const st={font:o.font||fnt(10),alignment:o.al||{horizontal:'justify',vertical:'center'}};
     if(o.fill) st.fill=FILL(o.fill);
     if(o.border!==0) st.border=BOX;
-    if(typeof v==='number'&&(!o.z||o.z==='#,##0.00######')) st.alignment={horizontal:'right',vertical:'center',indent:1};
-    else if(typeof v==='number'&&!o.al) st.alignment={horizontal:'center',vertical:'center'};
+    const isDate=typeof v==='number'&&o.z&&/mmm/.test(o.z);
+    if(typeof v==='number'&&!isDate) st.alignment={horizontal:'right',vertical:'center',indent:1};
+    else if(!o.keep&&o.border!==0&&o.fill!==YELLOW&&o.fill!=='A9D08E'&&o.fill!==GREEN) st.alignment={horizontal:'center',vertical:'center'};
     cell.s=st; ws[X.utils.encode_cell({r:r,c:col})]=cell;
   };
   const span=(r,c1,c2,v,o)=>{ for(let k=c1;k<=c2;k++) set(r,k,k===c1?v:'',o); if(c2>c1) merges.push({s:{r:r,c:c1},e:{r:r,c:c2}}); };
@@ -780,7 +784,7 @@ function sroBalanceSheet(c){
   const STAT={ok:['C6EFCE','006100'],low:['FFEB9C','9C5700'],empty:['D9D9D9','404040'],over:['FFC7CE','9C0006']};
   let r=0;
   span(r,0,7,'RUNNING BALANCE PER SRO (BY SUGAR TYPE)',{font:fnt(16,true,'FFFFFF'),fill:GREEN,al:{horizontal:'left',vertical:'center',indent:1},border:0}); H[r]=32; r++;
-  span(r,0,7,'As of '+fd(today())+'   |   Unit: '+S.unit,{font:fnt(10,false,'404040',true),fill:LG,al:{horizontal:'left',vertical:'center',indent:1},border:0}); H[r]=20; r+=2;
+  span(r,0,7,COMPANY+'   |   As of '+fd(today())+'   |   Unit: '+S.unit,{font:fnt(10,false,'404040',true),fill:LG,al:{horizontal:'left',vertical:'center',indent:1},border:0}); H[r]=20; r+=2;
   ts.forEach(t=>{
     const g=c.list.filter(o=>(o.type||'(no type)')===t.name).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
     if(!g.length) return;
@@ -792,14 +796,14 @@ function sroBalanceSheet(c){
       set(r,1,o.date?serial(o.date):'',{z:'dd-mmm-yyyy',fill:f,al:CEN});
       set(r,2,o.mill,{fill:f}); set(r,3,o.received,{fill:f}); set(r,4,o.issued,{fill:f});
       set(r,5,o.balance,{fill:f,font:fnt(10,true,GREEN)});
-      set(r,6,o.received?o.issued/o.received:0,{z:'0.0%',fill:f});
+      set(r,6,o.received?o.issued/o.received:0,{z:'0.00%',fill:f});
       set(r,7,st.t,{fill:sc[0],font:fnt(10,true,sc[1]),al:CEN});
       r++;
     });
     const gr=sum(g,o=>o.received), gi=sum(g,o=>o.issued), o2={fill:AMB,font:fnt(10,true)};
     span(r,0,2,t.name+' SUBTOTAL',o2);
     set(r,3,gr,o2); set(r,4,gi,o2); set(r,5,gr-gi,{fill:AMB,font:fnt(11,true,GREEN)});
-    set(r,6,gr?gi/gr:0,Object.assign({z:'0.0%'},o2)); set(r,7,'',o2); r+=2;
+    set(r,6,gr?gi/gr:0,Object.assign({z:'0.00%'},o2)); set(r,7,'',o2); r+=2;
   });
   const endR=r+1, endC=9;
   for(let R=0;R<=endR;R++) for(let C=0;C<=endC;C++){ const a=X.utils.encode_cell({r:R,c:C}); if(!ws[a]) ws[a]={t:'s',v:'',s:{fill:FILL('FFFFFF')}}; }
@@ -818,13 +822,14 @@ function sroQuantitySheet(c){
   const set=(r,col,v,o)=>{
     o=o||{}; let cell;
     if(v===''||v==null) cell={t:'s',v:''};
-    else if(typeof v==='number') cell={t:'n',v:v,z:o.z||'#,##0.00######'};
+    else if(typeof v==='number') cell={t:'n',v:v,z:o.z||'#,##0.00'};
     else cell={t:'s',v:String(v)};
     const st={font:o.font||fnt(10),alignment:o.al||{horizontal:'justify',vertical:'center'}};
     if(o.fill) st.fill=FILL(o.fill);
     if(o.border!==0) st.border=BOX;
-    if(typeof v==='number'&&(!o.z||o.z==='#,##0.00######')) st.alignment={horizontal:'right',vertical:'center',indent:1};
-    else if(typeof v==='number'&&!o.al) st.alignment={horizontal:'center',vertical:'center'};
+    const isDate=typeof v==='number'&&o.z&&/mmm/.test(o.z);
+    if(typeof v==='number'&&!isDate) st.alignment={horizontal:'right',vertical:'center',indent:1};
+    else if(!o.keep&&o.border!==0&&o.fill!==YELLOW&&o.fill!=='A9D08E'&&o.fill!==GREEN) st.alignment={horizontal:'center',vertical:'center'};
     cell.s=st; ws[X.utils.encode_cell({r:r,c:col})]=cell;
   };
   const span=(r,c1,c2,v,o)=>{ for(let k=c1;k<=c2;k++) set(r,k,k===c1?v:'',o); if(c2>c1) merges.push({s:{r:r,c:c1},e:{r:r,c:c2}}); };
@@ -833,14 +838,13 @@ function sroQuantitySheet(c){
   const groups=ts.map(t=>({t:t,g:c.list.filter(o=>(o.type||'(no type)')===t.name).sort((a,b)=>String(a.sro).localeCompare(String(b.sro),undefined,{numeric:true,sensitivity:'base'}))})).filter(x=>x.g.length);
   let r=0;
   span(r,0,LAST,'SRO QUANTITY (BY SUGAR TYPE)',{font:fnt(16,true,'FFFFFF'),fill:GREEN,al:{horizontal:'left',vertical:'center',indent:1},border:0}); H[r]=32; r++;
-  span(r,0,LAST,'As of '+fd(today())+'   |   Unit: '+S.unit,{font:fnt(10,false,'404040',true),fill:LG,al:{horizontal:'left',vertical:'center',indent:1},border:0}); H[r]=20; r+=2;
+  span(r,0,LAST,COMPANY+'   |   As of '+fd(today())+'   |   Unit: '+S.unit,{font:fnt(10,false,'404040',true),fill:LG,al:{horizontal:'left',vertical:'center',indent:1},border:0}); H[r]=20; r+=2;
   span(r,0,LAST,'SUMMARY BY SUGAR TYPE',{font:fnt(12,true,'FFFFFF'),fill:GREEN,al:{horizontal:'left',vertical:'center',indent:1},border:0}); H[r]=22; r++;
-  head(r,['Type of Sugar','Crop Year','No. of SROs','SRO Quantity']); r++;
+  head(r,['Type of Sugar','No. of SROs','SRO Quantity']); r++;
   groups.forEach(x=>{
     set(r,0,x.t.name,{fill:AMB,font:fnt(10,true)});
-    set(r,1,[...new Set(x.g.map(o=>o.crop).filter(Boolean))].sort().join(', '),{fill:LAMB,al:CEN});
-    set(r,2,x.g.length,{z:'0',fill:LAMB,al:CEN});
-    set(r,3,sum(x.g,o=>o.received),{fill:AMB,font:fnt(11,true,GREEN)});
+    set(r,1,x.g.length,{z:'#,##0',fill:LAMB,al:CEN});
+    set(r,2,sum(x.g,o=>o.received),{fill:AMB,font:fnt(11,true,GREEN)});
     r++;
   });
   r++;
@@ -890,13 +894,14 @@ function issuanceSheet(c){
   const set=(r,col,v,o)=>{
     o=o||{}; let cell;
     if(v===''||v==null) cell={t:'s',v:''};
-    else if(typeof v==='number') cell={t:'n',v:v,z:o.z||'#,##0.00######'};
+    else if(typeof v==='number') cell={t:'n',v:v,z:o.z||'#,##0.00'};
     else cell={t:'s',v:String(v)};
     const st={font:o.font||fnt(10),alignment:o.al||{horizontal:'justify',vertical:'center'}};
     if(o.fill) st.fill=FILL(o.fill);
     if(o.border!==0) st.border=BOX;
-    if(typeof v==='number'&&(!o.z||o.z==='#,##0.00######')) st.alignment={horizontal:'right',vertical:'center',indent:1};
-    else if(typeof v==='number'&&!o.al) st.alignment={horizontal:'center',vertical:'center'};
+    const isDate=typeof v==='number'&&o.z&&/mmm/.test(o.z);
+    if(typeof v==='number'&&!isDate) st.alignment={horizontal:'right',vertical:'center',indent:1};
+    else if(!o.keep&&o.border!==0&&o.fill!==YELLOW&&o.fill!=='A9D08E'&&o.fill!==GREEN) st.alignment={horizontal:'center',vertical:'center'};
     cell.s=st; ws[X.utils.encode_cell({r:r,c:col})]=cell;
   };
   const span=(r,c1,c2,v,o)=>{ for(let k=c1;k<=c2;k++) set(r,k,k===c1?v:'',o); if(c2>c1) merges.push({s:{r:r,c:c1},e:{r:r,c:c2}}); };
@@ -906,14 +911,14 @@ function issuanceSheet(c){
   const groups=ts.map(t=>({t:t,g:c.sorted.filter(i=>typeOf(i)===t.name)})).filter(x=>x.g.length);
   let r=0;
   span(r,0,LAST,'ISSUANCE (BY SUGAR TYPE)',{font:fnt(16,true,'FFFFFF'),fill:GREEN,al:{horizontal:'left',vertical:'center',indent:1},border:0}); H[r]=32; r++;
-  span(r,0,LAST,'As of '+fd(today())+'   |   Unit: '+S.unit,{font:fnt(10,false,'404040',true),fill:LG,al:{horizontal:'left',vertical:'center',indent:1},border:0}); H[r]=20; r+=2;
+  span(r,0,LAST,COMPANY+'   |   As of '+fd(today())+'   |   Unit: '+S.unit,{font:fnt(10,false,'404040',true),fill:LG,al:{horizontal:'left',vertical:'center',indent:1},border:0}); H[r]=20; r+=2;
   span(r,0,3,'SUMMARY BY SUGAR TYPE',{font:fnt(12,true,'FFFFFF'),fill:GREEN,al:{horizontal:'left',vertical:'center',indent:1},border:0}); H[r]=22; r++;
   head(r,['Type of Sugar','Batch Codes','Quantity Issued','Clients']); r++;
   groups.forEach(x=>{
     set(r,0,x.t.name,{fill:AMB,font:fnt(10,true)});
-    set(r,1,x.g.length,{z:'0',fill:LAMB,al:CEN});
+    set(r,1,x.g.length,{z:'#,##0',fill:LAMB,al:CEN});
     set(r,2,sum(x.g,i=>+i.qty||0),{fill:AMB,font:fnt(11,true,GREEN)});
-    set(r,3,new Set(x.g.map(i=>(i.client||'').trim()).filter(Boolean)).size,{z:'0',fill:LAMB,al:CEN});
+    set(r,3,new Set(x.g.map(i=>(i.client||'').trim()).filter(Boolean)).size,{z:'#,##0',fill:LAMB,al:CEN});
     r++;
   });
   r++;
@@ -926,7 +931,7 @@ function issuanceSheet(c){
     set(r,0,a.k,{fill:f,font:fnt(10,true)});
     set(r,1,it[0].date?serial(it[0].date):'',{z:'dd-mmm-yyyy',fill:f,al:CEN});
     set(r,2,uniq(i=>(i.client||'').trim()),{fill:f}); set(r,3,uniq(i=>i.sro),{fill:f}); set(r,4,uniq(typeOf),{fill:f});
-    set(r,5,it.length,{z:'0',fill:f,al:CEN});
+    set(r,5,it.length,{z:'#,##0',fill:f,al:CEN});
     set(r,6,sum(it,i=>+i.qty||0),{fill:AMB,font:fnt(10,true,GREEN)});
     r++;
   });
@@ -975,13 +980,14 @@ function clientSummarySheet(c){
   const set=(r,col,v,o)=>{
     o=o||{}; let cell;
     if(v===''||v==null) cell={t:'s',v:''};
-    else if(typeof v==='number') cell={t:'n',v:v,z:o.z||'#,##0.00######'};
+    else if(typeof v==='number') cell={t:'n',v:v,z:o.z||'#,##0.00'};
     else cell={t:'s',v:String(v)};
     const st={font:o.font||fnt(10),alignment:o.al||{horizontal:'justify',vertical:'center'}};
     if(o.fill) st.fill=FILL(o.fill);
     if(o.border!==0) st.border=BOX;
-    if(typeof v==='number'&&(!o.z||o.z==='#,##0.00######')) st.alignment={horizontal:'right',vertical:'center',indent:1};
-    else if(typeof v==='number'&&!o.al) st.alignment={horizontal:'center',vertical:'center'};
+    const isDate=typeof v==='number'&&o.z&&/mmm/.test(o.z);
+    if(typeof v==='number'&&!isDate) st.alignment={horizontal:'right',vertical:'center',indent:1};
+    else if(!o.keep&&o.border!==0&&o.fill!==YELLOW&&o.fill!=='A9D08E'&&o.fill!==GREEN) st.alignment={horizontal:'center',vertical:'center'};
     cell.s=st; ws[X.utils.encode_cell({r:r,c:col})]=cell;
   };
   const span=(r,c1,c2,v,o)=>{ for(let k=c1;k<=c2;k++) set(r,k,k===c1?v:'',o); if(c2>c1) merges.push({s:{r:r,c:c1},e:{r:r,c:c2}}); };
@@ -995,7 +1001,7 @@ function clientSummarySheet(c){
   const tot=sum(cs,k=>k.total);
   let r=0;
   span(r,0,LAST,'CLIENT SUMMARY (BY SUGAR TYPE)',{font:fnt(16,true,'FFFFFF'),fill:GREEN,al:{horizontal:'left',vertical:'center',indent:1},border:0}); H[r]=32; r++;
-  span(r,0,LAST,'As of '+fd(today())+'   |   Unit: '+S.unit+'   |   Clients served: '+cs.length,{font:fnt(10,false,'404040',true),fill:LG,al:{horizontal:'left',vertical:'center',indent:1},border:0}); H[r]=20; r+=2;
+  span(r,0,LAST,COMPANY+'   |   As of '+fd(today())+'   |   Unit: '+S.unit+'   |   Clients served: '+cs.length,{font:fnt(10,false,'404040',true),fill:LG,al:{horizontal:'left',vertical:'center',indent:1},border:0}); H[r]=20; r+=2;
   /* 1) matrix: client x sugar type */
   span(r,0,LAST,'ISSUED PER CLIENT, BY SUGAR TYPE',{font:fnt(12,true,'FFFFFF'),fill:GREEN,al:{horizontal:'left',vertical:'center',indent:1},border:0}); H[r]=22; r++;
   head(r,['Client'].concat(ts.map(t=>t.name),['Total Issued','% of Total','Deliveries','Last Issuance'])); r++;
@@ -1005,8 +1011,8 @@ function clientSummarySheet(c){
     ts.forEach((t,j)=>set(r,1+j,sum(k.items.filter(i=>typeOf(i)===t.name),i=>+i.qty||0),{fill:f}));
     const b=1+ts.length;
     set(r,b,k.total,{fill:AMB,font:fnt(11,true,GREEN)});
-    set(r,b+1,tot?k.total/tot:0,{z:'0.0%',fill:f});
-    set(r,b+2,dcount(k.items),{z:'0',fill:f});
+    set(r,b+1,tot?k.total/tot:0,{z:'0.00%',fill:f});
+    set(r,b+2,dcount(k.items),{z:'#,##0',fill:f});
     set(r,b+3,D(k.last),{z:'dd-mmm-yyyy',fill:f});
     r++;
   });

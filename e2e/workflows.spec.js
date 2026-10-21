@@ -79,8 +79,11 @@ test('overview, stock report, delivery search and client editing',async({page},i
  await navigate(page,'More');
  const excelDownload=page.waitForEvent('download');await page.getByRole('button',{name:'Excel workbook (.xlsx)',exact:true}).click();
  const workbookDownload=await excelDownload;expect(workbookDownload.suggestedFilename()).toMatch(/\.xlsx$/);
- const XLSX=await import('xlsx-js-style');const wb=(XLSX.default||XLSX).readFile(await workbookDownload.path());
+ const XLSX=await import('xlsx-js-style');const wb=(XLSX.default||XLSX).readFile(await workbookDownload.path(),{cellNF:true});
  expect(wb.SheetNames).toEqual(['Dashboard','SRO Quantity','Issuance','SRO Balance','Client Summary']);
+ expect(wb.Sheets.Dashboard.A1.v).toBe('WILMAR EDIBLE OIL PHILIPPINES INC. Sugar Inventory Monitoring');
+ for(const name of wb.SheetNames)expect(wb.Sheets[name].A2.v).toContain('WILMAR EDIBLE OIL PHILIPPINES INC.');
+ expect(wb.Sheets['SRO Quantity'].B5.v).toBe('No. of SROs');expect(wb.Sheets['SRO Quantity'].C5.v).toBe('SRO Quantity');
  await expect(page.getByLabel('View-only link')).toHaveValue(/\/view\/public$/);
  await page.getByLabel('Public link code',{exact:true}).fill('taken1');await expect(page.locator('#codeStatus')).toHaveText('This code is taken. Try another.');
  await page.getByRole('button',{name:'Save code',exact:true}).click();await expect(page.locator('#codeStatus')).toHaveText('This code is taken. Try another.');
