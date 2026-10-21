@@ -240,3 +240,6 @@ body.login-screen #account{border:0;background:transparent;padding:30px 22px;max
 
 /* White transparent wordmark on the forest sidebar and sign-in panel. */
 .nav-brand .wilmar-logo,.login-brand .wilmar-logo{background:transparent;padding:0;border-radius:0;filter:none}
+
+/* Desktop sign-in already carries the company identity in its left panel. */
+@media(min-width:1000px){body.login-screen .account-brand{display:none}}

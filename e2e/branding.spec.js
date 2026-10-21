@@ -5,7 +5,7 @@ test('Wilmar identity is readable on sign-in without horizontal overflow',async(
  await page.goto('/');
  await expect(page.locator('#account .company-name')).toHaveText('WILMAR EDIBLE OIL PHILIPPINES INC.');
  await expect(page.locator('#account .product-name')).toHaveText('Sugar Inventory Monitoring');
- await expect(page.locator('#account .wilmar-logo')).toBeVisible();
+ if(info.project.name==='desktop'){await expect(page.locator('#account .account-brand')).toBeHidden();await expect(page.locator('.login-brand .wilmar-logo')).toBeVisible();}else await expect(page.locator('#account .wilmar-logo')).toBeVisible();
  await expect.poll(()=>page.locator('#account .wilmar-logo').evaluate(el=>el.complete&&el.naturalWidth>0)).toBe(true);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:'.impeccable/review/wilmar-login-'+info.project.name+'.png',fullPage:true});
