@@ -19,7 +19,7 @@ for(const mode of ['not-admin','history','sessions'])test('superadmin visibility
  await expect(page.getByRole('heading',{name:'Inventory at a glance'})).toBeVisible();
  await navigate(page,'More');const button=page.getByRole('button',{name:'Open superadmin'});
  if(!admin){await expect(button).toHaveCount(0);return;}
- await button.click();await expect(page.getByRole('heading',{name:'Superadmin',exact:true,level:2})).toBeVisible();await expect(page.getByText('203.0.113.1',{exact:true})).toBeVisible();await expect(page.getByText('390 × 844',{exact:false})).toBeVisible();
+ await button.click();await expect(page.getByRole('heading',{name:'Superadmin',exact:true,level:2})).toBeVisible();await expect(page.getByText('203.0.113.1',{exact:true})).toBeVisible();await expect(page.locator('.audit-device').getByText('Screen 390 × 844',{exact:true})).toBeVisible();
  await expect(page.getByText('Test Network · AS64500',{exact:true})).toBeVisible();
  if(mode==='sessions'){await expect(page.getByText(/No authentication audit records yet/)).toBeVisible();await expect(page.getByRole('heading',{name:'Stored authentication sessions',exact:true})).toBeVisible();await expect(page.getByText('Existing session browser',{exact:true})).toBeVisible();}
  expect(device.screen).toMatch(/\d+ × \d+/);expect(device.viewport).toMatch(/\d+ × \d+/);

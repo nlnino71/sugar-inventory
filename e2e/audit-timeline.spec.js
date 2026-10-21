@@ -1,0 +1,21 @@
+import {test,expect} from '@playwright/test';
+import {navigate} from './navigation.js';
+test('activity timeline reads as events with grouped details and record comparisons',async({page},info)=>{
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));const user={id:'11111111-1111-4111-8111-111111111111',email:'jcnino16@gmail.com',aud:'authenticated',role:'authenticated'};
+ await page.route(/https:\/\/fonts\.(googleapis|gstatic)\.com\//,r=>r.abort());await page.route('**/api/activity',r=>r.fulfill({status:204,body:''}));
+ await page.route('**/api/ip-info',r=>r.fulfill({json:{org:'Example ISP',country:'Philippines'}}));
+ await page.route('https://nvkawrmoacikzdfowvem.supabase.co/**',r=>{
+  const url=r.request().url();if(url.includes('/auth/v1/token'))return r.fulfill({json:{access_token:'token',refresh_token:'refresh',expires_in:3600,user}});
+  if(url.includes('/rpc/is_inventory_admin'))return r.fulfill({json:true});
+  if(url.includes('/rpc/inventory_admin_dashboard'))return r.fulfill({json:{totalUsers:1,accounts:[],authEvents:[],events:[{event:'browser.visibility.change',email:user.email,occurred_at:'2026-10-21T01:49:47Z',details:{source:'browser-reported',context:{page:'dashboard',state:'visible',device:{screen:'390 × 844',viewport:'390 × 700'}},network:{isp:'Example ISP',asn:'AS64500',country:'Philippines',domain:'example.com'},shared_view:false,session:'browser-session',client_at:'2026-10-21T01:49:47Z',request_network:{ip:'203.0.113.1',ip_source:'Vercel request IP',user_agent:'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/155.0.0.0 Safari/537.36'}}},{event:'receipts.edit',email:user.email,occurred_at:'2026-10-21T01:40:00Z',details:{record_id:'r1',before:{sro:'SRO-001',qty:100,type:'Washed Sugar'},after:{sro:'SRO-001',qty:125,type:'Washed Sugar'}}}]}});
+  if(url.includes('/inventory_shares'))return r.fulfill({json:{enabled:false,token:user.id,slug:'private'}});
+  if(url.includes('/rest/v1/inventory'))return r.fulfill({json:{data:{unit:'bags (LKg)',receipts:[],issues:[],clients:[],seq:0},revision:0}});return r.fulfill({json:null});
+ });
+ await page.goto('/');await expect(page.getByRole('button',{name:'Sign in',exact:true})).toBeEnabled();await page.getByLabel('Email',{exact:true}).fill(user.email);await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.locator('#account')).toBeHidden();await navigate(page,'More');await page.getByRole('button',{name:'Open superadmin',exact:true}).click();
+ const entries=page.locator('.audit-entry');await expect(entries).toHaveCount(2);await expect(entries.first().getByRole('heading',{name:'Page became visible',exact:true})).toBeVisible();await expect(entries.first()).toContainText('Chrome · macOS');await expect(entries.first().locator('.audit-context')).toContainText('Overview');
+ await entries.first().screenshot({path:'.impeccable/review/audit-summary-'+info.project.name+'.png'});await entries.first().getByText('View activity details',{exact:true}).click();await expect(entries.first().getByRole('heading',{name:'Session & provenance',exact:true})).toBeVisible();await expect(entries.first().locator('dd').filter({hasText:/^No$/})).toBeVisible();await expect(entries.first()).toContainText('browser-session');
+ await entries.last().getByText('View activity details',{exact:true}).click();await expect(entries.last().getByRole('table')).toContainText('125');await expect(entries.last().getByRole('table')).toContainText('100');
+ expect(await page.locator('.audit-timeline').textContent()).not.toContain('{"');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await entries.first().screenshot({path:'.impeccable/review/audit-entry-'+info.project.name+'.png'});
+ await page.locator('#themeToggle').click();await expect(page.locator('html')).toHaveAttribute('data-theme','dark');await entries.first().screenshot({path:'.impeccable/review/audit-dark-'+info.project.name+'.png'});await entries.first().getByRole('button',{name:'Look up ISP',exact:true}).click();await expect(entries.first().locator('.audit-lookup')).toContainText('Example ISP');await expect(entries.first().locator('.audit-network strong')).toHaveText('203.0.113.1');expect(errors).toEqual([]);
+});
