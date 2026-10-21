@@ -144,9 +144,13 @@ function status(o){
   if(o.received>0 && o.balance/o.received<=threshold(S)/100) return {k:'low',t:'Low'};
   return {k:'ok',t:'In stock'};
 }
+function stockGauge(pct,kind=''){
+  const percent=pct.toLocaleString('en-US',{maximumFractionDigits:1});
+  return '<div class="stock-level"><div class="stock-level-label"><span>Stock remaining</span><strong>'+percent+'%</strong></div><div class="gauge '+kind+'" role="meter" aria-label="Stock remaining" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+pct+'" aria-valuetext="'+percent+'% remaining"><i style="width:'+pct+'%"></i></div></div>';
+}
 function gauge(o){
   const pct=o.received>0?Math.max(0,Math.min(100,o.balance/o.received*100)):0;
-  const s=status(o); return '<div class="gauge '+(s.k==='low'?'low':s.k==='over'?'over':'')+'"><i style="width:'+pct+'%"></i></div>';
+  const s=status(o);return stockGauge(pct,s.k==='low'?'low':s.k==='over'?'over':'');
 }
 function clientStats(){
   const m=Object.create(null);
@@ -240,7 +244,7 @@ function vStock(){
   h+='<div class="sec" style="margin-top:'+(msgs.length?'18px':'0')+'"><h2>Total per type of sugar</h2></div><div class="type-grid">'+ts.map(t=>{
     const b=t.received-t.issued, p=t.received>0?Math.max(0,Math.min(100,b/t.received*100)):0;
     return '<div class="typeCard"><div class="row"><span class="tname">'+esc(t.name)+'</span><span class="tbal"><b class="num">'+nf(b)+'</b><span>balance</span></span></div>'+
-      '<div class="gauge"><i style="width:'+p+'%"></i></div>'+
+      stockGauge(p)+
       '<div class="nums"><div><span>Received</span><b>'+nf(t.received)+'</b></div><div><span>Issued</span><b>'+nf(t.issued)+'</b></div><div><span>Left</span><b>'+Math.round(p)+'%</b></div></div></div>';
   }).join('')+'</div>';
   h+='<div class="sec"><h2>Running balance per SRO, by sugar type</h2><span class="hint">'+c.list.length+' total</span></div>'+

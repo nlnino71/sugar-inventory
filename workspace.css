@@ -198,3 +198,10 @@ body.login-screen #account{border:0;background:transparent;padding:30px 22px;max
 @keyframes inventory-dialog{from{opacity:.6;transform:translateY(calc(-50% + 8px))}to{opacity:1;transform:translateY(-50%)}}
 @keyframes inventory-toast{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 @media(prefers-reduced-motion:reduce){.btn:active,.ledger-edit:active,.chip-b:active,.admin-tabs [role=tab]:active{transform:none}}
+/* A labeled, bounded meter makes a full stock balance unambiguous. */
+.stock-level{margin-top:16px}
+.stock-level-label{display:flex;align-items:baseline;justify-content:space-between;gap:12px;font-size:12px;margin-bottom:8px;color:var(--muted)}
+.stock-level-label strong{font-size:14px;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
+.stock-level .gauge,.typeCard .stock-level .gauge{height:12px;margin-top:0;background:var(--soft);border:1px solid var(--control-line);border-radius:999px}
+.stock-level .gauge i{border-radius:inherit}
+.stock-level .gauge::after{display:block;content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(90deg,transparent 0,transparent calc(25% - 1px),rgb(255 255 255 / .45) calc(25% - 1px),rgb(255 255 255 / .45) 25%)}
