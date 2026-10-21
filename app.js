@@ -1,3 +1,4 @@
+import {mountSpreadsheet} from './spreadsheet-editor.js';
 import {UNITS,unitWeight,convertQuantity,convertInventory} from './units.js';
 import sunIcon from '@phosphor-icons/core/assets/regular/sun.svg?raw';
 import moonIcon from '@phosphor-icons/core/assets/regular/moon.svg?raw';
@@ -26,7 +27,7 @@ const publicSlug=slugPath?(window.location.pathname.split('/')[2]||''):'';
 const validSlug=value=>value.length>=3&&value.length<=64&&/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value);
 const readOnly=!!publicToken||slugPath;
 let shareSettings=null, shareError='', accountId=null;
-let isSuperadmin=false,adminCleanup=null,inventoryCleanup=null,inventoryDays=30;
+let isSuperadmin=false,adminCleanup=null,inventoryCleanup=null,inventoryDays=30,spreadsheetView=null;
 let authMode='signin', authBusy=false;
 const KEY='sugar-inventory.v1';
 const blank = ()=>({unit:'bags (LKg)',receipts:[],issues:[],clients:[],seq:0,clientProfiles:{},activity:[],lowStockPercent:20});
@@ -80,7 +81,7 @@ async function readCloud(){
   if(error) throw error;
   S=Object.assign(blank(),data.data); revision=data.revision; committed=structuredClone(S);
 }
-async function save(){
+async function save(options={}){
   if(!ready||saving||readOnly) return false;
   saving=true; lock(true);
   const next=structuredClone(S);
@@ -91,14 +92,14 @@ async function save(){
     if(error) throw error;
     if(data===null) {
       track('save.conflict',{revision});
-      await readCloud(); render();
+      await readCloud(); if(!options.preserveView)render();options.onConflict?.();
       toast('Inventory changed on another device. Latest records loaded; please reapply your edit.');
       return false;
     }
     revision=data; S=next; committed=structuredClone(next); return true;
   } catch(error){
     track('save.failed',{revision,code:String(error.code||'unknown').slice(0,80)});
-    S=structuredClone(committed); render();
+    S=structuredClone(committed); if(!options.preserveView)render();
     toast('Save failed. Your change was not confirmed: '+error.message); return false;
   } finally { saving=false; lock(false); }
 }
@@ -182,8 +183,9 @@ function restoreNavigation(){
  const allowed=readOnly?['dashboard','stock','issue','reports']:Object.keys(TITLES);
  tab=adminView?'more':allowed.includes(saved)?saved:'dashboard';
 }
-const TITLES={dashboard:'Overview',stock:'Stock',receive:'SRO Quantity',issue:'Issuance',clients:'Clients',reports:'Reports',more:'More'};
+const TITLES={dashboard:'Overview',stock:'Stock',receive:'SRO Quantity',issue:'Issuance',clients:'Clients',reports:'Reports',spreadsheet:'Spreadsheet',more:'More'};
 const ICON={
+ spreadsheet:'<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>',
  dashboard:'<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>',
  reports:'<svg viewBox="0 0 24 24"><path d="M5 3h10l4 4v14H5zM14 3v5h5M8 12h8M8 16h8"/></svg>',
  stock:'<svg viewBox="0 0 24 24"><rect x="4" y="12" width="4" height="8"/><rect x="10" y="7" width="4" height="13"/><rect x="16" y="4" width="4" height="16"/></svg>',
@@ -193,9 +195,10 @@ const ICON={
  more:'<svg viewBox="0 0 24 24"><path d="M4 7h10"/><path d="M18 7h2"/><circle cx="16" cy="7" r="2"/><path d="M4 17h2"/><path d="M10 17h10"/><circle cx="8" cy="17" r="2"/></svg>'
 };
 function renderNav(){
-  $('#nav').innerHTML='<div class="nav-brand"><img src="/app-icon.svg" width="44" height="44" alt="">Sugar Inventory<small>'+ (readOnly?'Shared inventory':'Inventory workspace')+'</small></div>'+Object.keys(TITLES).filter(k=>!readOnly||['dashboard','stock','issue','reports'].includes(k)).map(k=>'<button class="'+(!readOnly&&['receive','clients','reports','more'].includes(k)?'nav-overflow':'')+'" data-act="tab" data-tab="'+k+'"'+(k===tab?' aria-current="page"':'')+'>'+ICON[k]+'<span>'+(k==='receive'?'SRO Qty':TITLES[k])+'</span></button>').join('')+(!readOnly?'<button class="nav-menu" data-act="navMenu" aria-haspopup="dialog"'+(['receive','clients','reports','more'].includes(tab)?' aria-current="page"':'')+'><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span>Menu</span></button>':'');
+  $('#nav').innerHTML='<div class="nav-brand"><img src="/app-icon.svg" width="44" height="44" alt="">Sugar Inventory<small>'+ (readOnly?'Shared inventory':'Inventory workspace')+'</small></div>'+Object.keys(TITLES).filter(k=>!readOnly||['dashboard','stock','issue','reports'].includes(k)).map(k=>'<button class="'+(!readOnly&&['receive','clients','reports','spreadsheet','more'].includes(k)?'nav-overflow':'')+'" data-act="tab" data-tab="'+k+'"'+(k===tab?' aria-current="page"':'')+'>'+ICON[k]+'<span>'+(k==='receive'?'SRO Qty':TITLES[k])+'</span></button>').join('')+(!readOnly?'<button class="nav-menu" data-act="navMenu" aria-haspopup="dialog"'+(['receive','clients','reports','spreadsheet','more'].includes(tab)?' aria-current="page"':'')+'><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span>Menu</span></button>':'');
 }
 function render(){
+  spreadsheetView?.destroy();spreadsheetView=null;
   adminCleanup?.();adminCleanup=null;
   inventoryCleanup?.();inventoryCleanup=null;
   $('#main').onclick=null;$('#main').onchange=null;
@@ -210,13 +213,18 @@ function render(){
   $('#title').textContent=TITLES[tab]; $('#unitLbl').textContent='Unit: '+S.unit;
   renderNav();
   if(adminView&&ready&&isSuperadmin&&!readOnly){$('#main').dataset.view='superadmin';$('#title').textContent='Superadmin';adminCleanup=openAdmin(db,$('#main'));return;}
-  $('#main').innerHTML=({dashboard:vDashboard,reports:vReports,stock:vStock,receive:vReceive,issue:vIssue,clients:vClients,more:vMore})[tab]();
+  $('#main').innerHTML=({dashboard:vDashboard,reports:vReports,stock:vStock,receive:vReceive,issue:vIssue,clients:vClients,spreadsheet:()=>'',more:vMore})[tab]();
   if(tab==='more'&&isSuperadmin&&!readOnly)$('#main').insertAdjacentHTML('afterbegin','<section class="setting"><h2>Private administration</h2><p>Accounts, security events, IPs and device reports. Restricted to your account.</p><div class="btns"><button class="btn primary" data-act="superadmin">Open superadmin</button></div></section>');
   if(tab==='dashboard'){
     const host=$('#inventoryCharts');let cancelled=false,dispose=null;
     inventoryCleanup=()=>{cancelled=true;dispose?.();};
     import('./inventory-charts.js').then(({mountInventory})=>{if(!cancelled)dispose=mountInventory(host,S,today(),inventoryDays,days=>{inventoryDays=days;});}).catch(()=>{if(!cancelled)host.innerHTML='<p class="hint">Charts could not load. Reload the page to try again.</p>';});
   }
+  if(tab==='spreadsheet'&&!readOnly)spreadsheetView=mountSpreadsheet($('#main'),{
+    getState:()=>S,today,onConfirm:(title,message,label)=>ask(title,message,label,true),
+    onDownload:draft=>saveFile('Sugar_Inventory_draft_'+today()+'.json',JSON.stringify(draft,null,2)),
+    onSave:async next=>{let conflict=false;S=next;const ok=await save({preserveView:true,onConflict:()=>{conflict=true;}});return {ok,conflict};}
+  });
   if(tab==='more')previewUnitConversion();
   if(tab==='stock') updateList();
   if(tab==='receive') updateRList();
@@ -1216,13 +1224,13 @@ document.addEventListener('click',async e=>{
     case 'rotateSharing': if(await ask('Replace public link','The previous link will stop working. A new random 6-character address will replace it. Your sharing setting stays the same.','Replace link'))await replaceSharingLink(); break;
     case 'copySharing': try{await navigator.clipboard.writeText(publicLink());toast('View-only link copied');}catch{ $('#publicLink').select();toast('Select and copy the link above.');} break;
     case 'convertUnits': await saveUnitConversion();break;
-    case 'superadmin': if(!isSuperadmin||readOnly)return; tab='more';adminView=true;rememberNavigation();render();track('admin.view');break;
-    case 'navMenu': openSheet(sheetHead('Menu')+'<div class="section-menu">'+['receive','clients','reports','more'].map(k=>'<button class="btn" data-act="tab" data-tab="'+k+'"'+(tab===k?' aria-current="page"':'')+'>'+ICON[k]+'<span>'+(k==='more'?'Settings & sharing':TITLES[k])+'</span></button>').join('')+'</div>');break;
+    case 'superadmin': if(!isSuperadmin||readOnly)return;if(spreadsheetView&&!await spreadsheetView.canLeave())return; tab='more';adminView=true;rememberNavigation();render();track('admin.view');break;
+    case 'navMenu': openSheet(sheetHead('Menu')+'<div class="section-menu">'+['receive','clients','reports','spreadsheet','more'].map(k=>'<button class="btn" data-act="tab" data-tab="'+k+'"'+(tab===k?' aria-current="page"':'')+'>'+ICON[k]+'<span>'+(k==='more'?'Settings & sharing':TITLES[k])+'</span></button>').join('')+'</div>');break;
     case 'newClient': clientEditor(); break;
     case 'editClient': clientEditor(d.name); break;
     case 'reportCsv': exportReport(); break;
     case 'resetDelivery': deliveryFilter={query:'',from:'',to:'',client:''}; render(); break;
-    case 'tab': if(readOnly&&!['dashboard','stock','issue','reports'].includes(d.tab))return; tab=d.tab;adminView=false;rememberNavigation(); if(tab==='more')await loadSharing(); closeSheet(); render();trackPage(tab); window.scrollTo(0,0); break;
+    case 'tab': if(spreadsheetView&&!await spreadsheetView.canLeave())return;if(readOnly&&!['dashboard','stock','issue','reports'].includes(d.tab))return; tab=d.tab;adminView=false;rememberNavigation(); if(tab==='more')await loadSharing(); closeSheet(); render();trackPage(tab); window.scrollTo(0,0); break;
     case 'stockType': stockType=d.all==='true'?null:d.t;updateList();$('#stockTypeTabs [aria-selected="true"]')?.focus({preventScroll:true});break;
     case 'filter': filter=d.f; updateList(); break;
     case 'rcrop': rcrop=d.c; updateRList(); break;
@@ -1373,8 +1381,8 @@ $('#loginForm').addEventListener('submit',async e=>{
  }catch(error){track('auth.result',{action:signup?'signup':'signin',outcome:'failed'});$('#accountMessage').textContent=error.message;}
  finally{authBusy=false;button.disabled=false;$('#switchAuth').disabled=false;}
 });
-$('#signOut').addEventListener('click',async()=>{ if(saving||!db) return;track('session.end',{reason:'sign_out'});await activity.stop(); const {error}=await db.auth.signOut({scope:'local'}); if(error){toast(error.message);return;} await showAccount(null); });
-$('#reloadCloud').addEventListener('click',async()=>{ if(!db||saving) return; if(readOnly){await showPublic();return;} const {data,error}=await db.auth.getSession(); if(error){toast(error.message);return;} await showAccount(data.session); });
+$('#signOut').addEventListener('click',async()=>{ if(saving||!db) return;if(spreadsheetView&&!await spreadsheetView.canLeave())return;track('session.end',{reason:'sign_out'});await activity.stop(); const {error}=await db.auth.signOut({scope:'local'}); if(error){toast(error.message);return;} await showAccount(null); });
+$('#reloadCloud').addEventListener('click',async()=>{ if(!db||saving) return;if(spreadsheetView&&!await spreadsheetView.canLeave())return; if(readOnly){await showPublic();return;} const {data,error}=await db.auth.getSession(); if(error){toast(error.message);return;} await showAccount(data.session); });
 syncThemeControl();
 $('#themeToggle').addEventListener('click',()=>applyTheme(effectiveDark()?'light':'dark'));
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',syncThemeControl);
