@@ -162,3 +162,12 @@ body.login-screen #account{border:0;background:transparent;padding:30px 22px;max
 [role=tabpanel]{min-width:0;scroll-margin-top:90px}
 @media(max-width:767px){.admin-tabs{margin:18px 0}.admin-tabs [role=tab]{padding:12px}}
 @media(max-width:767px){.admin-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;overflow:visible}.admin-tabs [role=tab]{min-width:0;padding:12px 6px;font-size:13px;white-space:normal}}
+/* Stock summaries grow with the available width and never split quantities. */
+.workspace main[data-view="stock"] .type-grid{display:flex;flex-wrap:wrap;gap:18px}
+.workspace .type-grid .typeCard{flex:1 1 340px;margin:0;container-type:inline-size}
+.typeCard .row{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}
+.typeCard .tbal{text-align:left;margin-left:0}
+.typeCard .tbal b{font-size:clamp(24px,9cqi,35px);white-space:nowrap;overflow-wrap:normal;font-variant-numeric:tabular-nums}
+.typeCard .nums{display:flex;flex-wrap:wrap;gap:14px 24px}
+.typeCard .nums>div{flex:1 1 auto;min-width:max-content}
+.typeCard .nums b{font-size:clamp(16px,6cqi,20px);white-space:nowrap;overflow-wrap:normal;font-variant-numeric:tabular-nums}
