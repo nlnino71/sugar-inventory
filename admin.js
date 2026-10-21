@@ -1,4 +1,4 @@
-import {renderSessions,sessionId} from './admin-sessions.js';
+import {renderSessions,sessionId,hydrateSessionLocations,updateSessionNetwork} from './admin-sessions.js';
 import {renderAuditTimeline} from './audit-timeline.js';
 import {mountTraffic} from './visitor-traffic.js';
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -7,8 +7,8 @@ export function openAdmin(db,host){
  let currentPage=0,selectedDays=30,disposed=false,statsTicket=0,request=0,statsCache=null;
  const tabs=[['traffic','Traffic'],['statistics','Statistics'],['accounts','Accounts'],['authentication','Authentication'],['sessions','Sessions'],['activity','Activity']];
  let selectedTab='traffic';try{const saved=sessionStorage.getItem('sugar-admin-section');if(tabs.some(([key])=>key===saved))selectedTab=saved;}catch{}
- let recordData=null,trafficMounted=false,statsMounted=false;
- let destroyCharts=()=>{},destroyTraffic=()=>{};
+ let recordData=null,trafficMounted=false,statsMounted=false,sessionsMounted=false;
+ let destroyCharts=()=>{},destroyTraffic=()=>{},destroySessions=()=>{};
  const panel=(key)=>'<section id="admin-panel-'+key+'" role="tabpanel" aria-labelledby="admin-tab-'+key+'" tabindex="0" hidden>';
  function activateTab(key,focus=false){
   selectedTab=key;try{sessionStorage.setItem('sugar-admin-section',key);}catch{}
@@ -16,6 +16,7 @@ export function openAdmin(db,host){
   const pager=host.querySelector('[data-admin-pagination]');if(pager){pager.hidden=['traffic','statistics'].includes(key);const rows={accounts:recordData?.accounts,authentication:recordData?.authEvents,sessions:recordData?.authSessions,activity:recordData?.events}[key]||[];pager.querySelector('[data-admin="next"]').disabled=rows.length<50;}
   if(key==='traffic'&&!trafficMounted){trafficMounted=true;destroyTraffic=mountTraffic(db,host.querySelector('#adminTraffic'));}
   if(key==='statistics'&&!statsMounted){statsMounted=true;void loadStats();}
+  if(key==='sessions'&&!sessionsMounted){sessionsMounted=true;const loader=hydrateSessionLocations(host.querySelector('#admin-panel-sessions'),async(ip,signal)=>{const {data}=await db.auth.getSession();const response=await fetch('/api/ip-info',{method:'POST',signal,headers:{'Content-Type':'application/json',Authorization:'Bearer '+data.session.access_token},body:JSON.stringify({ip})});const result=await response.json();if(!response.ok)throw new Error(result.error||'Lookup unavailable');return result;});destroySessions=()=>loader.destroy();}
  }
 
  async function loadStats(){
@@ -37,7 +38,7 @@ export function openAdmin(db,host){
  const date=v=>v?escape(new Date(v).toLocaleString()):'Not recorded';
  const table=(heads,rows,empty='No records on this page.')=>'<div class="table-scroll" tabindex="0"><table class="led"><thead><tr>'+heads.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+(rows.length?rows.join(''):'<tr><td colspan="'+heads.length+'" class="hint">'+escape(empty)+'</td></tr>')+'</tbody></table></div>';
  async function load(){
- trafficMounted=false;statsMounted=false;
+ trafficMounted=false;statsMounted=false;sessionsMounted=false;destroySessions();destroySessions=()=>{};
  const ticket=++request;++statsTicket;destroyCharts();destroyCharts=()=>{};destroyTraffic();destroyTraffic=()=>{};
  host.innerHTML='<p role="status">Loading private admin records…</p>';
  const [{data,error},auth]=await Promise.all([db.rpc('inventory_admin_dashboard',{page_number:currentPage}),db.auth.getSession().catch(()=>null)]);
@@ -56,9 +57,9 @@ export function openAdmin(db,host){
  if(b.dataset.adminTab){if(currentPage!==0){currentPage=0;selectedTab=b.dataset.adminTab;await load();host.querySelector('#admin-tab-'+selectedTab)?.focus();}else activateTab(b.dataset.adminTab,true);return;}
  if(b.dataset.admin==='statsRetry'){statsCache=null;await loadStats();return;}
  if(b.dataset.admin){if(b.dataset.admin==='retry')statsCache=null;if(b.dataset.admin==='next')currentPage++;if(b.dataset.admin==='previous')currentPage=Math.max(0,currentPage-1);await load();}
- if(b.dataset.ip){b.disabled=true;try{const {data}=await db.auth.getSession();const response=await fetch('/api/ip-info',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+data.session.access_token},body:JSON.stringify({ip:b.dataset.ip})});const result=await response.json();if(!response.ok)throw new Error(result.error||'Lookup unavailable');const card=b.closest('.session-device');if(card){card.querySelector('[data-session-network]').textContent=[result.isp||result.org,result.asn].filter(Boolean).join(' · ')||'Not recorded';card.querySelector('[data-session-location]').textContent=[result.city,result.region,result.country].filter(Boolean).join(', ')||'Location unavailable';}b.parentElement.textContent=[result.org,result.city,result.region,result.country].filter(Boolean).join(' · ')||'Network not provided';}catch(error){b.parentElement.append(document.createTextNode(' '+error.message));b.disabled=false;}}
+ if(b.dataset.ip){b.disabled=true;try{const {data}=await db.auth.getSession();const response=await fetch('/api/ip-info',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+data.session.access_token},body:JSON.stringify({ip:b.dataset.ip})});const result=await response.json();if(!response.ok)throw new Error(result.error||'Lookup unavailable');const card=b.closest('.session-device');if(card)updateSessionNetwork(card,result);b.parentElement.textContent=[result.org,result.city,result.region,result.country].filter(Boolean).join(' · ')||'Network not provided';}catch(error){b.parentElement.append(document.createTextNode(' '+error.message));b.disabled=false;}}
  };
  host.onkeydown=e=>{const button=e.target.closest('[role="tab"]');if(!button||!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();const index=tabs.findIndex(([key])=>key===button.dataset.adminTab);const next=e.key==='Home'?0:e.key==='End'?tabs.length-1:(index+(e.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;host.querySelector('#admin-tab-'+tabs[next][0]).click();};
  void load();
- return ()=>{disposed=true;++request;++statsTicket;destroyCharts();destroyTraffic();host.onclick=null;host.onchange=null;host.onkeydown=null;};
+ return ()=>{disposed=true;++request;++statsTicket;destroyCharts();destroyTraffic();destroySessions();host.onclick=null;host.onchange=null;host.onkeydown=null;};
 }

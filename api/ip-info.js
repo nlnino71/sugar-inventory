@@ -1,5 +1,4 @@
-import {savedNetwork} from '../server/network.js';
-import {isIP} from 'node:net';
+import {savedNetwork,lookupAddress} from '../server/network.js';
 import {createClient} from '@supabase/supabase-js';
 export default async function handler(req,res){
  res.setHeader('Cache-Control','no-store');
@@ -15,7 +14,7 @@ export default async function handler(req,res){
  const {data:allowed,error:denied}=await db.rpc('is_inventory_admin');
  if(denied||allowed!==true)return res.status(403).json({error:'Superadmin access required'});
  let body=req.body; if(typeof body==='string'){try{body=JSON.parse(body);}catch{return res.status(400).json({error:'Invalid request'});}}
- const ip=body?.ip;if(typeof ip!=='string'||!isIP(ip))return res.status(400).json({error:'Invalid IP address'});
+ const ip=body?.ip;if(!lookupAddress(ip)||ip.length>45)return res.status(400).json({error:'Invalid IP address'});
  if(!process.env.IPINFO_TOKEN)return res.status(503).json({error:'ISP lookup requires a server-side IPINFO_TOKEN'});
  if(!process.env.SUPABASE_SERVICE_ROLE_KEY)return res.status(503).json({error:'Network storage is not configured'});
  const service=createClient(url,process.env.SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});

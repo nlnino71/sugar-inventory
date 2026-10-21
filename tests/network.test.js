@@ -15,3 +15,19 @@ test('provider outage keeps prior database network and never invents an ISP',asy
  try{assert.deepEqual(await savedNetwork(storage(prior),'8.8.8.8'),prior.network);await assert.rejects(()=>savedNetwork(storage(),'8.8.8.8'));assert.equal(await savedNetwork(storage(),'bad-ip'),null);}
  finally{globalThis.fetch=oldFetch;if(token===undefined)delete process.env.IPINFO_TOKEN;else process.env.IPINFO_TOKEN=token;}
 });
+test('session host masks and mapped IPv4 are normalized for the provider and cached under the session key',async()=>{
+ const token=process.env.IPINFO_TOKEN,oldFetch=globalThis.fetch;process.env.IPINFO_TOKEN='test-private-token';
+ const seen=[];globalThis.fetch=async url=>{seen.push(url);return new Response(JSON.stringify({as_name:'Example ISP',country:'Philippines',country_code:'PH'}));};
+ try{
+  for(const [stored,address] of [['203.0.113.1/32','203.0.113.1'],['2001:db8::1/128','2001:db8::1'],['::ffff:203.0.113.1/128','203.0.113.1']]){
+   const db=storage();const result=await savedNetwork(db,stored);assert.equal(result.country,'Philippines');assert.equal(seen.at(-1),'https://api.ipinfo.io/lite/'+encodeURIComponent(address));assert.equal(db.writes[0].ip,stored);
+  }
+  assert.equal(await savedNetwork(storage(),'203.0.113.1/24'),null);
+ }finally{globalThis.fetch=oldFetch;if(token===undefined)delete process.env.IPINFO_TOKEN;else process.env.IPINFO_TOKEN=token;}
+});
+test('a fresh ISP-only cache is enriched with missing country instead of returned unchanged',async()=>{
+ const token=process.env.IPINFO_TOKEN,oldFetch=globalThis.fetch;process.env.IPINFO_TOKEN='test-private-token';
+ globalThis.fetch=async()=>new Response(JSON.stringify({as_name:'Example ISP',country:'Philippines',country_code:'PH'}));
+ try{const db=storage({network:{isp:'Example ISP'},looked_up_at:new Date().toISOString()});const result=await savedNetwork(db,'203.0.113.1');assert.equal(result.country,'Philippines');assert.equal(db.writes.length,1);}
+ finally{globalThis.fetch=oldFetch;if(token===undefined)delete process.env.IPINFO_TOKEN;else process.env.IPINFO_TOKEN=token;}
+});
