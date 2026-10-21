@@ -205,3 +205,6 @@ body.login-screen #account{border:0;background:transparent;padding:30px 22px;max
 .stock-level .gauge,.typeCard .stock-level .gauge{height:12px;margin-top:0;background:var(--soft);border:1px solid var(--control-line);border-radius:999px}
 .stock-level .gauge i{border-radius:inherit}
 .stock-level .gauge::after{display:block;content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(90deg,transparent 0,transparent calc(25% - 1px),rgb(255 255 255 / .45) calc(25% - 1px),rgb(255 255 255 / .45) 25%)}
+.stock-type-tabs{flex-wrap:wrap;overflow:visible;gap:4px}
+.stock-type-tabs [role=tab]{flex:1 1 190px;white-space:normal;text-align:left}
+@media(max-width:767px){.stock-type-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}.stock-type-tabs [role=tab]{padding:12px;text-align:left}}
