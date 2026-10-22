@@ -1,3 +1,4 @@
+import {isSimpleAuditEvent} from '../audit-policy.js';
 import {isIP} from 'node:net';
 import {savedNetwork} from '../server/network.js';
 import {createClient} from '@supabase/supabase-js';
@@ -13,6 +14,9 @@ export default async function handler(req,res){
  for(const e of body.events){if(!e||!kinds.has(e.event)||!uuid.test(e.id)||!uuid.test(e.session)||!e.details||Array.isArray(e.details)||typeof e.details!=='object'||Buffer.byteLength(JSON.stringify(e))>8192)return res.status(400).json({error:'Invalid event'});}
  if(body.share_slug!=null&&(typeof body.share_slug!=='string'||!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(body.share_slug)||body.share_slug.length>64))return res.status(400).json({error:'Invalid sharing context'});
  if(body.share_token!=null&&(typeof body.share_token!=='string'||!uuid.test(body.share_token)))return res.status(400).json({error:'Invalid sharing context'});
+ // Older open tabs may still submit detailed interaction events. Ignore them too.
+ body.events=body.events.filter(e=>isSimpleAuditEvent(e.event,e.details));
+ if(!body.events.length)return res.status(204).end();
  const url=process.env.SUPABASE_URL||process.env.VITE_SUPABASE_URL,secret=process.env.SUPABASE_SERVICE_ROLE_KEY;
  if(!url||!secret)return res.status(503).json({error:'Guest activity service is not configured'});
  // Only trust proxy headers on Vercel, where the platform overwrites X-Forwarded-For.

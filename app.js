@@ -1,3 +1,4 @@
+import {isSimpleAuditEvent} from './audit-policy.js';
 import {pageFromUrl,pageUrl} from './navigation.js';
 import {mountSpreadsheet} from './spreadsheet-editor.js';
 import {UNITS,unitWeight,convertQuantity,convertInventory} from './units.js';
@@ -50,7 +51,7 @@ const activity=createActivityTracker({
   if(!response.ok)throw new Error('Activity sync failed');
  }
 });
-const track=(event,details={})=>activity.track(event,{page:activityPage,...details});
+const track=(event,details={})=>{if(isSimpleAuditEvent(event,details))activity.track(event,{page:activityPage,...details});};
 function trackPage(page){activityPage=page;track('page.view',{page,path:window.location.pathname.slice(0,256),device:deviceInfo()});}
 function startGuest(page,context={}){activity.start({guest:true,...context});trackPage(page);}
 
@@ -1220,19 +1221,9 @@ async function saveClient(form){
  if(!await save())return;closeSheet();render();toast('Client details saved');
 }
 
-/* Browser activity: never collect passwords, typed values, tokens, or whole DOM. */
-document.addEventListener('click',e=>{
- const button=e.target.closest('button,[data-act]');if(!button||button.disabled)return;
- const d=button.dataset;
- track('action.requested',{action:d.act||d.admin||(d.ip?'isp.lookup':button.id||'button'),record:d.id?.slice(0,512)||'',client:d.name?.slice(0,512)||'',target:(d.tab||d.f||d.c||d.t||'').slice(0,512),control:button.id||'',form:button.form?.id||''});
-},true);
-document.addEventListener('submit',e=>{track('form.submit',{form:e.target.id||'form'});},true);
-document.addEventListener('change',e=>{
- if(e.target.type==='password'||e.target.closest('#account'))return;
- const el=e.target;track('field.change',{field:el.name||el.id||el.dataset.delivery||el.dataset.report||'field',form:el.form?.id||'',kind:el.type||el.tagName});
-},true);
-document.addEventListener('visibilitychange',()=>{track('visibility.change',{state:document.visibilityState});if(document.visibilityState==='hidden')void activity.flush();});
-window.addEventListener('pagehide',()=>{track('session.end',{reason:'pagehide'});void activity.flush();});
+/* Flush useful events when leaving; clicks, fields, panels and visibility are not audit records. */
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')void activity.flush();});
+window.addEventListener('pagehide',()=>void activity.flush());
 window.addEventListener('pageshow',e=>{if(e.persisted)trackPage(activityPage);});
 window.addEventListener('online',()=>void activity.flush());
 /* ---------- events ---------- */
