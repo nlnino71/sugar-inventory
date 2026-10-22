@@ -213,7 +213,12 @@ const ICON={
 function renderNav(){
   $('#nav').innerHTML='<div class="nav-brand"><img class="wilmar-logo" src="/wilmar-white.png" width="168" height="54" alt="Wilmar"><span class="company-name">WILMAR EDIBLE OIL PHILIPPINES INC.</span><span class="product-name">Sugar Inventory Monitoring</span><small>'+ (readOnly?'Shared inventory':'Inventory workspace')+'</small></div>'+Object.keys(TITLES).filter(k=>!readOnly||['dashboard','stock','issue','reports'].includes(k)).map(k=>'<button class="'+(!readOnly&&['receive','clients','reports','spreadsheet','more'].includes(k)?'nav-overflow':'')+'" data-act="tab" data-tab="'+k+'"'+(k===tab?' aria-current="page"':'')+'>'+ICON[k]+'<span>'+(k==='receive'?'SRO Qty':TITLES[k])+'</span></button>').join('')+(!readOnly?'<button class="nav-menu" data-act="navMenu" aria-haspopup="dialog"'+(['receive','clients','reports','spreadsheet','more'].includes(tab)?' aria-current="page"':'')+'><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span>Menu</span></button>':'');
 }
+function syncPageTitle(){
+ const page=ready?(adminView&&isSuperadmin&&!readOnly?'Superadmin':TITLES[tab]):readOnly?'Shared inventory':authMode==='signup'?'Create account':'Sign in';
+ document.title=page+' - Sugar Inventory';
+}
 function render(){
+  syncPageTitle();
   spreadsheetView?.destroy();spreadsheetView=null;
   adminCleanup?.();adminCleanup=null;
   inventoryCleanup?.();inventoryCleanup=null;
@@ -1365,7 +1370,7 @@ async function showPublic(){
 }
 
 function setAuthMode(mode){
- authMode=mode; const signup=mode==='signup';
+ authMode=mode; const signup=mode==='signup';syncPageTitle();
  $('#accountTitle').textContent=signup?'Create your account':'Sign in to Sugar Inventory Monitoring';
  $('#loginButton').textContent=signup?'Create account':'Sign in';
  $('#switchAuth').textContent=signup?'Already registered? Sign in':'Create an account';

@@ -25,9 +25,10 @@ test('overview, stock report, delivery search and client editing',async({page},i
  await page.goto('/');await page.getByLabel('Email',{exact:true}).fill('staff@example.com');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();
  await expect(page.locator('#nav').getByRole('button',{name:'Stock',exact:true})).toBeVisible();
  await expect(page.locator('#title')).toHaveText('Stock');
+ await expect(page).toHaveTitle('Stock - Sugar Inventory');
  await expect(page).toHaveURL(/\/stock$/); await navigate(page,'Overview');
- await expect(page).toHaveURL(/\/overview$/);await page.goBack();await expect(page.locator('#title')).toHaveText('Stock');await page.goForward();await expect(page.locator('#title')).toHaveText('Overview');
- await page.goto('/reports');await expect(page.locator('#main')).toHaveAttribute('data-view','reports');await page.reload();await expect(page.locator('#main')).toHaveAttribute('data-view','reports');await expect(page).toHaveURL(/\/reports$/);await navigate(page,'Overview');
+ await expect(page).toHaveURL(/\/overview$/);await page.goBack();await expect(page.locator('#title')).toHaveText('Stock');await page.goForward();await expect(page.locator('#title')).toHaveText('Overview');await expect(page).toHaveTitle('Overview - Sugar Inventory');
+ await page.goto('/reports');await expect(page.locator('#main')).toHaveAttribute('data-view','reports');await page.reload();await expect(page.locator('#main')).toHaveAttribute('data-view','reports');await expect(page).toHaveURL(/\/reports$/);await expect(page).toHaveTitle('Reports - Sugar Inventory');await navigate(page,'Overview');
  if(info.project.name==='desktop'){await expect(page.locator('.nav-brand .wilmar-logo')).toHaveAttribute('src','/wilmar-white.png');await expect(page.locator('.nav-brand .wilmar-logo')).toHaveCSS('background-color','rgba(0, 0, 0, 0)');await page.locator('#nav').screenshot({path:'.impeccable/review/wilmar-white-sidebar.png'});}
  await expect(page.getByRole('heading',{name:'Inventory at a glance'})).toBeVisible();
  await expect(page.locator('header.top')).toBeVisible();
