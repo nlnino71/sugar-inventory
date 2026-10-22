@@ -18,7 +18,7 @@ for(const mode of ['not-admin','history','sessions'])test('superadmin visibility
  });
  await page.route('**/api/ip-info',r=>r.fulfill({json:{isp:'Updated ISP',asn:'AS64501',country:'Philippines'}}));
  await page.goto('/');await page.getByLabel('Email',{exact:true}).fill(user.email);await page.getByLabel('Password',{exact:true}).fill('password-example');await page.getByRole('button',{name:'Sign in',exact:true}).click();
- await expect(page.getByRole('heading',{name:'Inventory at a glance'})).toBeVisible();
+ await expect(page.locator('#nav').getByRole('button',{name:'Stock',exact:true})).toBeVisible();
  await navigate(page,'More');const button=page.getByRole('button',{name:'Open superadmin'});
  if(!admin){await expect(button).toHaveCount(0);await expect(page.locator('.session-device')).toHaveCount(0);expect(adminRequests).toBe(0);return;}
  await button.click();await expect(page.getByRole('heading',{name:'Superadmin',exact:true,level:2})).toBeVisible();await page.getByRole('tab',{name:mode==='sessions'?'Sessions':'Authentication',exact:true}).click();await expect(page.getByText('203.0.113.1',{exact:true})).toBeVisible();

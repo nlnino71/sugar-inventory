@@ -11,7 +11,7 @@ async function harness(rpc, cloud) {
  source+=`render=()=>{}; ready=true; globalThis.app={save,compute,clientStats,typeStats,fd,state:()=>S,revision:()=>revision,set:(value)=>{S=value},commit:()=>{committed=structuredClone(S)}}; })();`;
  const elements=new Map();
  const element=selector=>{if(!elements.has(selector))elements.set(selector,{textContent:'',dataset:{},addEventListener(){},classList:{add(){},remove(){},contains(){return false;}}});return elements.get(selector);};
- const context=vm.createContext({...features,createActivityTracker:()=>({start(){},track(){},flush(){},stop:async()=>{}}),window:{addEventListener(){},location:{hash:""}},URLSearchParams,structuredClone,setTimeout:()=>0,clearTimeout(){},console,document:{body:{},querySelector:element,addEventListener(){}},createClient:()=>({rpc,from:()=>({select:()=>({eq:()=>({single:async()=>({data:cloud,error:null})})})})})});
+ const context=vm.createContext({...features,createActivityTracker:()=>({start(){},track(){},flush(){},stop:async()=>{}}),history:{state:null},window:{addEventListener(){},location:{hash:""}},URLSearchParams,structuredClone,setTimeout:()=>0,clearTimeout(){},console,document:{body:{},querySelector:element,addEventListener(){}},createClient:()=>({rpc,from:()=>({select:()=>({eq:()=>({single:async()=>({data:cloud,error:null})})})})})});
  await vm.runInContext(source,context);
  return {app:context.app,elements};
 }

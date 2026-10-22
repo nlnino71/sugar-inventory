@@ -1,3 +1,4 @@
+import {pageFromUrl,pageUrl} from './navigation.js';
 import {mountSpreadsheet} from './spreadsheet-editor.js';
 import {UNITS,unitWeight,convertQuantity,convertInventory} from './units.js';
 import sunIcon from '@phosphor-icons/core/assets/regular/sun.svg?raw';
@@ -175,14 +176,28 @@ const knownMills=()=>[...new Set(S.receipts.map(r=>r.mill).filter(Boolean))].sor
 
 /* ---------- ui state ---------- */
 let tab='stock', adminView=false, filter='all', q='',stockType=null;
-function navigationKey(){return 'sugar-navigation:'+(readOnly?'shared':accountId||'signed-out');}
-function rememberNavigation(){try{sessionStorage.setItem(navigationKey(),adminView?'superadmin':tab);}catch{}}
-function restoreNavigation(){
- let saved;try{saved=sessionStorage.getItem(navigationKey());}catch{}
- adminView=saved==='superadmin'&&isSuperadmin&&!readOnly;
- const allowed=readOnly?['dashboard','stock','issue','reports']:Object.keys(TITLES);
- tab=adminView?'more':allowed.includes(saved)?saved:'stock';
+let navigationIndex=Number(history.state?.inventoryNavigationIndex)||0,undoNavigation=false;
+function rememberNavigation(replace=false){
+ const next=pageUrl(new URL(location.href),adminView?'superadmin':tab,{readOnly});
+ const method=replace||next===location.pathname+location.search+location.hash?'replaceState':'pushState';
+ if(method==='pushState')navigationIndex++;
+ history[method]({...history.state,inventoryNavigationIndex:navigationIndex},'',next);
 }
+function restoreNavigation(){
+ const page=pageFromUrl(new URL(location.href),{readOnly,isSuperadmin});
+ adminView=page==='superadmin';tab=adminView?'more':page;
+ rememberNavigation(true);
+}
+window.addEventListener('popstate',async()=>{
+ if(undoNavigation){undoNavigation=false;return;}
+ const nextIndex=Number(history.state?.inventoryNavigationIndex)||0;
+ if(!ready){navigationIndex=nextIndex;return;}
+ if(spreadsheetView&&!await spreadsheetView.canLeave()){
+  undoNavigation=true;history.go(navigationIndex-nextIndex);return;
+ }
+ navigationIndex=nextIndex;restoreNavigation();if(tab==='more'&&!readOnly)await loadSharing();
+ closeSheet();render();trackPage(adminView?'superadmin':tab);window.scrollTo(0,0);
+});
 const TITLES={dashboard:'Overview',stock:'Stock',receive:'SRO Quantity',issue:'Issuance',clients:'Clients',reports:'Reports',spreadsheet:'Spreadsheet',more:'More'};
 const ICON={
  spreadsheet:'<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>',

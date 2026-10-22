@@ -26,6 +26,42 @@
     {
       "source": "/view/:slug",
       "destination": "/api/public-view?slug=:slug"
+    },
+    {
+      "source": "/stock",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/overview",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/reports",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/sro-quantity",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/issuance",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/clients",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/spreadsheet",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/settings",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/superadmin",
+      "destination": "/index.html"
     }
   ],
   "functions": {
