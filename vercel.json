@@ -24,6 +24,10 @@
   ],
   "rewrites": [
     {
+      "source": "/view/:slug/:page",
+      "destination": "/api/public-view?slug=:slug"
+    },
+    {
       "source": "/view/:slug",
       "destination": "/api/public-view?slug=:slug"
     },

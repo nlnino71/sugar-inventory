@@ -17,6 +17,13 @@ test('guests can save the shared inventory as Excel from navigation',async({page
  await expect(button).toBeEnabled();
  await expect(button.locator('svg')).toHaveCount(1);
  await page.getByRole('button',{name:'Stock',exact:true}).click();
+ await expect(page).toHaveURL(/\/view\/public\/stock$/);
+ await page.getByRole('button',{name:'Reports',exact:true}).click();
+ await expect(page).toHaveURL(/\/view\/public\/reports$/);
+ await page.reload();
+ await expect(page.locator('#title')).toHaveText('Reports');
+ await page.goBack();
+ await expect(page.locator('#title')).toHaveText('Stock');
  await expect(button).toBeVisible();
  await expect(page.locator('[data-act="newReceipt"], [data-act="editReceipt"], [data-act="editIssue"]')).toHaveCount(0);
 });
