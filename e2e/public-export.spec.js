@@ -7,7 +7,7 @@ test('guests can save the shared inventory as Excel from navigation',async({page
  await page.route('**/api/activity',r=>r.fulfill({status:204,body:''}));
  await page.route('https://nvkawrmoacikzdfowvem.supabase.co/**',r=>r.fulfill({json:{unit:'bags',receipts:[{id:'r1',sro:'PUBLIC-SRO',type:'Raw Sugar',qty:250,date:'2026-10-01',mill:'Test mill'}],issues:[],clients:[],seq:0}}));
  await page.goto('/view/public');
- const button=page.getByRole('button',{name:'Save as Excel',exact:true});
+ const button=page.getByRole('button',{name:'Save as Excel Dashboard',exact:true});
  await expect(button).toBeVisible();
  const [download]=await Promise.all([page.waitForEvent('download'),button.click()]);
  expect(download.suggestedFilename()).toMatch(/^Sugar_Inventory_.*\.xlsx$/);
