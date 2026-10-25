@@ -211,7 +211,7 @@ const ICON={
  more:'<svg viewBox="0 0 24 24"><path d="M4 7h10"/><path d="M18 7h2"/><circle cx="16" cy="7" r="2"/><path d="M4 17h2"/><path d="M10 17h10"/><circle cx="8" cy="17" r="2"/></svg>'
 };
 function renderNav(){
-  $('#nav').innerHTML='<div class="nav-brand"><img class="wilmar-logo" src="/wilmar-white.png" width="168" height="54" alt="Wilmar"><span class="company-name">WILMAR EDIBLE OIL PHILIPPINES INC.</span><span class="product-name">Sugar Inventory Monitoring</span><small>'+ (readOnly?'Shared inventory':'Inventory workspace')+'</small></div>'+Object.keys(TITLES).filter(k=>!readOnly||['dashboard','stock','issue','reports'].includes(k)).map(k=>'<button class="'+(!readOnly&&['receive','clients','reports','spreadsheet','more'].includes(k)?'nav-overflow':'')+'" data-act="tab" data-tab="'+k+'"'+(k===tab?' aria-current="page"':'')+'>'+ICON[k]+'<span>'+(k==='receive'?'SRO Qty':TITLES[k])+'</span></button>').join('')+(!readOnly?'<button class="nav-menu" data-act="navMenu" aria-haspopup="dialog"'+(['receive','clients','reports','spreadsheet','more'].includes(tab)?' aria-current="page"':'')+'><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span>Menu</span></button>':'');
+  $('#nav').innerHTML='<div class="nav-brand"><img class="wilmar-logo" src="/wilmar-white.png" width="168" height="54" alt="Wilmar"><span class="company-name">WILMAR EDIBLE OIL PHILIPPINES INC.</span><span class="product-name">Sugar Inventory Monitoring</span><small>'+ (readOnly?'Shared inventory':'Inventory workspace')+'</small></div>'+Object.keys(TITLES).filter(k=>!readOnly||['dashboard','stock','issue','reports'].includes(k)).map(k=>'<button class="'+(!readOnly&&['receive','clients','reports','spreadsheet','more'].includes(k)?'nav-overflow':'')+'" data-act="tab" data-tab="'+k+'"'+(k===tab?' aria-current="page"':'')+'>'+ICON[k]+'<span>'+(k==='receive'?'SRO Qty':TITLES[k])+'</span></button>').join('')+(readOnly?'<button data-act="xlsx"'+(exportingXlsx?' disabled':'')+'>'+ICON.receive+'<span>'+(exportingXlsx?'Preparing Excel…':'Save as Excel')+'</span></button>':'')+(!readOnly?'<button class="nav-menu" data-act="navMenu" aria-haspopup="dialog"'+(['receive','clients','reports','spreadsheet','more'].includes(tab)?' aria-current="page"':'')+'><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span>Menu</span></button>':'');
 }
 function syncPageTitle(){
  const page=ready?(adminView&&isSuperadmin&&!readOnly?'Superadmin':TITLES[tab]):readOnly?'Shared inventory':authMode==='signup'?'Create account':'Sign in';
@@ -1072,10 +1072,10 @@ function clientSummarySheet(c){
 }
 let exportingXlsx=false;
 async function exportXlsx(){
-  if(readOnly||exportingXlsx)return;
+  if(!ready||exportingXlsx)return;
   exportingXlsx=true;
   const button=document.querySelector('[data-act="xlsx"]');
-  const label=button?.textContent;
+  const label=button?.innerHTML;
   if(button){button.disabled=true;button.textContent='Preparing Excel…';}
   try{
     const module=await import('xlsx-js-style');
@@ -1083,8 +1083,8 @@ async function exportXlsx(){
     const wb=xlsxBook();
     const buf=window.XLSX.write(wb,{bookType:'xlsx',type:'array'});
     await saveFile('Sugar_Inventory_'+stamp()+'.xlsx',buf);
-  }catch(error){toast('Excel export could not finish. Please retry, or export CSV.');}
-  finally{exportingXlsx=false;if(button){button.disabled=false;button.textContent=label;}}
+  }catch(error){toast('Excel export could not finish. Please try again.');}
+  finally{exportingXlsx=false;if(button){button.disabled=false;button.innerHTML=label;}}
 }
 function parseCSV(t){
   t=t.replace(/^\ufeff/,''); const rows=[]; let row=[],cur='',q=false;
@@ -1234,7 +1234,7 @@ window.addEventListener('online',()=>void activity.flush());
 /* ---------- events ---------- */
 document.addEventListener('click',async e=>{
   if(!ready||saving) return; const t=e.target.closest('[data-act]'); if(!t) return; const a=t.dataset.act, d=t.dataset;
-  if(readOnly&&!['tab','filter','sro','close','resetDelivery'].includes(a))return;
+  if(readOnly&&!['tab','filter','sro','close','resetDelivery','xlsx'].includes(a))return;
   switch(a){
     case 'saveSlug': await editSharingCode(true);break;
     case 'toggleSharing': await updateSharing({enabled:!shareSettings.enabled}); break;
@@ -1305,7 +1305,7 @@ document.addEventListener('change',async e=>{ if(!ready||saving) return; if(read
 document.addEventListener('keydown',modalKeyboard,true);
 
 function restrictPublicControls(){
- const allowed=['tab','filter','sro','close','resetDelivery'];
+ const allowed=['tab','filter','sro','close','resetDelivery','xlsx'];
  document.querySelectorAll('[data-act]').forEach(el=>{
   if(['editIssue','editReceipt'].includes(el.dataset.act)){
    if(el.tagName==='BUTTON'){const display=document.createElement('div');display.className=el.className;display.innerHTML=el.innerHTML;el.replaceWith(display);}
