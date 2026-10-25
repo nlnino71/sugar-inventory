@@ -248,3 +248,12 @@ body.login-screen #account{border:0;background:transparent;padding:30px 22px;max
 .account-brand .wilmar-logo{background:transparent;padding:0;border-radius:0;filter:brightness(0)}
 :root[data-theme="dark"] .account-brand .wilmar-logo{filter:none}
 @media(prefers-color-scheme:dark){:root:not([data-theme="light"]) .account-brand .wilmar-logo{filter:none}}
+
+/* Private account backup history */
+.backup-history{list-style:none;padding:0;margin:20px 0}
+.backup-history li{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 0;border-bottom:1px solid var(--line)}
+.backup-history strong,.backup-history time,.backup-history .hint{display:block}
+.backup-history time{margin:4px 0;font-size:13px;color:var(--muted)}
+.backup-history .btns{flex-shrink:0;flex-direction:row;margin:0}.backup-history .btn{flex:0 0 auto}
+#accountBackups{scroll-margin-top:100px}.backup-pagination{align-items:center}.backup-pagination .btn{flex:0 0 auto}
+@media(max-width:600px){.backup-history li{align-items:flex-start;flex-direction:column;gap:12px}.backup-history .btns{width:100%}.backup-history .btn{flex:1}}

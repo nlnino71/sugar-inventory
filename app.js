@@ -1,3 +1,4 @@
+import {mountAccountBackups} from './account-backups.js';
 import {isSimpleAuditEvent} from './audit-policy.js';
 import {pageFromUrl,pageUrl} from './navigation.js';
 import {mountSpreadsheet} from './spreadsheet-editor.js';
@@ -30,6 +31,7 @@ const validSlug=value=>value.length>=3&&value.length<=64&&/^[a-z0-9]+(?:-[a-z0-9
 const readOnly=!!publicToken||slugPath;
 let shareSettings=null, shareError='', accountId=null;
 let isSuperadmin=false,adminCleanup=null,inventoryCleanup=null,inventoryDays=30,spreadsheetView=null;
+let backupsCleanup=null;
 let authMode='signin', authBusy=false;
 const KEY='sugar-inventory.v1';
 const blank = ()=>({unit:'bags (LKg)',receipts:[],issues:[],clients:[],seq:0,clientProfiles:{},activity:[],lowStockPercent:20});
@@ -104,6 +106,26 @@ async function save(options={}){
     S=structuredClone(committed); if(!options.preserveView)render();
     toast('Save failed. Your change was not confirmed: '+error.message); return false;
   } finally { saving=false; lock(false); }
+}
+async function restoreAccountBackup(backupId){
+ if(!ready||saving||readOnly)return false;
+ const owner=accountId;
+ saving=true;lock(true);
+ try{
+  const {data,error}=await db.rpc('restore_inventory_backup',{backup_id:backupId,expected_revision:revision});
+  if(error)throw error;
+  if(accountId!==owner)return false;
+  await readCloud();
+  render();
+  if(data===null){
+   track('save.conflict',{revision});
+   toast('Inventory changed on another device. Latest records loaded; review them before restoring.');return false;
+  }
+  toast('Backup restored. Your previous inventory is saved in backup history.');return true;
+ }catch(error){
+  if(accountId===owner)toast('Restore could not be confirmed. Refresh your inventory before trying again.');
+  return false;
+ }finally{if(accountId===owner){saving=false;lock(false);}}
 }
 async function showAccount(session){
   await activity.stop();
@@ -219,6 +241,7 @@ function syncPageTitle(){
 }
 function render(){
   syncPageTitle();
+  backupsCleanup?.();backupsCleanup=null;
   spreadsheetView?.destroy();spreadsheetView=null;
   adminCleanup?.();adminCleanup=null;
   inventoryCleanup?.();inventoryCleanup=null;
@@ -246,7 +269,10 @@ function render(){
     onDownload:draft=>saveFile('Sugar_Inventory_draft_'+today()+'.json',JSON.stringify(draft,null,2)),
     onSave:async next=>{let conflict=false;S=next;const ok=await save({preserveView:true,onConflict:()=>{conflict=true;}});return {ok,conflict};}
   });
-  if(tab==='more')previewUnitConversion();
+  if(tab==='more'){
+    previewUnitConversion();
+    if(!readOnly)backupsCleanup=mountAccountBackups($('#accountBackups'),{db,ownerId:accountId,saveFile,confirm:ask,restore:restoreAccountBackup,toast});
+  }
   if(tab==='stock') updateList();
   if(tab==='receive') updateRList();
   if(readOnly){
@@ -418,13 +444,13 @@ function vMore(){
    '<button class="btn block" data-act="csvRec"'+(dl?'':' disabled')+'>SRO Quantity (.csv)</button>'+
    '<button class="btn block" data-act="csvIss"'+(dl?'':' disabled')+'>Issuance (.csv)</button></div>'+
    '<p>The workbook opens with a Dashboard summary (totals per sugar type, running balance per SRO, issued per client, data checks), followed by SRO Quantity, Issuance with running balance, SRO Balance and Client Summary sheets.'+(dl?'':' Downloads are not available in this view.')+'</p></div>'+
-   '<div class="sec"><h2>Backup and import</h2></div><div class="setting"><div class="stack">'+
+   '<section class="setting" id="accountBackups" aria-labelledby="accountBackupTitle"></section><div class="sec"><h2>Backup files and import</h2></div><div class="setting"><div class="stack">'+
    '<button class="btn block" data-act="backup"'+(dl?'':' disabled')+'>Save backup (.json)</button>'+
    '<button class="btn block" data-act="restore">Restore from backup</button>'+
    '<button class="btn block" data-act="import">Import SRO quantity or issuance CSV</button></div>'+
    '<p>CSV quantities without a Unit column use '+esc(S.unit)+'. A recognized Unit column is converted automatically. CSV columns must match the Excel inventory file: SRO Date, SRO Number, Type of Sugar, Mill Source, Quantity for SRO quantity; Date, SRO Number, Ref ATW Number, Type of Sugar, Client, SRA Permit No., Mill Waybill Number, Batch Codes, Quantity per Batch Code for issuance, plus optional Bill of Lading No., Vessel, Voy No., Sailing Date.</p></div>'+
    '<div class="sec"><h2>Data</h2></div><div class="setting"><div class="stack"><button class="btn block" data-act="sample">Load sample data</button><button class="btn danger block" data-act="clear">Delete all data</button></div>'+
-   '<p>Your records are saved to your private Supabase inventory. Public links are read-only and controlled by you. Export backups regularly.</p></div>';
+   '<p>Your records are saved to your private Supabase inventory. Public links are read-only and controlled by you. Automatic account backups are available above. You can also download a backup file to keep a separate copy.</p></div>';
 }
 
 /* ---------- sheet / dialog / toast ---------- */
@@ -1319,7 +1345,7 @@ async function loadSharing(){
  shareSettings=data; shareError=error?'Public sharing could not be loaded. Try refreshing your inventory.':'';
 }
 function sharingPanel(){
- return '<section class="setting"><h2>Public view-only sharing</h2><p>Anyone with the link can view stock, client names, quantities and delivery references. Client contacts, notes and change history stay private. Visitors cannot edit or export records.</p>'+(shareError?'<p role="status">'+esc(shareError)+'</p>':!shareSettings?'<p>Open More again to load sharing settings.</p>':'<p><strong>'+(shareSettings.enabled?'Sharing is enabled':'Sharing is disabled')+'</strong></p>'+(shareSettings.enabled?'<label class="f">View-only link<input id="publicLink" readonly value="'+esc(publicLink())+'"></label><button class="btn" data-act="copySharing">Copy public link</button>':'')+'<label class="f">Public link code<input id="publicCode" maxlength="6" minlength="3" value="'+esc(shareSettings.slug||'')+'" autocapitalize="none" autocomplete="off" spellcheck="false" aria-describedby="codeHelp codeStatus"></label><p class="hint" id="codeHelp">Use 3–6 letters or numbers. Availability updates as you type. Saving a different code invalidates your previous link. Sharing stays off until you enable it.</p><div class="btns"><button class="btn" data-act="saveSlug">Save code</button></div><p id="codeStatus" role="status" class="hint"></p><div class="btns"><button class="btn" data-act="toggleSharing">'+(shareSettings.enabled?'Disable public sharing':'Enable public sharing')+'</button><button class="btn" data-act="rotateSharing">Replace link</button></div>')+'</section>';
+ return '<section class="setting"><h2>Public view-only sharing</h2><p>Anyone with the link can view stock, client names, quantities and delivery references. Client contacts, notes and change history stay private. Visitors can save an Excel copy but cannot edit records.</p>'+(shareError?'<p role="status">'+esc(shareError)+'</p>':!shareSettings?'<p>Open More again to load sharing settings.</p>':'<p><strong>'+(shareSettings.enabled?'Sharing is enabled':'Sharing is disabled')+'</strong></p>'+(shareSettings.enabled?'<label class="f">View-only link<input id="publicLink" readonly value="'+esc(publicLink())+'"></label><button class="btn" data-act="copySharing">Copy public link</button>':'')+'<label class="f">Public link code<input id="publicCode" maxlength="6" minlength="3" value="'+esc(shareSettings.slug||'')+'" autocapitalize="none" autocomplete="off" spellcheck="false" aria-describedby="codeHelp codeStatus"></label><p class="hint" id="codeHelp">Use 3–6 letters or numbers. Availability updates as you type. Saving a different code invalidates your previous link. Sharing stays off until you enable it.</p><div class="btns"><button class="btn" data-act="saveSlug">Save code</button></div><p id="codeStatus" role="status" class="hint"></p><div class="btns"><button class="btn" data-act="toggleSharing">'+(shareSettings.enabled?'Disable public sharing':'Enable public sharing')+'</button><button class="btn" data-act="rotateSharing">Replace link</button></div>')+'</section>';
 }
 let codeRequest=0,codeTimer;
 async function editSharingCode(saveCode){
