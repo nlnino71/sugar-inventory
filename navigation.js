@@ -4,7 +4,7 @@ export function pageFromUrl(url,{readOnly=false,isSuperadmin=false}={}){
  const shared=path.match(/^\/view\/[^/]+(?:\/([^/]+))?$/);
  const requested=readOnly?(shared?.[1]?Object.keys(PAGE_PATHS).find(k=>PAGE_PATHS[k]==='/'+shared[1]):url.searchParams.get('page')):Object.keys(PAGE_PATHS).find(k=>PAGE_PATHS[k]===path);
  const allowed=readOnly?['stock','dashboard','issue','reports']:Object.keys(PAGE_PATHS).filter(k=>k!=='superadmin'||isSuperadmin);
- return allowed.includes(requested)?requested:'stock';
+ return allowed.includes(requested)?requested:'dashboard';
 }
 export function pageUrl(url,page,{readOnly=false}={}){
  const next=new URL(url);

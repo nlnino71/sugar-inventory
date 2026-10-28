@@ -131,7 +131,7 @@ async function showAccount(session){
   await activity.stop();
   isSuperadmin=false;
   document.body.classList.toggle('login-screen',!session);
-  if(accountId!==(session?.user?.id||null)){tab='stock';adminView=false;q='';rq='';clientQuery='';deliveryFilter={query:'',from:'',to:'',client:''};}
+  if(accountId!==(session?.user?.id||null)){tab='dashboard';adminView=false;q='';rq='';clientQuery='';deliveryFilter={query:'',from:'',to:'',client:''};}
   accountId=session?.user?.id||null;shareSettings=null;shareError='';revision=0;
   ready=false; closeSheet(true); S=blank();committed=structuredClone(S); render();
   $('#account').hidden=false; $('#nav').hidden=true;
@@ -198,7 +198,7 @@ const knownCrops=()=>[...new Set([cropOf(today()),...S.receipts.map(r=>r.crop)].
 const knownMills=()=>[...new Set(S.receipts.map(r=>r.mill).filter(Boolean))].sort();
 
 /* ---------- ui state ---------- */
-let tab='stock', adminView=false, filter='all', q='',stockType=null;
+let tab='dashboard', adminView=false, filter='all', q='',stockType=null;
 let navigationIndex=Number(history.state?.inventoryNavigationIndex)||0,undoNavigation=false;
 function rememberNavigation(replace=false){
  const next=pageUrl(new URL(location.href),adminView?'superadmin':tab,{readOnly});
