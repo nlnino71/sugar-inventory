@@ -3,7 +3,7 @@ test('Wilmar identity is readable on sign-in without horizontal overflow',async(
  await page.route(/https:\/\/fonts\.(googleapis|gstatic)\.com\//,r=>r.abort());
  await page.route('https://nvkawrmoacikzdfowvem.supabase.co/**',r=>r.fulfill({json:{}}));
  await page.goto('/');
- await expect(page.locator('#account .company-name')).toHaveText('WILMAR EDIBLE OIL PHILIPPINES INC.');
+ await expect(page.locator('.company-name')).toHaveCount(0);
  await expect(page.locator('#account .product-name')).toHaveText('Sugar Inventory Monitoring');
  await expect(page.locator('#account .wilmar-logo')).toHaveAttribute('src','/wilmar-white.png');
  await expect(page.locator('#account .wilmar-logo')).toHaveCSS('background-color','rgba(0, 0, 0, 0)');

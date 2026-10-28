@@ -257,3 +257,5 @@ body.login-screen #account{border:0;background:transparent;padding:30px 22px;max
 .backup-history .btns{flex-shrink:0;flex-direction:row;margin:0}.backup-history .btn{flex:0 0 auto}
 #accountBackups{scroll-margin-top:100px}.backup-pagination{align-items:center}.backup-pagination .btn{flex:0 0 auto}
 @media(max-width:600px){.backup-history li{align-items:flex-start;flex-direction:column;gap:12px}.backup-history .btns{width:100%}.backup-history .btn{flex:1}}
+
+.chart-scroll{overflow-x:auto;max-width:100%}

@@ -16,3 +16,16 @@ test('client chart retains every issuance when limiting categories and ignores i
  const result=inventorySpecs({issues},30,'2026-10-20'),clients=result.specs.find(s=>s.key==='inventory-clients');
  assert.equal(clients.labels.length,9);assert.equal(clients.datasets[0].data.reduce((a,b)=>a+b,0),72);assert.equal(result.undated,1);
 });
+test('combined sugar graph includes all three ordered metrics and unmatched withdrawals',()=>{
+ const state={unit:'LKg',receipts:[{sro:'A',type:'Raw',qty:100.5},{sro:'B',type:'Refined',qty:0}],issues:[{sro:'A',qty:20.25},{sro:'missing',type:'Washed',qty:5}]};
+ const get=(metric,key)=>inventorySpecs(state,7,'2026-10-28',metric).specs.find(s=>s.key==='inventory-'+key);
+ const graph=get('balance','sugar-summary');
+ assert.equal(graph.horizontal,undefined);
+ assert.deepEqual(graph.datasets.map(s=>s.label),['SRO Quantity · LKg','Withdrawal · LKg','Balance · LKg']);
+ assert.equal(graph.labels.length,3);
+ const raw=graph.labels.indexOf('Raw'),washed=graph.labels.indexOf('Washed');
+ assert.deepEqual(graph.datasets.map(s=>s.data[raw]),[100.5,20.25,80.25]);
+ assert.deepEqual(graph.datasets.map(s=>s.data[washed]),[0,5,-5]);
+ assert.deepEqual(get('received','mix').datasets[0].data,[100.5]);
+ assert.equal(get('issued','mix').datasets[0].data.reduce((a,b)=>a+b,0),25.25);
+});
