@@ -49,3 +49,22 @@ test('invalid date strings display as escaped text',async()=>{
  const {app}=await harness(async()=>({data:1,error:null}));
  assert.equal(app.fd('<img src=x>'),'&lt;img src=x&gt;');
 });
+
+test('JSON restore uses one dedicated database operation and one history summary',async()=>{
+ let request;
+ const {app}=await harness(async(name,args)=>{request={name,args};return {data:1,error:null};});
+ app.set({...state(10),activity:[{id:'old',summary:'Previous change'}]});app.commit();
+ app.set({...state(20),activity:[{id:'foreign',summary:'Imported history'}]});
+ assert.equal(await app.save({operation:'json_restore'}),true);
+ assert.equal(request.name,'restore_inventory_json');
+ assert.equal(request.args.expected_revision,0);
+ assert.equal(app.state().activity.length,2);
+ assert.match(app.state().activity[0].summary,/Restored JSON backup \(1 SRO quantities, 0 issuance lines\)/);
+ assert.equal(app.state().activity[1].id,'old');
+});
+test('failed JSON restore retains the previously confirmed inventory',async()=>{
+ const {app}=await harness(async()=>({data:null,error:{message:'Restore unavailable'}}));
+ app.set(state(10));app.commit();app.set(state(20));
+ assert.equal(await app.save({operation:'json_restore'}),false);
+ assert.equal(app.state().receipts[0].qty,10);
+});

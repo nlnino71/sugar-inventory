@@ -15,3 +15,6 @@ test('all nested values and keys escape HTML and empty timelines explain themsel
  const html=renderAuditTimeline([{event:'guest.page.view',email:'<img onerror=bad>',details:{context:{page:'<script>bad</script>',custom:{'<key>':['<svg onload=bad>',false,null]}}}}]);
  assert.ok(!html.includes('<img'));assert.ok(!html.includes('<script>'));assert.ok(!html.includes('<svg'));assert.ok(html.includes('&lt;key&gt;'));assert.ok(html.includes('Not provided'));assert.ok(html.includes('No'));assert.ok(renderAuditTimeline().includes('No activity records on this page.'));
 });
+test('bulk JSON restore has one clear audit title',()=>{
+ assert.equal(eventTitle('inventory.restored_json'),'Restored JSON backup');
+});

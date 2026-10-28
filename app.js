@@ -89,10 +89,10 @@ async function save(options={}){
   if(!ready||saving||readOnly) return false;
   saving=true; lock(true);
   const next=structuredClone(S);
-  const summary=changeSummary(committed,next);
+  const summary=options.operation==='json_restore'?'Restored JSON backup ('+next.receipts.length+' SRO quantities, '+next.issues.length+' issuance lines)':changeSummary(committed,next);
   if(summary) next.activity=[{id:uid(),at:new Date().toISOString(),summary},...(committed.activity||[])].slice(0,200);
   try {
-    const {data,error}=await db.rpc('save_inventory',{expected_revision:revision,new_data:next});
+    const {data,error}=await db.rpc(options.operation==='json_restore'?'restore_inventory_json':'save_inventory',{expected_revision:revision,new_data:next});
     if(error) throw error;
     if(data===null) {
       track('save.conflict',{revision});
@@ -1167,7 +1167,7 @@ $('#file').addEventListener('change',async e=>{
     let o; try{ o=JSON.parse(text); }catch(err){ toast('That is not a valid backup file.'); return; }
     if(!o||!Array.isArray(o.receipts)||!Array.isArray(o.issues)){ toast('That is not a valid backup file.'); return; }
     if(await ask('Restore backup','This replaces all data in your inventory with the backup ('+o.receipts.length+' SRO quantities, '+o.issues.length+' issuance lines).','Restore',true)){
-      S=Object.assign(blank(),o); S.seq=Math.max(S.seq||0,...S.issues.map(i=>i.seq||0)); if(!await save()) return; render(); toast('Backup restored');
+      S=Object.assign(blank(),o); S.seq=Math.max(S.seq||0,...S.issues.map(i=>i.seq||0)); if(!await save({operation:'json_restore'})) return; render(); toast('Backup restored');
     }
   }
 });
