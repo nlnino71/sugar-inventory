@@ -158,10 +158,10 @@ function companyControls(){
  return '<section class="company-switch" aria-label="Company inventory"><label for="companySelect">Company</label><select id="companySelect">'+COMPANIES.map(c=>'<option value="'+c.id+'"'+(c.id===CO?' selected':'')+'>'+esc(c.name)+'</option>').join('')+'</select><span>Separate company records</span></section>';
 }
 async function setCompany(id){
- if(readOnly||saving||exportingXlsx||!COMPANIES.some(c=>c.id===id)||id===CO){const select=$('#companySelect');if(select)select.value=CO;return;}
+ if(saving||exportingXlsx||!COMPANIES.some(c=>c.id===id)||id===CO){const select=$('#companySelect');if(select)select.value=CO;return;}
  if(spreadsheetView&&!await spreadsheetView.canLeave()){const select=$('#companySelect');if(select)select.value=CO;return;}
  CO=id;S=companyInventory(cloudDocument,CO,blank);committed=structuredClone(S);
- try{localStorage.setItem('inventory-company:'+accountId,CO);}catch{}
+ if(readOnly){const next=new URL(location.href);next.searchParams.set('company',CO);history.replaceState(history.state,'',next.pathname+next.search+next.hash);}else try{localStorage.setItem('inventory-company:'+accountId,CO);}catch{}
  filter='all';q='';rq='';rcrop='all';rtype='all';stockType=null;clientQuery='';
  deliveryFilter={query:'',from:'',to:'',client:''};closeSheet();render();toast('Switched to '+companyName(CO));
 }
@@ -278,15 +278,15 @@ function render(){
   $('#title').textContent=TITLES[tab]; $('#unitLbl').textContent='Unit: '+S.unit;
   renderNav();
   if(adminView&&ready&&isSuperadmin&&!readOnly){$('#main').dataset.view='superadmin';$('#title').textContent='Superadmin';adminCleanup=openAdmin(db,$('#main'));return;}
-  $('#main').innerHTML=({dashboard:vDashboard,reports:vReports,stock:vStock,receive:vReceive,issue:vIssue,clients:vClients,spreadsheet:()=>'',more:vMore})[tab]();
-  if(ready&&!readOnly)$('#main').insertAdjacentHTML('afterbegin',companyControls());
+  $('#main').innerHTML=({dashboard:vDashboard,reports:vReports,stock:vStock,receive:vReceive,issue:vIssue,clients:vClients,spreadsheet:()=>'<div id="spreadsheetHost"></div>',more:vMore})[tab]();
+  if(ready)$('#main').insertAdjacentHTML('afterbegin',companyControls());
   if(tab==='more'&&isSuperadmin&&!readOnly)$('#main').insertAdjacentHTML('beforeend','<section class="setting"><h2>Private administration</h2><p>Accounts, security events, IPs and device reports. Restricted to your account.</p><div class="btns"><button class="btn primary" data-act="superadmin">Open superadmin</button></div></section>');
   if(tab==='dashboard'){
     const host=$('#inventoryCharts');let cancelled=false,dispose=null;
     inventoryCleanup=()=>{cancelled=true;dispose?.();};
     import('./inventory-charts.js').then(({mountInventory})=>{if(!cancelled)dispose=mountInventory(host,S,today(),inventoryDays,days=>{inventoryDays=days;});}).catch(()=>{if(!cancelled)host.innerHTML='<p class="hint">Charts could not load. Reload the page to try again.</p>';});
   }
-  if(tab==='spreadsheet'&&!readOnly)spreadsheetView=mountSpreadsheet($('#main'),{
+  if(tab==='spreadsheet'&&!readOnly)spreadsheetView=mountSpreadsheet($('#spreadsheetHost'),{
     getState:()=>S,today,onConfirm:(title,message,label)=>ask(title,message,label,true),
     onDownload:draft=>saveFile('Sugar_Inventory_draft_'+today()+'.json',JSON.stringify(draft,null,2)),
     onSave:async next=>{let conflict=false;S=next;const ok=await save({preserveView:true,onConflict:()=>{conflict=true;}});return {ok,conflict};}
@@ -458,7 +458,7 @@ async function saveUnitConversion(){
 }
 function vMore(){
   const dl=!!DL;
-  return unitConversionPanel()+(CO==='oil'?sharingPanel():'<section class="setting"><h2>Public sharing</h2><p>The existing public link shows the Edible Oil inventory. Switch to Edible Oil to manage that link. Sugar company records remain private.</p></section>')+'<div class="setting"><h2>Inventory preferences</h2><label class="f">Low-stock alert (% remaining)<input id="lowStockPercent" type="number" min="0" max="100" value="'+threshold(S)+'"></label><label class="f">Appearance<select id="appearance"><option value="auto">Use device setting</option><option value="light"'+(document.documentElement.dataset.theme==='light'?' selected':'')+'>Light</option><option value="dark"'+(document.documentElement.dataset.theme==='dark'?' selected':'')+'>Dark</option></select></label></div>'+
+  return unitConversionPanel()+sharingPanel()+'<div class="setting"><h2>Inventory preferences</h2><label class="f">Low-stock alert (% remaining)<input id="lowStockPercent" type="number" min="0" max="100" value="'+threshold(S)+'"></label><label class="f">Appearance<select id="appearance"><option value="auto">Use device setting</option><option value="light"'+(document.documentElement.dataset.theme==='light'?' selected':'')+'>Light</option><option value="dark"'+(document.documentElement.dataset.theme==='dark'?' selected':'')+'>Dark</option></select></label></div>'+
    '<div class="sec"><h2>Export</h2></div><div class="setting"><div class="stack">'+
    COMPANIES.map(co=>'<button class="btn block" data-act="xlsx" data-company="'+co.id+'"'+(dl?'':' disabled')+'>Excel workbook (.xlsx) — '+esc(co.name)+'</button>').join('')+
    '<button class="btn block" data-act="csvRec"'+(dl?'':' disabled')+'>SRO Quantity (.csv)</button>'+
@@ -1374,13 +1374,13 @@ function restrictPublicControls(){
   }else if(!allowed.includes(el.dataset.act))el.remove();
  });
 }
-function publicLink(){return shareSettings.slug?window.location.origin+'/view/'+shareSettings.slug:window.location.origin+'/#view='+shareSettings.token;}
+function publicLink(){const company=CO==='sugar'?'?company=sugar':'';return shareSettings.slug?window.location.origin+'/view/'+shareSettings.slug+company:window.location.origin+'/'+company+'#view='+shareSettings.token;}
 async function loadSharing(){
  const {data,error}=await db.from('inventory_shares').select('token,enabled,slug').eq('owner_id',accountId).single();
  shareSettings=data; shareError=error?'Public sharing could not be loaded. Try refreshing your inventory.':'';
 }
 function sharingPanel(){
- return '<section class="setting"><h2>Public view-only sharing</h2><p>Anyone with the link can view stock, client names, quantities and delivery references. Client contacts, notes and change history stay private. Visitors can save an Excel copy but cannot edit records.</p>'+(shareError?'<p role="status">'+esc(shareError)+'</p>':!shareSettings?'<p>Open More again to load sharing settings.</p>':'<p><strong>'+(shareSettings.enabled?'Sharing is enabled':'Sharing is disabled')+'</strong></p>'+(shareSettings.enabled?'<label class="f">View-only link<input id="publicLink" readonly value="'+esc(publicLink())+'"></label><button class="btn" data-act="copySharing">Copy public link</button>':'')+'<label class="f">Public link code<input id="publicCode" maxlength="6" minlength="3" value="'+esc(shareSettings.slug||'')+'" autocapitalize="none" autocomplete="off" spellcheck="false" aria-describedby="codeHelp codeStatus"></label><p class="hint" id="codeHelp">Use 3–6 letters or numbers. Availability updates as you type. Saving a different code invalidates your previous link. Sharing stays off until you enable it.</p><div class="btns"><button class="btn" data-act="saveSlug">Save code</button></div><p id="codeStatus" role="status" class="hint"></p><div class="btns"><button class="btn" data-act="toggleSharing">'+(shareSettings.enabled?'Disable public sharing':'Enable public sharing')+'</button><button class="btn" data-act="rotateSharing">Replace link</button></div>')+'</section>';
+ return '<section class="setting"><h2>Public view-only sharing</h2><p>Anyone with the link can switch between Sugar and Edible Oil and view both companies’ stock, client names, quantities and delivery references. The sharing controls below apply to both companies. Client contacts, notes and change history stay private. Visitors can save an Excel copy but cannot edit records.</p>'+(shareError?'<p role="status">'+esc(shareError)+'</p>':!shareSettings?'<p>Open More again to load sharing settings.</p>':'<p><strong>'+(shareSettings.enabled?'Sharing is enabled':'Sharing is disabled')+'</strong></p>'+(shareSettings.enabled?'<label class="f">View-only link<input id="publicLink" readonly value="'+esc(publicLink())+'"></label><button class="btn" data-act="copySharing">Copy public link</button>':'')+'<label class="f">Public link code<input id="publicCode" maxlength="6" minlength="3" value="'+esc(shareSettings.slug||'')+'" autocapitalize="none" autocomplete="off" spellcheck="false" aria-describedby="codeHelp codeStatus"></label><p class="hint" id="codeHelp">Use 3–6 letters or numbers. Availability updates as you type. Saving a different code invalidates your previous link. Sharing stays off until you enable it.</p><div class="btns"><button class="btn" data-act="saveSlug">Save code</button></div><p id="codeStatus" role="status" class="hint"></p><div class="btns"><button class="btn" data-act="toggleSharing">'+(shareSettings.enabled?'Disable public sharing':'Enable public sharing')+'</button><button class="btn" data-act="rotateSharing">Replace link</button></div>')+'</section>';
 }
 let codeRequest=0,codeTimer;
 async function editSharingCode(saveCode){
@@ -1426,7 +1426,7 @@ async function showPublic(){
   const {data,error}=await db.rpc(slugPath?'get_public_inventory_by_slug':'get_public_inventory',slugPath?{share_slug:publicSlug}:{share_token:publicToken});
   if(error)throw new Error('Public sharing is not available. Ask the owner to finish sharing setup.');
   if(!data)throw new Error('This link is disabled or has been replaced. Ask the owner for a new link.');
-  S=Object.assign(blank(),data);ready=true;restoreNavigation();await activity.stop();startGuest(tab,{slug:publicSlug,shareToken:publicToken});$('#nav').hidden=false;render();lock(false);
+  cloudDocument=data;CO=new URL(location.href).searchParams.get('company')==='sugar'?'sugar':'oil';S=companyInventory(cloudDocument,CO,blank);committed=structuredClone(S);ready=true;restoreNavigation();await activity.stop();startGuest(tab,{slug:publicSlug,shareToken:publicToken});$('#nav').hidden=false;render();lock(false);
  }catch(error){trackPage('public-unavailable');$('#main').innerHTML='<div class="empty"><b>Shared inventory unavailable</b>'+esc(error.message)+'</div>';$('#cloudStatus').textContent='Public view unavailable';}
 }
 

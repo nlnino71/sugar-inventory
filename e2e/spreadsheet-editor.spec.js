@@ -39,3 +39,18 @@ test('browser Back protects a spreadsheet draft and restores the URL after cance
  await page.getByRole('button',{name:'Cancel',exact:true}).click();await expect(page).toHaveURL(/\/spreadsheet$/);await expect(page.getByLabel('Received quantity, row 1',{exact:true})).toHaveValue('140');
  await page.goBack();await page.getByRole('button',{name:'Leave without saving',exact:true}).click();await expect(page).toHaveURL(/\/stock$/);await expect(page.locator('#main')).toHaveAttribute('data-view','stock');
 });
+
+test('company switching stays visible in Spreadsheet and protects an unsaved draft',async({page})=>{
+ await setup(page);await expect(page.getByLabel('Company',{exact:true})).toHaveValue('oil');
+ await page.getByLabel('Received quantity, row 1',{exact:true}).fill('140');
+ await page.getByLabel('Company',{exact:true}).selectOption('sugar');
+ await page.getByRole('button',{name:'Cancel',exact:true}).click();
+ await expect(page.getByLabel('Company',{exact:true})).toHaveValue('oil');
+ await expect(page.getByLabel('Received quantity, row 1',{exact:true})).toHaveValue('140');
+ await page.getByLabel('Company',{exact:true}).selectOption('sugar');
+ await page.getByRole('button',{name:'Leave without saving',exact:true}).click();
+ await expect(page.getByLabel('Company',{exact:true})).toHaveValue('sugar');
+ await expect(page.getByRole('tab',{name:'SRO quantities (0)',exact:true})).toBeVisible();
+ await page.getByLabel('Company',{exact:true}).selectOption('oil');
+ await expect(page.getByLabel('Received quantity, row 1',{exact:true})).toHaveValue('100');
+});
