@@ -35,3 +35,8 @@ test('client totals preserve exact names, latest delivery and reserved property 
  assert.deepEqual(rows.find(r=>r.name==='constructor'),{name:'constructor',total:6,lines:2,last:'2026-10-03'});
  assert.equal(rows.length,3);
 });
+
+test('delivery search matches van and truck plates',()=>{
+ const issues=[{sro:'A',van:'ABC 1234'},{sro:'B',van:'XYZ 9876'},{sro:'C'}];
+ assert.deepEqual(matchingIssues(issues,{query:'abc 1234'}),[issues[0]]);
+});

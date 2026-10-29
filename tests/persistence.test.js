@@ -10,7 +10,7 @@ async function harness(rpc, cloud) {
  let source=readFileSync(new URL('../app.js',import.meta.url),'utf8');
  source=source.slice(source.indexOf('(async function(){'),source.indexOf("$('#loginForm').addEventListener"));
  source=source.replaceAll('import.meta.env.VITE_SUPABASE_URL',"'https://example.supabase.co'").replaceAll('import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY',"'public-key'");
- source+=`render=()=>{}; ready=true; globalThis.app={hydrate:(document,id)=>{cloudDocument=document;CO=id;S=companyInventory(document,id,blank);committed=structuredClone(S)},save,compute,clientStats,typeStats,fd,state:()=>S,revision:()=>revision,set:(value)=>{S=value},commit:()=>{committed=structuredClone(S)}}; })();`;
+ source+=`render=()=>{}; ready=true; globalThis.app={hydrate:(document,id)=>{cloudDocument=document;CO=id;S=companyInventory(document,id,blank);committed=structuredClone(S)},save,importCSV,issRows,issueHeaders:ISS_H,compute,clientStats,typeStats,fd,state:()=>S,revision:()=>revision,set:(value)=>{S=value},commit:()=>{committed=structuredClone(S)}}; })();`;
  const elements=new Map();
  const element=selector=>{if(!elements.has(selector))elements.set(selector,{textContent:'',dataset:{},addEventListener(){},classList:{add(){},remove(){},contains(){return false;}}});return elements.get(selector);};
  const context=vm.createContext({...features,...companies,isSimpleAuditEvent,createActivityTracker:()=>({start(){},track(){},flush(){},stop:async()=>{}}),history:{state:null},window:{addEventListener(){},location:{hash:""}},URLSearchParams,structuredClone,setTimeout:()=>0,clearTimeout(){},console,document:{body:{},querySelector:element,addEventListener(){}},createClient:()=>({rpc,from:()=>({select:()=>({eq:()=>({single:async()=>({data:cloud,error:null})})})})})});
@@ -94,4 +94,15 @@ test('full account JSON restore replaces both companies atomically',async()=>{
  assert.equal(request.name,'restore_inventory_json');
  assert.equal(request.args.new_data.receipts[0].qty,80);
  assert.equal(request.args.new_data.companyInventories.sugar.receipts[0].qty,10);
+});
+
+test('vehicle CSV aliases import and export the same withdrawal reference',async()=>{
+ const {app}=await harness(async()=>({data:1,error:null}));app.set(state(100));
+ for(const header of ['Van # / Truck Plate #','Van #','Truck Plate #','Van/Truck Plate #']){
+  const csv='Date,SRO Number,Ref ATW Number,Client,Quantity per Batch Code,'+header+'\n2026-10-29,SRO1,ATW-1,Client,2.5,ABC 1234';
+  assert.match(await app.importCSV(csv),/Imported 1 issuance line/);
+  assert.equal(app.state().issues.at(-1).van,'ABC 1234');
+ }
+ const column=app.issueHeaders.indexOf('Van # / Truck Plate #');assert.ok(column>=0);
+ assert.ok(app.issRows().every(row=>row[column]==='ABC 1234'));
 });

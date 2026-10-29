@@ -17,7 +17,7 @@ export function inventorySpecs(state,days=30,end=new Date().toISOString().slice(
   if(r.date<from)opening+=sign*qty;
   if(!daily.has(r.date))continue;
   daily.get(r.date)[kind]+=qty;
-  const group=kind==='issued'?clients:mills,name=kind==='issued'?(r.client||'No client'):(r.mill||'No mill');group.set(name,(group.get(name)||0)+qty);
+  const group=kind==='issued'?clients:mills,name=kind==='issued'?((r.client||'').trim()||'No client'):(r.mill||'No mill');group.set(name,(group.get(name)||0)+qty);
  }
  const labels=[...daily.keys()],values=[...daily.values()];let balance=opening;
  const balances=values.map(d=>(balance+=d.received-d.issued));
@@ -26,7 +26,7 @@ export function inventorySpecs(state,days=30,end=new Date().toISOString().slice(
  const metricNames={received:'SRO Quantity',issued:'Withdrawal',balance:'Balance'};
  const mix=stock.map(([type,balance])=>[type,mixMetric==='balance'?balance:typeTotals.get(type)[mixMetric]]).filter(([,qty])=>qty>0);
  const top=map=>{const all=entries(map);return all.length>8?[...all.slice(0,8),['Other (remaining '+(all.length-8)+')',all.slice(8).reduce((n,x)=>n+x[1],0)]]:all;};
- const clientRows=top(clients),millRows=top(mills),unit=state.unit||'units';
+ const clientRows=entries(clients),millRows=top(mills),unit=state.unit||'units';
  const spec=(key,title,note,type,labels,datasets,extra={})=>({key:'inventory-'+key,title,note,type,labels,datasets,decimals:true,emptyLabel:'inventory quantities',...extra});
  const series=(label,data)=>({label:label+' · '+unit,data});
  return {from,to:end,undated,specs:[
@@ -35,7 +35,7 @@ export function inventorySpecs(state,days=30,end=new Date().toISOString().slice(
   spec('balance','Running stock balance','End-of-day balance, including stock before this period. Undated records are excluded.','line',labels,[series('Balance',balances)],{wide:true}),
   spec('types','Balance by sugar type','All recorded quantities, including future and undated records. Negative values show shortages.','bar',stock.map(x=>x[0]),[series('On hand',stock.map(x=>x[1]))],{horizontal:true}),
   spec('mix',metricNames[mixMetric]+' mix by sugar type','All recorded quantities. Only positive values are included in the pie; negative balances appear in the bar graph.','pie',mix.map(x=>x[0]),[series(metricNames[mixMetric],mix.map(x=>x[1]))]),
-  spec('clients','Issued by client','Quantities issued in the selected period. Largest eight clients plus the remaining total.','bar',clientRows.map(x=>x[0]),[series('Issued',clientRows.map(x=>x[1]))],{horizontal:true}),
+  spec('clients','Withdrawal by client','Total withdrawals per client in the selected period · '+unit+'. Every client is shown; scroll horizontally for more clients.','bar',clientRows.map(x=>x[0]),[series('Withdrawal',clientRows.map(x=>x[1]))],{wide:true,allCategories:true,xTitle:'Client',yTitle:'Withdrawal · '+unit}),
   spec('mills','Received by mill','Quantities received in the selected period. Largest eight mills plus the remaining total.','bar',millRows.map(x=>x[0]),[series('Received',millRows.map(x=>x[1]))],{horizontal:true})
  ]};
 }

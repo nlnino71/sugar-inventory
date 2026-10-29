@@ -403,7 +403,7 @@ function updateRList(){
 
 function issueGroups(c,items=S.issues){
   const g=Object.create(null);
-  [...items].forEach(i=>{ const k=[i.date,i.atw,i.sro,i.client,i.waybill].join('|'); (g[k]||(g[k]={key:k,date:i.date,atw:i.atw,sro:i.sro,client:i.client,permit:i.permit,waybill:i.waybill,bol:i.bol,vessel:i.vessel,voy:i.voy,sail:i.sail,type:i.type,items:[],seq:0})).items.push(i); g[k].seq=Math.max(g[k].seq,i.seq); });
+  [...items].forEach(i=>{ const k=[i.date,i.atw,i.sro,i.client,i.waybill,i.van].join('|'); (g[k]||(g[k]={key:k,date:i.date,atw:i.atw,sro:i.sro,client:i.client,permit:i.permit,waybill:i.waybill,van:i.van,bol:i.bol,vessel:i.vessel,voy:i.voy,sail:i.sail,type:i.type,items:[],seq:0})).items.push(i); g[k].seq=Math.max(g[k].seq,i.seq); });
   return Object.values(g).sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:b.seq-a.seq);
 }
 function vIssue(){
@@ -417,7 +417,7 @@ function vIssue(){
     return '<div class="card"><div class="row"><span class="sro-no">'+esc(g.atw||'No ATW no.')+'</span><span class="sub" style="margin:0">'+fd(g.date)+'</span></div>'+
       '<div class="sub" style="margin-bottom:4px">'+esc(g.client||'No client')+' · '+esc(g.sro)+'</div>'+
       (missing?'<div class="err" style="margin:0 0 4px">This SRO is not in SRO Quantity.</div>':'')+
-      '<div class="kv"><span>Permit <b>'+esc(g.permit||'-')+'</b></span><span>Waybill <b>'+esc(g.waybill||'-')+'</b></span></div>'+
+      '<div class="kv"><span>Permit <b>'+esc(g.permit||'-')+'</b></span><span>Waybill <b>'+esc(g.waybill||'-')+'</b></span><span>Van/Truck <b>'+esc(g.van||'-')+'</b></span></div>'+
       ((g.bol||g.vessel||g.voy||g.sail)?'<div class="kv"><span>B/L <b>'+esc(g.bol||'-')+'</b></span><span>Vessel <b>'+esc(g.vessel||'-')+(g.voy?' / '+esc(g.voy):'')+'</b></span><span>Sails <b>'+(g.sail?fd(g.sail):'-')+'</b></span></div>':'')+
       '<div class="lines">'+g.items.map(i=>'<button class="line" data-act="editIssue" data-id="'+esc(i.id)+'"><span>'+esc(i.batch||'No batch code')+'</span><b>'+nf(i.qty)+'</b></button>').join('')+'</div>'+
       '<div class="tot"><span>Total</span><span class="num" style="font-size:19px">'+nf(tot)+'</span></div></div>';
@@ -468,7 +468,7 @@ function vMore(){
    '<button class="btn block" data-act="backup"'+(dl?'':' disabled')+'>Save backup (.json)</button>'+
    '<button class="btn block" data-act="restore">Restore from backup</button>'+
    '<button class="btn block" data-act="import">Import SRO quantity or issuance CSV</button></div>'+
-   '<p>CSV quantities without a Unit column use '+esc(S.unit)+'. A recognized Unit column is converted automatically. CSV columns must match the Excel inventory file: SRO Date, SRO Number, Type of Sugar, Mill Source, Quantity for SRO quantity; Date, SRO Number, Ref ATW Number, Type of Sugar, Client, SRA Permit No., Mill Waybill Number, Batch Codes, Quantity per Batch Code for issuance, plus optional Bill of Lading No., Vessel, Voy No., Sailing Date.</p></div>'+
+   '<p>CSV quantities without a Unit column use '+esc(S.unit)+'. A recognized Unit column is converted automatically. CSV columns must match the Excel inventory file: SRO Date, SRO Number, Type of Sugar, Mill Source, Quantity for SRO quantity; Date, SRO Number, Ref ATW Number, Type of Sugar, Client, SRA Permit No., Mill Waybill Number, Batch Codes, Quantity per Batch Code for issuance, plus optional Bill of Lading No., Vessel, Voy No., Sailing Date, Van # / Truck Plate #.</p></div>'+
    '<div class="sec"><h2>Data</h2></div><div class="setting"><div class="stack"><button class="btn block" data-act="sample">Load sample data</button><button class="btn danger block" data-act="clear">Delete all data</button></div>'+
    '<p>Your records are saved to your private Supabase inventory. Public links are read-only and controlled by you. Automatic account backups are available above. You can also download a backup file to keep a separate copy.</p></div>';
 }
@@ -611,6 +611,7 @@ function issueSheet(opt){
    '<label class="f">Client<input name="client" list="dlClients" value="'+esc(e?e.client:'')+'" autocomplete="off" required></label></div>'+
    '<div class="two"><label class="f">SRA permit no.<input name="permit" value="'+esc(e?e.permit:'')+'" autocomplete="off"></label>'+
    '<label class="f">Mill waybill number<input name="waybill" value="'+esc(e?e.waybill:'')+'" autocomplete="off"></label></div>'+
+   '<label class="f">Van # / Truck plate #<input name="van" value="'+esc(e?e.van:'')+'" autocomplete="off"></label>'+
    '<div class="two"><label class="f">Bill of lading no.<input name="bol" value="'+esc(e?e.bol:'')+'" autocomplete="off"></label>'+
    '<label class="f">Vessel<input name="vessel" value="'+esc(e?e.vessel:'')+'" autocomplete="off"></label></div>'+
    '<div class="two"><label class="f">Voy no.<input name="voy" value="'+esc(e?e.voy:'')+'" autocomplete="off"></label>'+
@@ -642,7 +643,7 @@ async function saveIssue(f){
   const tot=lines.reduce((a,l)=>a+l.qty,0), cur=id?S.issues.find(i=>i.id===id):null;
   const avail=o?o.balance+(cur&&cur.sro===o.sro?(+cur.qty||0):0):null;
   if(o && tot>avail && !(await ask('Over-issuing',nf(tot-avail)+' more than the '+nf(avail)+' available on '+o.sro+'. Save anyway?','Save anyway'))) return;
-  const base={date:v('date'),sro:v('sro'),atw:v('atw'),type:o?o.type:(cur?cur.type:''),client:v('client'),permit:v('permit'),waybill:v('waybill'),bol:v('bol'),vessel:v('vessel'),voy:v('voy'),sail:v('sail')};
+  const base={date:v('date'),sro:v('sro'),atw:v('atw'),type:o?o.type:(cur?cur.type:''),client:v('client'),permit:v('permit'),waybill:v('waybill'),van:v('van'),bol:v('bol'),vessel:v('vessel'),voy:v('voy'),sail:v('sail')};
   if(cur) Object.assign(cur,base,{batch:lines[0].batch,qty:lines[0].qty});
   else lines.forEach(l=>S.issues.push(Object.assign({id:uid(),seq:++S.seq},base,{batch:l.batch,qty:l.qty})));
   if(base.client && !S.clients.includes(base.client)) S.clients.push(base.client);
@@ -665,9 +666,9 @@ function clientSheet(name){
 const stamp=()=>today();
 function csv(rows){ return '\ufeff'+rows.map(r=>r.map(v=>{ v=v==null?'':String(v); return /[",\r\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }).join(',')).join('\r\n'); }
 const REC_H=['SRO Date','SRO Number','Type of Sugar','Mill Source','Quantity','Crop Year'];
-const ISS_H=['Date','SRO Number','Ref ATW Number','Type of Sugar','Client','SRA Permit No.','Mill Waybill Number','Batch Codes','Quantity per Batch Code','Bill of Lading No.','Vessel','Voy No.','Sailing Date'];
+const ISS_H=['Date','SRO Number','Ref ATW Number','Type of Sugar','Client','SRA Permit No.','Mill Waybill Number','Batch Codes','Quantity per Batch Code','Bill of Lading No.','Vessel','Voy No.','Sailing Date','Van # / Truck Plate #'];
 const recRows=()=>[...S.receipts].sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0).map(r=>[r.date,r.sro,r.type,r.mill,r.qty,r.crop]);
-const issRows=()=>compute().sorted.map(i=>[i.date,i.sro,i.atw,i.type,i.client,i.permit,i.waybill,i.batch,i.qty,i.bol,i.vessel,i.voy,i.sail]);
+const issRows=()=>compute().sorted.map(i=>[i.date,i.sro,i.atw,i.type,i.client,i.permit,i.waybill,i.batch,i.qty,i.bol,i.vessel,i.voy,i.sail,i.van]);
 async function saveFile(name,data){
   if(!DL){ toast('Downloads are not available in this view.'); return; }
   try{ await DL.save({filename:name,data}); track('file.exported',{filename:name});toast('Saved '+name); }
@@ -954,7 +955,7 @@ function sroQuantitySheet(c){
 }
 function issuanceSheet(c){
   const X=window.XLSX, ws={}, merges=[], H={};
-  const GREEN='1B5E4A', LG='E2EFDA', AMB='FFE699', LAMB='FFF2CC', BAND='F3F7F4', LAST=12;
+  const GREEN='1B5E4A', LG='E2EFDA', AMB='FFE699', LAMB='FFF2CC', BAND='F3F7F4', LAST=13;
   const T={style:'thin',color:{rgb:'BFBFBF'}}, BOX={top:T,bottom:T,left:T,right:T};
   const fnt=(sz,bold,rgb,it)=>({name:'Calibri',sz:sz,bold:!!bold,italic:!!it,color:{rgb:rgb||'000000'}});
   const CEN={horizontal:'center',vertical:'center'};
@@ -1006,7 +1007,7 @@ function issuanceSheet(c){
   groups.forEach(x=>{
     const g=x.g;
     span(r,0,LAST,x.t.name.toUpperCase()+'   |   '+g.length+' batch code'+(g.length>1?'s':''),{font:fnt(12,true,GREEN),fill:'A9D08E',al:{horizontal:'left',vertical:'center',indent:1}}); H[r]=24; r++;
-    head(r,['Date','SRO Number','Ref ATW Number','Client','SRA Permit No.','Mill Waybill Number','Batch Codes','Quantity per Batch Code','Bill of Lading No.','Vessel','Voy No.','Sailing Date','SRO Balance After This Line']); r++;
+    head(r,['Date','SRO Number','Ref ATW Number','Client','SRA Permit No.','Mill Waybill Number','Batch Codes','Quantity per Batch Code','Bill of Lading No.','Vessel','Voy No.','Sailing Date','SRO Balance After This Line','Van # / Truck Plate #']); r++;
     const ag=[], amm=Object.create(null);
     g.forEach(i=>{ const k=i.atw||'(no ATW)'; if(!amm[k]){ amm[k]={k:k,items:[]}; ag.push(amm[k]); } amm[k].items.push(i); });
     let ix=0;
@@ -1020,6 +1021,7 @@ function issuanceSheet(c){
         set(r,8,i.bol,{fill:f}); set(r,9,i.vessel,{fill:f}); set(r,10,i.voy,{fill:f});
         set(r,11,i.sail?serial(i.sail):'',{z:'dd-mmm-yyyy',fill:f,al:CEN});
         set(r,12,c.run[i.id]==null?'':c.run[i.id],{fill:f,font:fnt(10,true,GREEN)});
+        set(r,13,i.van,{fill:f});
         r++;
       });
       const o4={fill:LAMB,font:fnt(10,true)};
@@ -1034,7 +1036,7 @@ function issuanceSheet(c){
   for(let R=0;R<=endR;R++) for(let C=0;C<=endC;C++){ const a=X.utils.encode_cell({r:R,c:C}); if(!ws[a]) ws[a]={t:'s',v:'',s:{fill:FILL('FFFFFF')}}; }
   ws['!ref']=X.utils.encode_range({s:{r:0,c:0},e:{r:endR,c:endC}});
   ws['!merges']=merges;
-  ws['!cols']=[20,18,17,20,17,18,16,16,18,18,10,14,18,6,6].map(w=>({wch:w}));
+  ws['!cols']=[20,18,17,20,17,18,16,16,18,18,10,14,18,24,6,6].map(w=>({wch:w}));
   ws['!rows']=[]; Object.keys(H).forEach(k=>{ ws['!rows'][+k]={hpt:H[k]}; });
   return ws;
 }
@@ -1162,12 +1164,12 @@ async function importCSV(text){
   const importedQty=(row,column)=>{const value=num(row[column]),label=unitColumn>=0?row[unitColumn]:'';if(!Number.isFinite(value))return value;try{return label&&label!==S.unit?convertQuantity(value,unitWeight(label),unitWeight(S.unit)):value;}catch{return NaN;}};
   const ixa=(...n)=>{ for(const x of n){ const k=ix(x); if(k>=0) return k; } return -1; };
   if(ix('Ref ATW Number')>=0){
-    const ci={date:ix('Date'),sro:ix('SRO Number'),atw:ix('Ref ATW Number'),type:ix('Type of Sugar'),client:ix('Client'),permit:ix('SRA Permit No.'),waybill:ix('Mill Waybill Number'),batch:ix('Batch Codes'),qty:ix('Quantity per Batch Code'),bol:ixa('Bill of Lading No.','Bill of Lading #','Bill of Lading','B/L No.'),vessel:ix('Vessel'),voy:ixa('Voy No.','Voy No','Voyage No.'),sail:ix('Sailing Date')};
+    const ci={date:ix('Date'),sro:ix('SRO Number'),atw:ix('Ref ATW Number'),type:ix('Type of Sugar'),client:ix('Client'),permit:ix('SRA Permit No.'),waybill:ix('Mill Waybill Number'),batch:ix('Batch Codes'),qty:ix('Quantity per Batch Code'),bol:ixa('Bill of Lading No.','Bill of Lading #','Bill of Lading','B/L No.'),vessel:ix('Vessel'),voy:ixa('Voy No.','Voy No','Voyage No.'),sail:ix('Sailing Date'),van:ixa('Van # / Truck Plate #','Van #','Truck Plate #','Van/Truck Plate #')};
     if(ci.date<0||ci.sro<0||ci.qty<0) return 'Issuance CSV needs Date, SRO Number and Quantity per Batch Code columns.';
     let n=0,skip=0; const g=(r,k)=>ci[k]>=0?String(r[ci[k]]||'').trim():'';
     rows.slice(1).forEach(r=>{ const qty=importedQty(r,ci.qty), sro=g(r,'sro'), date=normDate(r[ci.date]);
       if(!sro||!(qty>0)||!date){ skip++; return; }
-      S.issues.push({id:uid(),seq:++S.seq,date,sro,atw:g(r,'atw'),type:g(r,'type'),client:g(r,'client'),permit:g(r,'permit'),waybill:g(r,'waybill'),batch:g(r,'batch'),qty,bol:g(r,'bol'),vessel:g(r,'vessel'),voy:g(r,'voy'),sail:(ci.sail>=0&&String(r[ci.sail]||'').trim())?normDate(r[ci.sail]):''}); n++;
+      S.issues.push({id:uid(),seq:++S.seq,date,sro,atw:g(r,'atw'),type:g(r,'type'),client:g(r,'client'),permit:g(r,'permit'),waybill:g(r,'waybill'),van:g(r,'van'),batch:g(r,'batch'),qty,bol:g(r,'bol'),vessel:g(r,'vessel'),voy:g(r,'voy'),sail:(ci.sail>=0&&String(r[ci.sail]||'').trim())?normDate(r[ci.sail]):''}); n++;
       const cl=g(r,'client'); if(cl&&!S.clients.includes(cl)) S.clients.push(cl); });
     if(!await save()) return; return 'Imported '+n+' issuance line'+(n===1?'':'s')+(skip?', skipped '+skip+' incomplete':'')+'.';
   }

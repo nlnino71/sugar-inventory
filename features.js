@@ -19,7 +19,7 @@ export function stockReport(state, {from='',to='',type=''}={}) {
 }
 export function matchingIssues(issues,{query='',from='',to='',client=''}={}){
  const needle=query.trim().toLowerCase();
- return issues.filter(i=>(!from||i.date>=from)&&(!to||i.date<=to)&&(!client||i.client===client)&&(!needle||[i.sro,i.atw,i.client,i.batch,i.permit,i.waybill,i.bol,i.vessel,i.voy].join(' ').toLowerCase().includes(needle)));
+ return issues.filter(i=>(!from||i.date>=from)&&(!to||i.date<=to)&&(!client||i.client===client)&&(!needle||[i.sro,i.atw,i.client,i.batch,i.permit,i.waybill,i.van,i.bol,i.vessel,i.voy].join(' ').toLowerCase().includes(needle)));
 }
 export function changeSummary(before,after){
  const parts=[];
