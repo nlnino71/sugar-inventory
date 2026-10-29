@@ -48,5 +48,5 @@ export function clientDashboardSpecs(state,mixMetric='balance'){
  for(const issue of state.issues||[]){const name=(issue.client||'').trim()||'No client';clients.set(name,(clients.get(name)||0)+quantity(issue));}
  const rows=entries(clients),unit=state.unit||'units';
  const client={...get('clients'),note:'All recorded withdrawals per client · '+unit+'. Every client is shown; scroll horizontally for more clients.',labels:rows.map(r=>r[0]),datasets:[{label:'Withdrawal · '+unit,data:rows.map(r=>r[1])}]};
- return [{...get('mix'),wide:true,shares:true},get('sugar-summary'),client];
+ return [{...get('mix'),wide:true,shares:true,linkedLegend:true,colorLabels:get('sugar-summary').labels},get('sugar-summary'),client];
 }
