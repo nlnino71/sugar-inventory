@@ -5,9 +5,9 @@ import vm from 'node:vm';
 import {companyName} from '../companies.js';
 import XLSX from 'xlsx-js-style';
 const src=readFileSync(new URL('../app.js',import.meta.url),'utf8');
-function workbook(){
+function workbook(company='oil'){
  const S={unit:'metric tonnes (t)',receipts:[{id:'r',sro:'S1',type:'Raw Sugar',qty:1234.123456,date:'2026-10-01',mill:'Mill',crop:'2026-2027'}],issues:[{id:'i',sro:'S1',type:'Raw Sugar',qty:0.123456,date:'2026-10-02',seq:1,client:'Client',atw:'__proto__',batch:'B1',van:'ABC 1234'}],clients:['Client'],seq:1};
- const ctx=vm.createContext({window:{XLSX},S,CO:'oil',companyName,today:()=> '2026-10-21',fd:x=>x,nf:x=>String(x),threshold:()=>20});
+ const ctx=vm.createContext({window:{XLSX},S,CO:company,companyName,today:()=> '2026-10-21',fd:x=>x,nf:x=>String(x),threshold:()=>20});
  vm.runInContext(src.slice(src.indexOf('function compute()'),src.indexOf('const knownClients='))+src.slice(src.indexOf('const serial='),src.indexOf('let exportingXlsx='))+';result=xlsxBook();',ctx);
  return ctx.result;
 }
@@ -24,4 +24,11 @@ test('client workbook formatting preserves exact quantities, dates, branding and
  assert.ok(Object.values(wb.Sheets.Withdrawal).some(c=>c?.v==='ABC 1234'));
  const reread=XLSX.read(XLSX.write(wb,{type:'buffer',bookType:'xlsx'}),{type:'buffer',cellNF:true});
  assert.ok(Object.values(reread.Sheets['SRO Registry']).some(c=>c?.v===1234.123456));
+});
+
+test('Excel headers use the exported company blue or teal accent',()=>{
+ for(const [company,color] of [['sugar','096D9E'],['oil','0E7C7B']]){
+  const wb=workbook(company);
+  assert.equal(wb.Sheets.Dashboard.A1.s.fill.fgColor.rgb,color);
+ }
 });

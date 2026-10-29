@@ -70,7 +70,7 @@ function syncThemeControl(){
  button.querySelector('svg').setAttribute('aria-hidden','true');
  button.setAttribute('aria-label',dark?'Switch to light mode':'Switch to dark mode');
  button.title=dark?'Switch to light mode':'Switch to dark mode';
- document.querySelector('meta[name="theme-color"]').content=dark?'#101a15':'#f4f6f5';
+ document.querySelector('meta[name="theme-color"]').content=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
  const select=$('#appearance');if(select)select.value=document.documentElement.dataset.theme||'auto';
 }
 function applyTheme(theme){
@@ -153,18 +153,25 @@ async function showAccount(session){
 }
 
 function companyControls(){
- return '<section class="company-switch" aria-label="Company inventory"><label for="companySelect">Company</label><select id="companySelect">'+COMPANIES.map(c=>'<option value="'+c.id+'"'+(c.id===CO?' selected':'')+'>'+esc(c.name)+'</option>').join('')+'</select><span>Separate company records</span></section>';
+ return '<button type="button" class="company-trigger" data-act="company" aria-label="Switch company" aria-haspopup="dialog" aria-expanded="false"><span>'+esc(companyName(CO))+'</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>';
+}
+function companySheet(){
+ document.querySelectorAll('[data-act="company"]').forEach(button=>button.setAttribute('aria-expanded','true'));
+ openSheet(sheetHead('Switch company','Each company keeps its own separate records.')+'<div class="company-choices">'+COMPANIES.map(company=>{
+  const inventory=company.id===CO?S:companyInventory(cloudDocument,company.id,blank);
+  return '<button type="button" class="company-choice" data-act="setCompany" data-company="'+company.id+'" aria-pressed="'+(company.id===CO)+'"><span class="company-choice-title">'+esc(company.name)+'</span><span class="company-choice-count">'+inventory.receipts.length+' SRO '+(inventory.receipts.length===1?'quantity':'quantities')+' · '+inventory.issues.length+' withdrawal '+(inventory.issues.length===1?'line':'lines')+'</span>'+(company.id===CO?'<span class="company-choice-current">Current</span>':'')+'</button>';
+ }).join('')+'</div>');
 }
 async function setCompany(id){
- if(saving||exportingXlsx||!COMPANIES.some(c=>c.id===id)||id===CO){const select=$('#companySelect');if(select)select.value=CO;return;}
- if(spreadsheetView&&!await spreadsheetView.canLeave()){const select=$('#companySelect');if(select)select.value=CO;return;}
+ if(saving||exportingXlsx||!COMPANIES.some(c=>c.id===id))return;
+ if(id===CO){closeSheet();return;}
+ if(spreadsheetView&&!await spreadsheetView.canLeave())return;
  CO=id;S=companyInventory(cloudDocument,CO,blank);committed=structuredClone(S);
  if(readOnly){const next=new URL(location.href);next.searchParams.set('company',CO);history.replaceState(history.state,'',next.pathname+next.search+next.hash);}else try{localStorage.setItem('inventory-company:'+accountId,CO);}catch{}
  filter='all';q='';rq='';rcrop='all';rtype='all';stockType=null;clientQuery='';
  deliveryFilter={query:'',from:'',to:'',client:''};closeSheet();render();toast('Switched to '+companyName(CO));
 }
 
-document.addEventListener('change',e=>{if(e.target.id==='companySelect')void setCompany(e.target.value);});
 
 /* ---------- calculations ---------- */
 function compute(){
@@ -250,7 +257,7 @@ const ICON={
  more:'<svg viewBox="0 0 24 24"><path d="M4 7h10"/><path d="M18 7h2"/><circle cx="16" cy="7" r="2"/><path d="M4 17h2"/><path d="M10 17h10"/><circle cx="8" cy="17" r="2"/></svg>'
 };
 function renderNav(){
-  $('#nav').innerHTML='<div class="nav-brand"><img class="wilmar-logo" src="/wilmar-white.png" width="168" height="54" alt="Wilmar"><span class="product-name">Sugar Inventory Monitoring</span><small>'+ (readOnly?'Shared inventory':'Inventory workspace')+'</small></div>'+Object.keys(TITLES).filter(k=>!readOnly||['dashboard','stock','issue','clients'].includes(k)).map(k=>'<button class="'+(!readOnly&&['receive','clients','more'].includes(k)?'nav-overflow':'')+'" data-act="tab" data-tab="'+k+'"'+(k===tab?' aria-current="page"':'')+'>'+ICON[k]+'<span>'+TITLES[k]+'</span></button>').join('')+(readOnly?'<button data-act="xlsx"'+(exportingXlsx?' disabled':'')+'>'+ICON.receive+'<span>'+(exportingXlsx?'Preparing Excel…':'Save as Excel Dashboard')+'</span></button>':'')+(!readOnly?'<button class="nav-menu" data-act="navMenu" aria-haspopup="dialog"'+(['receive','clients','more'].includes(tab)?' aria-current="page"':'')+'><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span>Menu</span></button>':'');
+  $('#nav').innerHTML='<div class="nav-brand"><img class="wilmar-logo" src="/wilmar-white.png" width="168" height="54" alt="Wilmar">'+companyControls()+'<span class="product-name">Sugar Inventory Monitoring</span><small>'+ (readOnly?'Shared inventory':'Inventory workspace')+'</small></div>'+Object.keys(TITLES).filter(k=>!readOnly||['dashboard','stock','issue','clients'].includes(k)).map(k=>'<button class="'+(!readOnly&&['receive','clients','more'].includes(k)?'nav-overflow':'')+'" data-act="tab" data-tab="'+k+'"'+(k===tab?' aria-current="page"':'')+'>'+ICON[k]+'<span>'+TITLES[k]+'</span></button>').join('')+(readOnly?'<button data-act="xlsx"'+(exportingXlsx?' disabled':'')+'>'+ICON.receive+'<span>'+(exportingXlsx?'Preparing Excel…':'Save as Excel Dashboard')+'</span></button>':'')+(!readOnly?'<button class="nav-menu" data-act="navMenu" aria-haspopup="dialog"'+(['receive','clients','more'].includes(tab)?' aria-current="page"':'')+'><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span>Menu</span></button>':'');
 }
 function syncPageTitle(){
  const page=ready?(adminView&&isSuperadmin&&!readOnly?'Superadmin':TITLES[tab]):readOnly?'Shared inventory':authMode==='signup'?'Create account':'Sign in';
@@ -259,6 +266,7 @@ function syncPageTitle(){
 function render(){
   COMPANY=companyName(CO).toUpperCase(); APPNAME=COMPANY+' Sugar Inventory Monitoring';
   document.documentElement.dataset.company=CO;
+  syncThemeControl();
   syncPageTitle();
   backupsCleanup?.();backupsCleanup=null;
   spreadsheetView?.destroy();spreadsheetView=null;
@@ -277,7 +285,7 @@ function render(){
   renderNav();
   if(adminView&&ready&&isSuperadmin&&!readOnly){$('#main').dataset.view='superadmin';$('#title').textContent='Superadmin';adminCleanup=openAdmin(db,$('#main'));return;}
   $('#main').innerHTML=({dashboard:vDashboard,stock:vStock,receive:vReceive,issue:vIssue,clients:vClients,more:vMore})[tab]();
-  if(ready)$('#main').insertAdjacentHTML('afterbegin',companyControls());
+  if(ready)$('#main').insertAdjacentHTML('afterbegin','<div class="company-mobile">'+companyControls()+'</div>');
   if(tab==='dashboard'){
     const host=$('#inventoryCharts');let cancelled=false,dispose=null;
     inventoryCleanup=()=>{cancelled=true;dispose?.();};
@@ -477,7 +485,7 @@ function openSheet(html){
 function closeSheet(force=false){
  if(modalOpen('dlg')){$('#dNo')?.click();if(!force)return;}
  const wasOpen=modalOpen('sheet'),trigger=sheetTrigger;
- $('#sheet').classList.remove('on');$('#sheet').innerHTML='';sheetTrigger=null;syncModalLayers();
+ $('#sheet').classList.remove('on');$('#sheet').innerHTML='';sheetTrigger=null;document.querySelectorAll('[data-act="company"]').forEach(button=>button.setAttribute('aria-expanded','false'));syncModalLayers();
  if(wasOpen)track('panel.close');
  if(wasOpen)queueMicrotask(()=>restoreFocus(trigger));
 }
@@ -681,7 +689,7 @@ function xlsxBook(){
 }
 function dashSheet(c){
   const X=window.XLSX, ws={}, merges=[], H={};
-  const GREEN='1B5E4A', LG='E2EFDA', AMB='FFE699', LAMB='FFF2CC', BAND='F3F7F4';
+  const GREEN=COMPANY.startsWith('WILMAR SUGAR')?'096D9E':'0E7C7B', LG=COMPANY.startsWith('WILMAR SUGAR')?'D8EDFA':'D8F0ED', AMB='FFE699', LAMB='FFF2CC', BAND='F3F7F4';
   const T={style:'thin',color:{rgb:'BFBFBF'}}, BOX={top:T,bottom:T,left:T,right:T};
   const fnt=(sz,bold,rgb,it)=>({name:'Calibri',sz:sz,bold:!!bold,italic:!!it,color:{rgb:rgb||'000000'}});
   const set=(r,col,v,o)=>{
@@ -797,7 +805,7 @@ function dashSheet(c){
 }
 function sroBalanceSheet(c){
   const X=window.XLSX, ws={}, merges=[], H={};
-  const GREEN='1B5E4A', LG='E2EFDA', AMB='FFE699', BAND='F3F7F4';
+  const GREEN=COMPANY.startsWith('WILMAR SUGAR')?'096D9E':'0E7C7B', LG=COMPANY.startsWith('WILMAR SUGAR')?'D8EDFA':'D8F0ED', AMB='FFE699', BAND='F3F7F4';
   const T={style:'thin',color:{rgb:'BFBFBF'}}, BOX={top:T,bottom:T,left:T,right:T};
   const fnt=(sz,bold,rgb,it)=>({name:'Calibri',sz:sz,bold:!!bold,italic:!!it,color:{rgb:rgb||'000000'}});
   const CEN={horizontal:'center',vertical:'center'};
@@ -850,7 +858,7 @@ function sroBalanceSheet(c){
 }
 function sroQuantitySheet(c){
   const X=window.XLSX, ws={}, merges=[], H={};
-  const GREEN='1B5E4A', LG='E2EFDA', AMB='FFE699', LAMB='FFF2CC', BAND='F3F7F4', LAST=4;
+  const GREEN=COMPANY.startsWith('WILMAR SUGAR')?'096D9E':'0E7C7B', LG=COMPANY.startsWith('WILMAR SUGAR')?'D8EDFA':'D8F0ED', AMB='FFE699', LAMB='FFF2CC', BAND='F3F7F4', LAST=4;
   const T={style:'thin',color:{rgb:'BFBFBF'}}, BOX={top:T,bottom:T,left:T,right:T};
   const fnt=(sz,bold,rgb,it)=>({name:'Calibri',sz:sz,bold:!!bold,italic:!!it,color:{rgb:rgb||'000000'}});
   const CEN={horizontal:'center',vertical:'center'};
@@ -922,7 +930,7 @@ function sroQuantitySheet(c){
 }
 function issuanceSheet(c){
   const X=window.XLSX, ws={}, merges=[], H={};
-  const GREEN='1B5E4A', LG='E2EFDA', AMB='FFE699', LAMB='FFF2CC', BAND='F3F7F4', LAST=13;
+  const GREEN=COMPANY.startsWith('WILMAR SUGAR')?'096D9E':'0E7C7B', LG=COMPANY.startsWith('WILMAR SUGAR')?'D8EDFA':'D8F0ED', AMB='FFE699', LAMB='FFF2CC', BAND='F3F7F4', LAST=13;
   const T={style:'thin',color:{rgb:'BFBFBF'}}, BOX={top:T,bottom:T,left:T,right:T};
   const fnt=(sz,bold,rgb,it)=>({name:'Calibri',sz:sz,bold:!!bold,italic:!!it,color:{rgb:rgb||'000000'}});
   const CEN={horizontal:'center',vertical:'center'};
@@ -1009,7 +1017,7 @@ function issuanceSheet(c){
 }
 function clientSummarySheet(c){
   const X=window.XLSX, ws={}, merges=[], H={};
-  const GREEN='1B5E4A', LG='E2EFDA', AMB='FFE699', LAMB='FFF2CC', BAND='F3F7F4';
+  const GREEN=COMPANY.startsWith('WILMAR SUGAR')?'096D9E':'0E7C7B', LG=COMPANY.startsWith('WILMAR SUGAR')?'D8EDFA':'D8F0ED', AMB='FFE699', LAMB='FFF2CC', BAND='F3F7F4';
   const T={style:'thin',color:{rgb:'BFBFBF'}}, BOX={top:T,bottom:T,left:T,right:T};
   const fnt=(sz,bold,rgb,it)=>({name:'Calibri',sz:sz,bold:!!bold,italic:!!it,color:{rgb:rgb||'000000'}});
   const CEN={horizontal:'center',vertical:'center',wrapText:true};
@@ -1198,8 +1206,9 @@ window.addEventListener('online',()=>void activity.flush());
 /* ---------- events ---------- */
 document.addEventListener('click',async e=>{
   if(!ready||saving) return; const t=e.target.closest('[data-act]'); if(!t) return; const a=t.dataset.act, d=t.dataset;
-  if(readOnly&&!['tab','filter','sro','client','close','resetDelivery','xlsx'].includes(a))return;
+  if(readOnly&&!['tab','filter','sro','client','company','setCompany','close','resetDelivery','xlsx'].includes(a))return;
   switch(a){
+    case 'company': companySheet();break;
     case 'setCompany': await setCompany(d.company);break;
     case 'delType': {
       const rows=registryRows(S,{type:rtype,crop:rcrop,query:rq});if(rtype==='all'||!rows.length)break;
@@ -1275,7 +1284,7 @@ document.addEventListener('change',async e=>{ if(!ready||saving) return; if(read
 document.addEventListener('keydown',modalKeyboard,true);
 
 function restrictPublicControls(){
- const allowed=['tab','filter','sro','client','close','resetDelivery','xlsx'];
+ const allowed=['tab','filter','sro','client','company','setCompany','close','resetDelivery','xlsx'];
  document.querySelectorAll('[data-act]').forEach(el=>{
   if(['editIssue','editReceipt'].includes(el.dataset.act)){
    if(el.tagName==='BUTTON'){const display=document.createElement('div');display.className=el.className;display.innerHTML=el.innerHTML;el.replaceWith(display);}

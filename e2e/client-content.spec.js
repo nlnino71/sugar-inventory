@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {navigate} from './navigation.js';
+import {navigate,selectCompany,expectCompany} from './navigation.js';
 test('matches client sections and dashboard content while preserving records and styling',async({page},info)=>{
  const state={unit:'bags (LKg)',receipts:[{id:'r1',sro:'OIL-1',type:'Raw Sugar',mill:'Oil mill',date:'2024-01-01',qty:100,crop:'2023-2024'}],issues:[{id:'i1',sro:'OIL-1',type:'Raw Sugar',date:'2024-02-01',client:'Client A',qty:25,seq:1,van:'ABC 1234'}],clients:['Client A'],clientProfiles:{'Client A':{email:'private@example.com'}},activity:[{summary:'Private history'}],seq:1,companyInventories:{sugar:{unit:'kg',receipts:[],issues:[],clients:[],seq:0}}};
  const writes=[];const errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -25,8 +25,8 @@ test('matches client sections and dashboard content while preserving records and
  await navigate(page,'Clients');await expect(page.getByRole('button',{name:/Client A/})).toBeVisible();await expect(page.getByRole('button',{name:'Add client'})).toHaveCount(0);await expect(page.getByText('private@example.com')).toHaveCount(0);
  await navigate(page,'Withdrawal');await expect(page.locator('#main')).toContainText('ABC 1234');await expect(page.getByLabel('From',{exact:true})).toHaveCount(0);
  await navigate(page,'More');await expect(page.getByLabel('Quantity unit',{exact:true})).toHaveValue('bags (LKg)');await expect(page.getByRole('heading',{name:'Public view-only sharing'})).toBeVisible();await expect(page.getByRole('heading',{name:'Account backups'})).toHaveCount(0);await expect(page.getByRole('button',{name:'Convert and save inventory'})).toHaveCount(0);
- await page.getByLabel('Company',{exact:true}).selectOption('sugar');await expect(page.getByLabel('Quantity unit',{exact:true})).toHaveValue('kg');await navigate(page,'SRO Registry');await expect(page.getByText('No SRO quantities',{exact:true})).toBeVisible();
- await page.getByLabel('Company',{exact:true}).selectOption('oil');await expect(page.locator('#rList')).toContainText('OIL-1');
+ await selectCompany(page,'sugar');await expect(page.getByLabel('Quantity unit',{exact:true})).toHaveValue('kg');await navigate(page,'SRO Registry');await expect(page.getByText('No SRO quantities',{exact:true})).toBeVisible();
+ await selectCompany(page,'oil');await expect(page.locator('#rList')).toContainText('OIL-1');
  for(const path of ['/reports','/spreadsheet']){await page.goto(path);await expect(page.locator('#title')).toHaveText('Dashboard');}
  expect(writes).toEqual([]);expect(errors).toEqual([]);
 });

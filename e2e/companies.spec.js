@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {navigate} from './navigation.js';
+import {navigate,selectCompany,expectCompany} from './navigation.js';
 test('company inventories survive edits, exports, reloads and filtered deletion',async({page},info)=>{
  let revision=0;
  let state={unit:'bags (LKg)',receipts:[{id:'oil-r',sro:'SAME',type:'Raw Sugar',mill:'Oil mill',date:'2026-09-01',qty:100,crop:'2026-2027'}],issues:[],clients:[],seq:0};
@@ -16,10 +16,10 @@ test('company inventories survive edits, exports, reloads and filtered deletion'
   return route.fulfill({json:{}});
  });
  await page.goto('/');await page.getByLabel('Email',{exact:true}).fill(user.email);await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();
- await expect(page.getByLabel('Company',{exact:true})).toHaveValue('oil');
+ await expectCompany(page,'oil');
  await navigate(page,'SRO Registry');
  await expect(page.locator('#rList')).toContainText('Oil mill');
- await page.getByLabel('Company',{exact:true}).selectOption('sugar');
+ await selectCompany(page,'sugar');
  await expect(page.getByText('No SRO quantities',{exact:true})).toBeVisible();
  await page.getByRole('button',{name:'New SRO quantity',exact:true}).click();
  await page.locator('#sheet input[name="sro"]').fill('SAME');
@@ -39,15 +39,15 @@ test('company inventories survive edits, exports, reloads and filtered deletion'
  await expect(page.locator('#main')).toContainText('ABC 1234');
  expect(state.companyInventories.sugar.issues[0].van).toBe('ABC 1234');
  await navigate(page,'SRO Registry');
- await page.reload();await expect(page.getByLabel('Company',{exact:true})).toHaveValue('sugar');
- await page.getByLabel('Company',{exact:true}).selectOption('oil');await expect(page.locator('#rList')).toContainText('Oil mill');await expect(page.locator('#rList')).not.toContainText('Sugar mill');
+ await page.reload();await expectCompany(page,'sugar');
+ await selectCompany(page,'oil');await expect(page.locator('#rList')).toContainText('Oil mill');await expect(page.locator('#rList')).not.toContainText('Sugar mill');
  await navigate(page,'More');
  const downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:'Excel workbook (.xlsx) — Wilmar Sugar Philippines Inc.',exact:true}).click();
  const download=await downloadPromise;expect(download.suggestedFilename()).toMatch(/^Wilmar Sugar Philippines Inc\. - Sugar Inventory - \d{4}-\d{2}-\d{2}\.xlsx$/);
  const XLSX=await import('xlsx-js-style');const wb=(XLSX.default||XLSX).readFile(await download.path());
  expect(Object.values(wb.Sheets.Withdrawal).some(c=>c?.v==='ABC 1234')).toBe(true);
- await expect(page.getByLabel('Company',{exact:true})).toHaveValue('oil');
- await page.getByLabel('Company',{exact:true}).selectOption('sugar');await navigate(page,'SRO Registry');
+ await expectCompany(page,'oil');
+ await selectCompany(page,'sugar');await navigate(page,'SRO Registry');
  await page.locator('#rcards button').filter({hasText:'Raw Sugar'}).click();
  await page.getByRole('button',{name:'Delete these 1 Raw Sugar SRO quantities'}).click();
  await expect(page.locator('#dlg')).toContainText('Wilmar Sugar Philippines');await page.locator('#dlg').getByRole('button',{name:'Delete SRO quantities',exact:true}).click();

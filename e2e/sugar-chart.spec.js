@@ -29,6 +29,6 @@ test('sugar chart groups three vertical metrics and pie selector switches quanti
  });
  expect(options.labels).toBe(true);expect(options.max).toBe(50000);expect(options.ticks).toEqual(['0','12.5K','25K','37.5K','50K']);
  await page.evaluate(()=>{document.documentElement.dataset.theme='dark';});
- await expect.poll(()=>page.evaluate(async()=>{const source=await (await fetch('/admin-charts.js')).text();const url=source.match(/from\s*["']([^"']*chart[^"']*\.js[^"']*)["']/)[1];return (await import(url)).Chart.getChart(document.querySelector('[data-chart="inventory-sugar-summary"]')).data.datasets[0].backgroundColor;})).toBe('#50bdbd');
+ await expect.poll(()=>page.evaluate(async()=>{const source=await (await fetch('/admin-charts.js')).text();const url=source.match(/from\s*["']([^"']*chart[^"']*\.js[^"']*)["']/)[1];return (await import(url)).Chart.getChart(document.querySelector('[data-chart="inventory-sugar-summary"]')).data.datasets[0].backgroundColor;})).toBe(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--cane').trim()));
  await section.scrollIntoViewIfNeeded();await section.screenshot({path:'/tmp/sugar-reference-bars-'+test.info().project.name+'.png'});
 });

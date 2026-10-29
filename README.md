@@ -246,3 +246,7 @@ Withdrawals now include optional **Van # / Truck plate #**, as supplied in the l
 More shows the same account-level sharing controls for either company. Enable/disable, link replacement and code changes apply to both. Existing enabled links now allow visitors to switch between both company inventories. Copying the link while Sugar is selected adds `?company=sugar`; existing Edible Oil URLs stay valid. Public navigation and reload preserve the selected company; exports use its records, unit and heading. Public visitors still cannot save, restore, import, or access Spreadsheet/account backups.
 
 The private Spreadsheet page retains the Company selector and protects an unsaved draft before switching.
+
+## Company themes and chooser
+
+Company selection now opens two company buttons with record counts. The desktop trigger is below the Wilmar logo and above Sugar Inventory Monitoring; mobile uses a top-of-page trigger. Sugar uses blue accents and Edible Oil uses teal across workspace light/dark themes, navigation, stock, primary chart series and Excel headers. Pie category colors remain stable. Switching preserves company data separation, the current page and the existing private/public selection persistence.
