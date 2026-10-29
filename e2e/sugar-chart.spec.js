@@ -12,7 +12,14 @@ test('sugar chart groups three vertical metrics and pie selector switches quanti
  await section.locator('summary').click();
  await expect(section.locator('thead')).toContainText('SRO Quantity · LKg');
  await expect(section.locator('tbody tr').first()).toContainText('9,000');
- await page.getByLabel('Pie chart metric').selectOption('issued');
+ const controls=page.getByRole('group',{name:'Pie chart metric'});
+ await expect(controls.getByRole('button',{name:'Balance',exact:true})).toHaveAttribute('aria-pressed','true');
+ await controls.getByRole('button',{name:'SRO Quantity',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'SRO Quantity mix by sugar type'})).toBeVisible();
+ await controls.getByRole('button',{name:'Withdrawal',exact:true}).click();
+ await expect(controls.getByRole('button',{name:'Withdrawal',exact:true})).toHaveAttribute('aria-pressed','true');
+ await expect(controls.getByRole('button',{name:'Balance',exact:true})).toHaveAttribute('aria-pressed','false');
+ await expect(page.getByRole('combobox',{name:'Pie chart metric'})).toHaveCount(0);
  await expect(page.getByRole('heading',{name:'Withdrawal mix by sugar type'})).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  const options=await page.evaluate(async()=>{
