@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {renderAuditTimeline,eventTitle} from '../audit-timeline.js';
 test('browser activity is readable and retains false values, network, device and provenance without JSON',()=>{
  const html=renderAuditTimeline([{occurred_at:'2026-10-21T01:49:47Z',email:'staff@example.com',event:'browser.visibility.change',details:{source:'browser-reported',context:{page:'dashboard',state:'visible'},network:{isp:'Example ISP',asn:'AS64500',country:'Philippines'},session:'session-123',shared_view:false,client_at:'2026-10-21T01:49:47Z',request_network:{ip:'203.0.113.1',ip_source:'Vercel request IP',user_agent:'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/155.0.0.0 Safari/537.36'}}}]);
- for(const value of ['Page became visible','Overview','Chrome · macOS','Example ISP','203.0.113.1','Session &amp; provenance','session-123','Shared link','No','IP source','Vercel request IP','Browser event time'])assert.ok(html.includes(value),value);
+ for(const value of ['Page became visible','Dashboard','Chrome · macOS','Example ISP','203.0.113.1','Session &amp; provenance','session-123','Shared link','No','IP source','Vercel request IP','Browser event time'])assert.ok(html.includes(value),value);
  assert.ok(!html.includes('{"'));assert.ok(!html.includes('[object Object]'));
 });
 test('record edits show labeled before and after values, including zero and nested profile data',()=>{

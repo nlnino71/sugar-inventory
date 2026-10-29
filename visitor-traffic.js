@@ -1,6 +1,6 @@
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const num=v=>(+v||0).toLocaleString();
-const names={dashboard:'Overview',stock:'Stock',receive:'SRO quantity',issue:'Issuance',clients:'Clients',reports:'Reports',more:'Settings',signin:'Sign in',signup:'Sign up','public-loading':'Shared view loading','public-unavailable':'Shared view unavailable'};
+const names={dashboard:'Dashboard',stock:'Stock',receive:'SRO Registry',issue:'Withdrawal',clients:'Clients',reports:'Reports (retired)',more:'More',signin:'Sign in',signup:'Sign up','public-loading':'Shared view loading','public-unavailable':'Shared view unavailable'};
 const label=v=>names[v]||v;
 const ranges=[['today','Today'],['24h','Last 24 hours'],['7d','Last 7 days'],['30d','Last 30 days'],['all','All time']];
 export function mountTraffic(db,host){

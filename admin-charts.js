@@ -2,7 +2,7 @@ import {Chart,BarController,LineController,PieController,BarElement,LineElement,
 Chart.register(BarController,LineController,PieController,BarElement,LineElement,PointElement,ArcElement,CategoryScale,LinearScale,Tooltip,Legend);
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const number=v=>Number(v)||0;
-const pageNames={dashboard:'Overview',stock:'Stock',receive:'SRO quantity',issue:'Issuance',clients:'Clients',reports:'Reports',more:'Settings',signin:'Sign in',signup:'Sign up','public-loading':'Shared view loading','public-unavailable':'Shared view unavailable'};
+const pageNames={dashboard:'Dashboard',stock:'Stock',receive:'SRO Registry',issue:'Withdrawal',clients:'Clients',reports:'Reports (retired)',more:'More',signin:'Sign in',signup:'Sign up','public-loading':'Shared view loading','public-unavailable':'Shared view unavailable'};
 export function chartSpecs(stats){
  const daily=stats.daily||[],dayLabels=daily.map(d=>d.day),series=(key,label)=>({label,data:daily.map(d=>number(d[key]))});
  const changes=['receipts','issues','clients'];

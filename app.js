@@ -55,7 +55,7 @@ const activity=createActivityTracker({
  }
 });
 const track=(event,details={})=>{if(isSimpleAuditEvent(event,details))activity.track(event,{page:activityPage,...details});};
-function trackPage(page){activityPage=page;track('page.view',{page,path:window.location.pathname.slice(0,256),device:deviceInfo()});}
+function trackPage(page){activityPage=page;track('page.view',{page,company:CO,path:window.location.pathname.slice(0,256),device:deviceInfo()});}
 function startGuest(page,context={}){activity.start({guest:true,...context});trackPage(page);}
 
 function lock(on){
@@ -314,6 +314,7 @@ function render(){
   if(adminView&&ready&&isSuperadmin&&!readOnly){$('#main').dataset.view='superadmin';$('#title').textContent='Superadmin';adminCleanup=openAdmin(db,$('#main'));return;}
   $('#main').innerHTML=({dashboard:vDashboard,stock:vStock,receive:vReceive,issue:vIssue,clients:vClients,more:vMore})[tab]();
   if(ready)$('#main').insertAdjacentHTML('afterbegin','<div class="company-mobile">'+companyControls()+'</div>');
+  if(tab==='more'&&isSuperadmin&&!readOnly)$('#main').insertAdjacentHTML('beforeend','<section class="setting" id="superadminEntry"><h2>Superadmin</h2><p>Private administration for your account: company inventories, accounts, traffic, authentication, sessions and activity.</p><button type="button" class="btn primary" data-act="superadmin">Open superadmin</button></section>');
   if(tab==='dashboard'){
     const host=$('#inventoryCharts');let cancelled=false,dispose=null;
     inventoryCleanup=()=>{cancelled=true;dispose?.();};
