@@ -2,11 +2,12 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
+import {companyName} from '../companies.js';
 import XLSX from 'xlsx-js-style';
 const src=readFileSync(new URL('../app.js',import.meta.url),'utf8');
 function workbook(){
  const S={unit:'metric tonnes (t)',receipts:[{id:'r',sro:'S1',type:'Raw Sugar',qty:1234.123456,date:'2026-10-01',mill:'Mill',crop:'2026-2027'}],issues:[{id:'i',sro:'S1',type:'Raw Sugar',qty:0.123456,date:'2026-10-02',seq:1,client:'Client',atw:'__proto__',batch:'B1'}],clients:['Client'],seq:1};
- const ctx=vm.createContext({window:{XLSX},S,today:()=> '2026-10-21',fd:x=>x,nf:x=>String(x),threshold:()=>20});
+ const ctx=vm.createContext({window:{XLSX},S,CO:'oil',companyName,today:()=> '2026-10-21',fd:x=>x,nf:x=>String(x),threshold:()=>20});
  vm.runInContext(src.slice(src.indexOf('function compute()'),src.indexOf('const knownClients='))+src.slice(src.indexOf('const serial='),src.indexOf('let exportingXlsx='))+';result=xlsxBook();',ctx);
  return ctx.result;
 }

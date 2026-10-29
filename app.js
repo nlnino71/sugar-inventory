@@ -1,3 +1,4 @@
+import {COMPANIES,companyName,companyInventory,saveCompany,registryRows} from './companies.js';
 import {mountAccountBackups} from './account-backups.js';
 import {isSimpleAuditEvent} from './audit-policy.js';
 import {pageFromUrl,pageUrl} from './navigation.js';
@@ -21,7 +22,7 @@ const today = ()=>{const d=new Date();return d.getFullYear()+'-'+pad(d.getMonth(
 const M3=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const fd = s=>{ if(!s||!/^\d{4}-\d{2}-\d{2}$/.test(s)) return esc(s||''); const p=s.split('-'); return (+p[2])+' '+M3[p[1]-1]+' '+p[0]; };
 const uid = ()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
-const DEFAULT_TYPES=['Raw Sugar','Refined Sugar','Washed Sugar'];
+const DEFAULT_TYPES=[];
 
 /* ---------- storage ---------- */
 const publicToken=new URLSearchParams(window.location.hash.slice(1)).get('view');
@@ -35,6 +36,7 @@ let backupsCleanup=null;
 let authMode='signin', authBusy=false;
 const KEY='sugar-inventory.v1';
 const blank = ()=>({unit:'bags (LKg)',receipts:[],issues:[],clients:[],seq:0,clientProfiles:{},activity:[],lowStockPercent:20});
+let CO='oil', cloudDocument=blank();
 let S=blank(), committed=structuredClone(S), revision=0, saving=false, ready=false;
 const url=import.meta.env.VITE_SUPABASE_URL;
 const key=import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -83,7 +85,7 @@ function applyTheme(theme){
 async function readCloud(){
   const {data,error}=await db.from('inventory').select('data,revision').eq('owner_id',accountId).single();
   if(error) throw error;
-  S=Object.assign(blank(),data.data); revision=data.revision; committed=structuredClone(S);
+  cloudDocument=data.data; S=companyInventory(cloudDocument,CO,blank); revision=data.revision; committed=structuredClone(S);
 }
 async function save(options={}){
   if(!ready||saving||readOnly) return false;
@@ -91,8 +93,9 @@ async function save(options={}){
   const next=structuredClone(S);
   const summary=options.operation==='json_restore'?'Restored JSON backup ('+next.receipts.length+' SRO quantities, '+next.issues.length+' issuance lines)':changeSummary(committed,next);
   if(summary) next.activity=[{id:uid(),at:new Date().toISOString(),summary},...(committed.activity||[])].slice(0,200);
+  const document=saveCompany(options.document||cloudDocument,CO,next);
   try {
-    const {data,error}=await db.rpc(options.operation==='json_restore'?'restore_inventory_json':'save_inventory',{expected_revision:revision,new_data:next});
+    const {data,error}=await db.rpc(options.operation==='json_restore'?'restore_inventory_json':'save_inventory',{expected_revision:revision,new_data:document});
     if(error) throw error;
     if(data===null) {
       track('save.conflict',{revision});
@@ -100,7 +103,7 @@ async function save(options={}){
       toast('Inventory changed on another device. Latest records loaded; please reapply your edit.');
       return false;
     }
-    revision=data; S=next; committed=structuredClone(next); return true;
+    revision=data; cloudDocument=document; S=next; committed=structuredClone(next); return true;
   } catch(error){
     track('save.failed',{revision,code:String(error.code||'unknown').slice(0,80)});
     S=structuredClone(committed); if(!options.preserveView)render();
@@ -132,7 +135,9 @@ async function showAccount(session){
   isSuperadmin=false;
   document.body.classList.toggle('login-screen',!session);
   if(accountId!==(session?.user?.id||null)){tab='dashboard';adminView=false;q='';rq='';clientQuery='';deliveryFilter={query:'',from:'',to:'',client:''};}
-  accountId=session?.user?.id||null;shareSettings=null;shareError='';revision=0;
+  accountId=session?.user?.id||null;
+  CO='oil';try{const stored=localStorage.getItem('inventory-company:'+accountId);if(COMPANIES.some(c=>c.id===stored))CO=stored;}catch{}
+  shareSettings=null;shareError='';revision=0;
   ready=false; closeSheet(true); S=blank();committed=structuredClone(S); render();
   $('#account').hidden=false; $('#nav').hidden=true;
   if(!session){startGuest(authMode==='signup'?'signup':'signin'); lock(false); $('#main').hidden=true; $('#accountMessage').textContent='Sign in with your inventory account.'; return; }
@@ -148,6 +153,20 @@ async function showAccount(session){
   catch(error){ $('#main').hidden=true; $('#accountMessage').textContent=(error.code==='PGRST116'||error.code==='42501')?'Your private inventory could not be opened. Select Refresh to retry. If this continues, ask the site owner to finish the account-inventories database upgrade.':'Could not load inventory. Select Refresh to retry. '+error.message; }
   lock(false);
 }
+
+function companyControls(){
+ return '<section class="company-switch" aria-label="Company inventory"><label for="companySelect">Company</label><select id="companySelect">'+COMPANIES.map(c=>'<option value="'+c.id+'"'+(c.id===CO?' selected':'')+'>'+esc(c.name)+'</option>').join('')+'</select><span>Separate company records</span></section>';
+}
+async function setCompany(id){
+ if(readOnly||saving||exportingXlsx||!COMPANIES.some(c=>c.id===id)||id===CO){const select=$('#companySelect');if(select)select.value=CO;return;}
+ if(spreadsheetView&&!await spreadsheetView.canLeave()){const select=$('#companySelect');if(select)select.value=CO;return;}
+ CO=id;S=companyInventory(cloudDocument,CO,blank);committed=structuredClone(S);
+ try{localStorage.setItem('inventory-company:'+accountId,CO);}catch{}
+ filter='all';q='';rq='';rcrop='all';rtype='all';stockType=null;clientQuery='';
+ deliveryFilter={query:'',from:'',to:'',client:''};closeSheet();render();toast('Switched to '+companyName(CO));
+}
+
+document.addEventListener('change',e=>{if(e.target.id==='companySelect')void setCompany(e.target.value);});
 
 /* ---------- calculations ---------- */
 function compute(){
@@ -240,6 +259,8 @@ function syncPageTitle(){
  document.title=page+' - Sugar Inventory';
 }
 function render(){
+  COMPANY=companyName(CO).toUpperCase(); APPNAME=COMPANY+' Sugar Inventory Monitoring';
+  document.documentElement.dataset.company=CO;
   syncPageTitle();
   backupsCleanup?.();backupsCleanup=null;
   spreadsheetView?.destroy();spreadsheetView=null;
@@ -258,6 +279,7 @@ function render(){
   renderNav();
   if(adminView&&ready&&isSuperadmin&&!readOnly){$('#main').dataset.view='superadmin';$('#title').textContent='Superadmin';adminCleanup=openAdmin(db,$('#main'));return;}
   $('#main').innerHTML=({dashboard:vDashboard,reports:vReports,stock:vStock,receive:vReceive,issue:vIssue,clients:vClients,spreadsheet:()=>'',more:vMore})[tab]();
+  if(ready&&!readOnly)$('#main').insertAdjacentHTML('afterbegin',companyControls());
   if(tab==='more'&&isSuperadmin&&!readOnly)$('#main').insertAdjacentHTML('beforeend','<section class="setting"><h2>Private administration</h2><p>Accounts, security events, IPs and device reports. Restricted to your account.</p><div class="btns"><button class="btn primary" data-act="superadmin">Open superadmin</button></div></section>');
   if(tab==='dashboard'){
     const host=$('#inventoryCharts');let cancelled=false,dispose=null;
@@ -365,13 +387,11 @@ function updateRList(){
   $('#rcards').innerHTML=Object.values(T).sort((x,y)=>ord.indexOf(x.name)-ord.indexOf(y.name)).map(t=>
     '<button class="tc'+(rtype===t.name?' on':'')+'" data-act="rtype" data-t="'+esc(t.name)+'" aria-pressed="'+(rtype===t.name)+'"><b>'+esc(t.name)+'</b><span class="num">'+nf(t.q)+'</span><small>'+t.n+' SRO'+(t.n>1?'s':'')+(rtype===t.name?' · showing':' · tap to view')+'</small></button>').join('')+
     (rtype!=='all'?'<button class="tc all" data-act="rtype" data-t="all"><b>Show all</b><small>sugar types</small></button>':'');
-  const needle=rq.trim().toLowerCase();
-  const rows=S.receipts.filter(r=>(rtype==='all'||(r.type||'(no type)')===rtype)&&(rcrop==='all'||r.crop===rcrop)&&(!needle||[r.sro,r.mill,r.crop,r.type].join(' ').toLowerCase().includes(needle)))
-    .sort((x,y)=>String(x.sro).localeCompare(String(y.sro),undefined,{numeric:true,sensitivity:'base'}));
+  const rows=registryRows(S,{type:rtype,crop:rcrop,query:rq});
   if(!rows.length){ box.innerHTML='<div class="empty">No SRO matches.</div>'; return; }
   const G=Object.create(null); rows.forEach(r=>{ const k=r.type||'(no type)'; (G[k]||(G[k]=[])).push(r); });
   const order=typeStats(compute()).map(t=>t.name);
-  box.innerHTML=Object.keys(G).sort((x,y)=>{ const i=order.indexOf(x), j=order.indexOf(y); return (i<0?99:i)-(j<0?99:j); }).map(n=>{
+  box.innerHTML=(rtype!=='all'?'<button class="btn danger block" data-act="delType">Delete these '+rows.length+' '+esc(rtype)+' SRO quantities</button>':'')+Object.keys(G).sort((x,y)=>{ const i=order.indexOf(x), j=order.indexOf(y); return (i<0?99:i)-(j<0?99:j); }).map(n=>{
     const g=G[n], tot=g.reduce((t,r)=>t+(+r.qty||0),0);
     return '<div class="grp"><span class="gname">'+esc(n)+'</span><span class="gmeta">'+g.length+' SRO'+(g.length>1?'s':'')+' · total '+nf(tot)+'</span></div>'+
       '<div class="reg"><div class="rh"><span>SRO number</span><span>Crop yr</span><span>Quantity</span></div>'+
@@ -438,9 +458,9 @@ async function saveUnitConversion(){
 }
 function vMore(){
   const dl=!!DL;
-  return unitConversionPanel()+sharingPanel()+'<div class="setting"><h2>Inventory preferences</h2><label class="f">Low-stock alert (% remaining)<input id="lowStockPercent" type="number" min="0" max="100" value="'+threshold(S)+'"></label><label class="f">Appearance<select id="appearance"><option value="auto">Use device setting</option><option value="light"'+(document.documentElement.dataset.theme==='light'?' selected':'')+'>Light</option><option value="dark"'+(document.documentElement.dataset.theme==='dark'?' selected':'')+'>Dark</option></select></label></div>'+
+  return unitConversionPanel()+(CO==='oil'?sharingPanel():'<section class="setting"><h2>Public sharing</h2><p>The existing public link shows the Edible Oil inventory. Switch to Edible Oil to manage that link. Sugar company records remain private.</p></section>')+'<div class="setting"><h2>Inventory preferences</h2><label class="f">Low-stock alert (% remaining)<input id="lowStockPercent" type="number" min="0" max="100" value="'+threshold(S)+'"></label><label class="f">Appearance<select id="appearance"><option value="auto">Use device setting</option><option value="light"'+(document.documentElement.dataset.theme==='light'?' selected':'')+'>Light</option><option value="dark"'+(document.documentElement.dataset.theme==='dark'?' selected':'')+'>Dark</option></select></label></div>'+
    '<div class="sec"><h2>Export</h2></div><div class="setting"><div class="stack">'+
-   '<button class="btn block" data-act="xlsx"'+(dl?'':' disabled')+'>Excel workbook (.xlsx)</button>'+
+   COMPANIES.map(co=>'<button class="btn block" data-act="xlsx" data-company="'+co.id+'"'+(dl?'':' disabled')+'>Excel workbook (.xlsx) — '+esc(co.name)+'</button>').join('')+
    '<button class="btn block" data-act="csvRec"'+(dl?'':' disabled')+'>SRO Quantity (.csv)</button>'+
    '<button class="btn block" data-act="csvIss"'+(dl?'':' disabled')+'>Issuance (.csv)</button></div>'+
    '<p>The workbook opens with a Dashboard summary (totals per sugar type, running balance per SRO, issued per client, data checks), followed by SRO Quantity, Issuance with running balance, SRO Balance and Client Summary sheets.'+(dl?'':' Downloads are not available in this view.')+'</p></div>'+
@@ -656,8 +676,8 @@ async function saveFile(name,data){
 const serial=s=>{ const p=s.split('-'); return (Date.UTC(+p[0],+p[1]-1,+p[2])-Date.UTC(1899,11,30))/86400000; };
 const THIN={style:'thin',color:{rgb:'BFBFBF'}}, BOX={top:THIN,bottom:THIN,left:THIN,right:THIN};
 const FILL=rgb=>({patternType:'solid',fgColor:{rgb:rgb}});
-const COMPANY='WILMAR EDIBLE OIL PHILIPPINES INC.';
-const APPNAME=COMPANY+' Sugar Inventory Monitoring';
+let COMPANY=companyName(CO).toUpperCase();
+let APPNAME=COMPANY+' Sugar Inventory Monitoring';
 const YELLOW='FFFF00';
 const SH={
   head:{font:{bold:true,color:{rgb:'000000'}},fill:FILL(YELLOW),alignment:{horizontal:'center',vertical:'center',wrapText:true},border:BOX},
@@ -1097,7 +1117,7 @@ function clientSummarySheet(c){
   return ws;
 }
 let exportingXlsx=false;
-async function exportXlsx(){
+async function exportXlsx(company=CO){
   if(!ready||exportingXlsx)return;
   exportingXlsx=true;
   const button=document.querySelector('[data-act="xlsx"]');
@@ -1106,9 +1126,12 @@ async function exportXlsx(){
   try{
     const module=await import('xlsx-js-style');
     window.XLSX=module.default||module;
-    const wb=xlsxBook();
+    const previous=S,previousCompany=COMPANY,previousApp=APPNAME;
+    let wb;
+    try{S=company===CO?S:companyInventory(cloudDocument,company,blank); COMPANY=companyName(company).toUpperCase(); APPNAME=COMPANY+' Sugar Inventory Monitoring'; wb=xlsxBook();}
+    finally{S=previous;COMPANY=previousCompany;APPNAME=previousApp;}
     const buf=window.XLSX.write(wb,{bookType:'xlsx',type:'array'});
-    await saveFile('Sugar_Inventory_'+stamp()+'.xlsx',buf);
+    await saveFile((readOnly?'':company+'_')+'Sugar_Inventory_'+stamp()+'.xlsx',buf);
   }catch(error){toast('Excel export could not finish. Please try again.');}
   finally{exportingXlsx=false;if(button){button.disabled=false;button.innerHTML=label;}}
 }
@@ -1166,8 +1189,9 @@ $('#file').addEventListener('change',async e=>{
   else if(fileMode==='restore'){
     let o; try{ o=JSON.parse(text); }catch(err){ toast('That is not a valid backup file.'); return; }
     if(!o||!Array.isArray(o.receipts)||!Array.isArray(o.issues)){ toast('That is not a valid backup file.'); return; }
-    if(await ask('Restore backup','This replaces all data in your inventory with the backup ('+o.receipts.length+' SRO quantities, '+o.issues.length+' issuance lines).','Restore',true)){
-      S=Object.assign(blank(),o); S.seq=Math.max(S.seq||0,...S.issues.map(i=>i.seq||0)); if(!await save({operation:'json_restore'})) return; render(); toast('Backup restored');
+    if(o.company&&o.company!==CO){toast('Switch to '+companyName(o.company)+' before restoring this company backup.');return;}
+    if(await ask('Restore backup',(o.companyInventories?'This restores BOTH company inventories from the account snapshot. Edible Oil summary: (':'This replaces '+companyName(CO)+' data with the backup (')+o.receipts.length+' SRO quantities, '+o.issues.length+' issuance lines).','Restore',true)){
+      S=companyInventory(o,o.companyInventories?CO:'oil',blank); S.seq=Math.max(S.seq||0,...S.issues.map(i=>i.seq||0)); if(!await save({operation:'json_restore',document:o.companyInventories?o:undefined})) return; render(); toast('Backup restored');
     }
   }
 });
@@ -1262,6 +1286,15 @@ document.addEventListener('click',async e=>{
   if(!ready||saving) return; const t=e.target.closest('[data-act]'); if(!t) return; const a=t.dataset.act, d=t.dataset;
   if(readOnly&&!['tab','filter','sro','close','resetDelivery','xlsx'].includes(a))return;
   switch(a){
+    case 'setCompany': await setCompany(d.company);break;
+    case 'delType': {
+      const rows=registryRows(S,{type:rtype,crop:rcrop,query:rq});if(rtype==='all'||!rows.length)break;
+      const ids=new Set(rows.map(r=>r.id)),sros=new Set(rows.map(r=>r.sro));
+      const removedSros=new Set([...sros].filter(sro=>!S.receipts.some(r=>r.sro===sro&&!ids.has(r.id))));
+      const withdrawals=S.issues.filter(i=>removedSros.has(i.sro)).length;
+      if(await ask('Delete filtered SRO quantities','Delete '+rows.length+' '+rtype+' SRO quantities from '+companyName(CO)+'? '+withdrawals+' associated withdrawal lines will also be deleted.','Delete SRO quantities',true)){S.receipts=S.receipts.filter(r=>!ids.has(r.id));S.issues=S.issues.filter(i=>!removedSros.has(i.sro));if(await save()){render();toast('SRO quantities deleted');}}
+      break;
+    }
     case 'saveSlug': await editSharingCode(true);break;
     case 'toggleSharing': await updateSharing({enabled:!shareSettings.enabled}); break;
     case 'rotateSharing': if(await ask('Replace public link','The previous link will stop working. A new random 6-character address will replace it. Your sharing setting stays the same.','Replace link'))await replaceSharingLink(); break;
@@ -1290,16 +1323,16 @@ document.addEventListener('click',async e=>{
     case 'delReceipt': { const r=S.receipts.find(x=>x.id===d.id); if(!r) break; const n=S.issues.filter(i=>i.sro===r.sro).length;
       if(await ask('Delete SRO quantity',(n?n+' issuance line'+(n>1?'s':'')+' refer to '+r.sro+' and will be flagged as unmatched. ':'')+'Delete '+r.sro+'?','Delete',true)){ S.receipts=S.receipts.filter(x=>x.id!==r.id); if(!await save()) return; closeSheet(); render(); toast('SRO quantity deleted'); } break; }
     case 'delIssue': { if(await ask('Delete issuance line','This removes the batch line permanently.','Delete',true)){ S.issues=S.issues.filter(x=>x.id!==d.id); if(!await save()) return; closeSheet(); render(); toast('Line deleted'); } break; }
-    case 'xlsx': exportXlsx(); break;
+    case 'xlsx': exportXlsx(d.company||CO); break;
     case 'csvRec': saveFile('SRO_Quantity_'+stamp()+'.csv',csv([[...REC_H,'Unit'],...recRows().map(r=>[...r,S.unit])])); break;
     case 'csvIss': saveFile('Issuance_'+stamp()+'.csv',csv([[...ISS_H,'Unit'],...issRows().map(r=>[...r,S.unit])])); break;
-    case 'backup': saveFile('Sugar_Inventory_backup_'+stamp()+'.json',JSON.stringify(S)); break;
+    case 'backup': saveFile('Sugar_Inventory_backup_'+stamp()+'.json',JSON.stringify({...S,company:CO})); break;
     case 'restore': pickFile('restore','.json,application/json'); break;
     case 'import': pickFile('import','.csv,text/csv'); break;
     case 'sample':
       if(!S.receipts.length&&!S.issues.length || await ask('Load sample data','This replaces your current data with fictitious examples.','Replace',true)){ if(await loadSample()) toast('Sample data loaded'); } break;
     case 'clear':
-      if(await ask('Delete all data','All SRO quantities and issuances in your inventory will be removed. Save a backup first if you need one.','Delete everything',true)){ S=blank(); if(!await save()) return; render(); toast('All data deleted'); } break;
+      if(await ask('Delete all data','All SRO quantities and issuances in '+companyName(CO)+' will be removed. Save a backup first if you need one.','Delete everything',true)){ S=blank(); if(!await save()) return; render(); toast('All data deleted'); } break;
   }
 });
 document.addEventListener('submit',e=>{ e.preventDefault(); if(!ready||saving||readOnly) return; if(e.target.id==='clientForm') saveClient(e.target); if(e.target.id==='fRec') saveReceipt(e.target); if(e.target.id==='fIss') saveIssue(e.target); });

@@ -1,0 +1,46 @@
+import {test,expect} from '@playwright/test';
+import {navigate} from './navigation.js';
+test('company inventories survive edits, exports, reloads and filtered deletion',async({page},info)=>{
+ let revision=0;
+ let state={unit:'bags (LKg)',receipts:[{id:'oil-r',sro:'SAME',type:'Raw Sugar',mill:'Oil mill',date:'2026-09-01',qty:100,crop:'2026-2027'}],issues:[],clients:[],seq:0};
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.route(/https:\/\/fonts\.(googleapis|gstatic)\.com\//,r=>r.abort());
+ const user={id:'11111111-1111-1111-1111-111111111111',aud:'authenticated',role:'authenticated',email:'staff@example.com',app_metadata:{provider:'email'},user_metadata:{},created_at:'2026-01-01T00:00:00Z'};
+ await page.route('https://nvkawrmoacikzdfowvem.supabase.co/**',async route=>{
+  const url=route.request().url();
+  if(url.includes('/auth/v1/token'))return route.fulfill({json:{access_token:'test-token',refresh_token:'test-refresh',expires_in:3600,token_type:'bearer',user}});
+  if(url.includes('/auth/v1/user'))return route.fulfill({json:user});
+  if(url.includes('/rpc/save_inventory')){state=route.request().postDataJSON().new_data;return route.fulfill({json:++revision});}
+  if(url.includes('/rest/v1/inventory_shares'))return route.fulfill({json:{enabled:false,slug:'public',token:'11111111-1111-4111-8111-111111111111'}});
+  if(url.includes('/rest/v1/inventory'))return route.fulfill({json:{data:state,revision}});
+  return route.fulfill({json:{}});
+ });
+ await page.goto('/');await page.getByLabel('Email',{exact:true}).fill(user.email);await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();
+ await expect(page.getByLabel('Company',{exact:true})).toHaveValue('oil');
+ await navigate(page,'SRO Qty');
+ await expect(page.locator('#rList')).toContainText('Oil mill');
+ await page.getByLabel('Company',{exact:true}).selectOption('sugar');
+ await expect(page.getByText('No SRO quantities',{exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'New SRO quantity',exact:true}).click();
+ await page.locator('#sheet input[name="sro"]').fill('SAME');
+ await page.locator('#sheet input[name="type"]').fill('Raw Sugar');
+ await page.locator('#sheet input[name="mill"]').fill('Sugar mill');
+ await page.locator('#sheet input[name="qty"]').fill('25');
+ await page.getByRole('button',{name:'Save SRO quantity',exact:true}).click();
+ await expect(page.locator('#rList')).toContainText('Sugar mill');
+ expect(state.receipts[0].qty).toBe(100);expect(state.companyInventories.sugar.receipts[0].qty).toBe(25);
+ await page.reload();await expect(page.getByLabel('Company',{exact:true})).toHaveValue('sugar');
+ await page.getByLabel('Company',{exact:true}).selectOption('oil');await expect(page.locator('#rList')).toContainText('Oil mill');await expect(page.locator('#rList')).not.toContainText('Sugar mill');
+ await navigate(page,'More');
+ const downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:'Excel workbook (.xlsx) — Wilmar Sugar Philippines Inc.',exact:true}).click();
+ const download=await downloadPromise;expect(download.suggestedFilename()).toMatch(/^sugar_/);
+ await expect(page.getByLabel('Company',{exact:true})).toHaveValue('oil');
+ await page.getByLabel('Company',{exact:true}).selectOption('sugar');await navigate(page,'SRO Qty');
+ await page.locator('#rcards button').filter({hasText:'Raw Sugar'}).click();
+ await page.getByRole('button',{name:'Delete these 1 Raw Sugar SRO quantities'}).click();
+ await expect(page.locator('#dlg')).toContainText('Wilmar Sugar Philippines');await page.locator('#dlg').getByRole('button',{name:'Delete SRO quantities',exact:true}).click();
+ await expect(page.getByText('No SRO quantities',{exact:true})).toBeVisible();
+ expect(state.receipts[0].qty).toBe(100);expect(state.companyInventories.sugar.receipts).toHaveLength(0);
+ await page.screenshot({path:'/tmp/sugar-company-'+info.project.name+'.png',fullPage:true});
+ expect(errors).toEqual([]);
+});

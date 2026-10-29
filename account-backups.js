@@ -9,7 +9,7 @@ export function mountAccountBackups(host,{db,ownerId,saveFile,confirm,restore,to
  let disposed=false,rows=[],page=0,more=false,loading=false,busy=false,error='',request=0,focusTarget=null;
  function render(){
   if(disposed)return;
-  host.innerHTML='<h2 id="accountBackupTitle">Account backups</h2><p>Automatic backups are saved after every inventory change. Only you can access them. Restoring also saves a copy of your current inventory.</p>'+
+  host.innerHTML='<h2 id="accountBackupTitle">Account backups</h2><p>Automatic backups are saved after every inventory change. Only you can access them. Snapshots include both companies. Restoring replaces both and also saves a copy of your current inventory. Summary quantities below describe Edible Oil.</p>'+
    '<div class="btns"><button type="button" class="btn primary" data-backup-action="create"'+(busy||loading||error?' disabled':'')+'>'+(busy?'Working…':'Create backup')+'</button><button type="button" class="btn" data-backup-action="refresh"'+(busy||loading?' disabled':'')+'>Refresh backups</button></div>'+
    (error?'<p class="err" role="alert">'+escape(error)+'</p>':loading?'<p class="hint" role="status">Loading backups…</p>':!rows.length?'<p class="hint" role="status">No backups yet. Create one now to save your current inventory.</p>':
     '<ul class="backup-history">'+rows.map((b,i)=>'<li><div><strong>'+escape(kinds[b.kind]||'Inventory backup')+'</strong><time datetime="'+escape(b.created_at)+'">'+escape(dateLabel(b.created_at))+'</time><span class="hint">Revision '+escape(b.revision)+' · '+escape(b.receipt_count)+' SRO quantities · '+escape(b.issue_count)+' issuance lines · '+escape(b.unit)+'</span></div><div class="btns"><button type="button" class="btn" data-backup-action="download" data-backup-index="'+i+'"'+(busy?' disabled':'')+' aria-label="Download backup from '+escape(dateLabel(b.created_at))+'">Download</button><button type="button" class="btn" data-backup-action="restore" data-backup-index="'+i+'"'+(busy?' disabled':'')+' aria-label="Restore backup from '+escape(dateLabel(b.created_at))+'">Restore</button></div></li>').join('')+'</ul><div class="btns backup-pagination"><button type="button" class="btn" data-backup-action="newer"'+(busy||page===0?' disabled':'')+'>Newer</button><span class="hint">Page '+(page+1)+'</span><button type="button" class="btn" data-backup-action="older"'+(busy||!more?' disabled':'')+'>Older</button></div>');
@@ -43,7 +43,7 @@ export function mountAccountBackups(host,{db,ownerId,saveFile,confirm,restore,to
    if(!backup)return;
    busy=true;render();
    try{
-    const approved=await confirm('Restore account backup','Replace your inventory with the backup from '+dateLabel(backup.created_at)+' ('+backup.receipt_count+' SRO quantities, '+backup.issue_count+' issuance lines)? Your current inventory will be saved as a “Before restore” backup.','Restore backup',true);
+    const approved=await confirm('Restore account backup','Replace both company inventories with the backup from '+dateLabel(backup.created_at)+' ('+backup.receipt_count+' SRO quantities, '+backup.issue_count+' issuance lines)? Your current inventory will be saved as a “Before restore” backup.','Restore backup',true);
     if(!approved||disposed)return;
     const restored=await restore(backup.id);
     if(restored&&!disposed){page=0;await load();}

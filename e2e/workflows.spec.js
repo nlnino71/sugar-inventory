@@ -22,7 +22,7 @@ test('overview, stock report, delivery search and client editing',async({page},i
   if(url.includes('/rest/v1/inventory'))return route.fulfill({json:{data:state,revision:0}});
   return route.fulfill({json:{}});
  });
- await page.goto('/');await page.getByLabel('Email',{exact:true}).fill('staff@example.com');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();
+ await page.goto('/stock');await page.getByLabel('Email',{exact:true}).fill('staff@example.com');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();
  await expect(page.locator('#nav').getByRole('button',{name:'Stock',exact:true})).toBeVisible();
  await expect(page.locator('#title')).toHaveText('Stock');
  await expect(page).toHaveTitle('Stock - Sugar Inventory');
@@ -37,11 +37,11 @@ test('overview, stock report, delivery search and client editing',async({page},i
  expect(Math.max(...toolbarItems.map(r=>r.top))).toBeLessThan(Math.min(...toolbarItems.map(r=>r.bottom)));
  expect(toolbar.height).toBeLessThanOrEqual(80);
  await page.locator('header.top').screenshot({path:'.impeccable/review/compact-header-'+info.project.name+'.png'});
- await expect(page.locator('#inventoryCharts canvas')).toHaveCount(5);
+ await expect(page.locator('#inventoryCharts canvas')).toHaveCount(6);
  await page.getByRole('combobox',{name:'Inventory chart period'}).selectOption('7');
  await expect(page.locator('#inventoryCharts .chart-empty')).toHaveCount(3);
  await page.getByRole('combobox',{name:'Inventory chart period'}).selectOption('30');
- await expect(page.locator('#inventoryCharts canvas')).toHaveCount(5);
+ await expect(page.locator('#inventoryCharts canvas')).toHaveCount(6);
  await page.getByText('View balance by sugar type data',{exact:true}).click();
  await expect(page.locator('#inventoryCharts table').filter({hasText:'Raw Sugar'}).first()).toContainText('15');
  await expect(page.getByRole('button',{name:/SRO-001.*Low/})).toBeVisible();
@@ -80,7 +80,7 @@ test('overview, stock report, delivery search and client editing',async({page},i
  await expect(page.getByLabel('Find a client')).toBeFocused();
  expect(excelRequests).toEqual([]);
  await navigate(page,'More');
- const excelDownload=page.waitForEvent('download');await page.getByRole('button',{name:'Excel workbook (.xlsx)',exact:true}).click();
+ const excelDownload=page.waitForEvent('download');await page.getByRole('button',{name:'Excel workbook (.xlsx) — Wilmar Edible Oil Philippines Inc.',exact:true}).click();
  const workbookDownload=await excelDownload;expect(workbookDownload.suggestedFilename()).toMatch(/\.xlsx$/);
  const XLSX=await import('xlsx-js-style');const wb=(XLSX.default||XLSX).readFile(await workbookDownload.path(),{cellNF:true});
  expect(wb.SheetNames).toEqual(['Dashboard','SRO Quantity','Issuance','SRO Balance','Client Summary']);

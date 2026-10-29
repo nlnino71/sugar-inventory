@@ -3,16 +3,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
+import * as companies from '../companies.js';
 import * as features from '../features.js';
 
 async function harness(rpc, cloud) {
  let source=readFileSync(new URL('../app.js',import.meta.url),'utf8');
  source=source.slice(source.indexOf('(async function(){'),source.indexOf("$('#loginForm').addEventListener"));
  source=source.replaceAll('import.meta.env.VITE_SUPABASE_URL',"'https://example.supabase.co'").replaceAll('import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY',"'public-key'");
- source+=`render=()=>{}; ready=true; globalThis.app={save,compute,clientStats,typeStats,fd,state:()=>S,revision:()=>revision,set:(value)=>{S=value},commit:()=>{committed=structuredClone(S)}}; })();`;
+ source+=`render=()=>{}; ready=true; globalThis.app={hydrate:(document,id)=>{cloudDocument=document;CO=id;S=companyInventory(document,id,blank);committed=structuredClone(S)},save,compute,clientStats,typeStats,fd,state:()=>S,revision:()=>revision,set:(value)=>{S=value},commit:()=>{committed=structuredClone(S)}}; })();`;
  const elements=new Map();
  const element=selector=>{if(!elements.has(selector))elements.set(selector,{textContent:'',dataset:{},addEventListener(){},classList:{add(){},remove(){},contains(){return false;}}});return elements.get(selector);};
- const context=vm.createContext({...features,isSimpleAuditEvent,createActivityTracker:()=>({start(){},track(){},flush(){},stop:async()=>{}}),history:{state:null},window:{addEventListener(){},location:{hash:""}},URLSearchParams,structuredClone,setTimeout:()=>0,clearTimeout(){},console,document:{body:{},querySelector:element,addEventListener(){}},createClient:()=>({rpc,from:()=>({select:()=>({eq:()=>({single:async()=>({data:cloud,error:null})})})})})});
+ const context=vm.createContext({...features,...companies,isSimpleAuditEvent,createActivityTracker:()=>({start(){},track(){},flush(){},stop:async()=>{}}),history:{state:null},window:{addEventListener(){},location:{hash:""}},URLSearchParams,structuredClone,setTimeout:()=>0,clearTimeout(){},console,document:{body:{},querySelector:element,addEventListener(){}},createClient:()=>({rpc,from:()=>({select:()=>({eq:()=>({single:async()=>({data:cloud,error:null})})})})})});
  await vm.runInContext(source,context);
  return {app:context.app,elements};
 }
@@ -67,4 +68,30 @@ test('failed JSON restore retains the previously confirmed inventory',async()=>{
  app.set(state(10));app.commit();app.set(state(20));
  assert.equal(await app.save({operation:'json_restore'}),false);
  assert.equal(app.state().receipts[0].qty,10);
+});
+
+test('Sugar saves and revision conflicts retain both company inventories',async()=>{
+ const original={...state(100),companyInventories:{sugar:state(20)}};
+ let request;
+ const {app}=await harness(async(name,args)=>{request=args;return {data:1,error:null}});
+ app.hydrate(original,'sugar');app.set(state(25));
+ assert.equal(await app.save(),true);
+ assert.equal(request.new_data.receipts[0].qty,100);
+ assert.equal(request.new_data.companyInventories.sugar.receipts[0].qty,25);
+ const latest={...state(110),companyInventories:{sugar:state(35)}};
+ const conflict=await harness(async()=>({data:null,error:null}),{data:latest,revision:4});
+ conflict.app.hydrate(original,'sugar');conflict.app.set(state(30));
+ assert.equal(await conflict.app.save(),false);
+ assert.equal(conflict.app.state().receipts[0].qty,35);
+ assert.equal(conflict.app.revision(),4);
+});
+test('full account JSON restore replaces both companies atomically',async()=>{
+ let request;
+ const {app}=await harness(async(name,args)=>{request={name,args};return {data:2,error:null}});
+ app.hydrate({...state(100),companyInventories:{sugar:state(20)}},'sugar');
+ const snapshot={...state(80),companyInventories:{sugar:state(10)}};
+ app.set(state(10));assert.equal(await app.save({operation:'json_restore',document:snapshot}),true);
+ assert.equal(request.name,'restore_inventory_json');
+ assert.equal(request.args.new_data.receipts[0].qty,80);
+ assert.equal(request.args.new_data.companyInventories.sugar.receipts[0].qty,10);
 });
