@@ -10,7 +10,7 @@ test('guests can save the shared inventory as Excel from navigation',async({page
  const button=page.getByRole('button',{name:'Save as Excel Dashboard',exact:true});
  await expect(button).toBeVisible();
  const [download]=await Promise.all([page.waitForEvent('download'),button.click()]);
- expect(download.suggestedFilename()).toMatch(/^Sugar_Inventory_.*\.xlsx$/);
+ expect(download.suggestedFilename()).toMatch(/^Wilmar Edible Oil Philippines Inc\. - Sugar Inventory - \d{4}-\d{2}-\d{2}\.xlsx$/);
  const workbook=XLSX.read(await readFile(await download.path()),{type:'buffer'});
  expect(workbook.SheetNames).toHaveLength(5);
  expect(Object.values(workbook.Sheets['SRO Quantity']).some(c=>c?.v==='PUBLIC-SRO')).toBe(true);

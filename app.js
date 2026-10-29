@@ -1133,7 +1133,7 @@ async function exportXlsx(company=CO){
     try{S=company===CO?S:companyInventory(cloudDocument,company,blank); COMPANY=companyName(company).toUpperCase(); APPNAME=COMPANY+' Sugar Inventory Monitoring'; wb=xlsxBook();}
     finally{S=previous;COMPANY=previousCompany;APPNAME=previousApp;}
     const buf=window.XLSX.write(wb,{bookType:'xlsx',type:'array'});
-    await saveFile((readOnly?'':company+'_')+'Sugar_Inventory_'+stamp()+'.xlsx',buf);
+    await saveFile(companyName(company)+' - Sugar Inventory - '+stamp()+'.xlsx',buf);
   }catch(error){toast('Excel export could not finish. Please try again.');}
   finally{exportingXlsx=false;if(button){button.disabled=false;button.innerHTML=label;}}
 }
