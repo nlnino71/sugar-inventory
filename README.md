@@ -250,3 +250,11 @@ The private Spreadsheet page retains the Company selector and protects an unsave
 ## Company themes and chooser
 
 Company selection now opens two company buttons with record counts. The desktop trigger is below the Wilmar logo and above Sugar Inventory Monitoring; mobile uses a top-of-page trigger. Sugar uses blue accents and Edible Oil uses teal across workspace light/dark themes, navigation, stock, primary chart series and Excel headers. Pie category colors remain stable. Switching preserves company data separation, the current page and the existing private/public selection persistence.
+
+## Selected-company or both-company backups
+
+More → Backup and import has **Selected company** (default) and **Both companies** controls for JSON backup/restore. Company backups include a company label and only that company's inventory. Combined backups contain Edible Oil and Sugar, including independent units and an explicitly empty Sugar inventory for accounts that only use Oil. Filenames identify the company or both-company scope.
+
+Selected-company restore can extract only that company from a combined JSON backup and preserves the other company's current records. Both-company restore requires a combined file; it refuses company-only files rather than clearing the other company. Labelled company files cannot be restored into the other company. Unlabelled legacy files remain usable in selected-company mode after confirmation. Restore confirmation names the affected company/companies and record counts. Both-company restores use one existing revision-checked JSON restore operation. Backup transport metadata is removed before saving inventory.
+
+CSV imports add rows to the company named on the button, regardless of JSON backup scope. Switch company to import its CSV; use combined JSON restore for both inventories together. An optional Company column must match the selected company ID or full name; other or unknown company labels are rejected before import. A pending file operation is cancelled if the signed-in account or selected company changes while the file is being read. No new SQL migration is required; automatic account snapshots continue to capture both companies.

@@ -106,3 +106,9 @@ test('vehicle CSV aliases import and export the same withdrawal reference',async
  const column=app.issueHeaders.indexOf('Van # / Truck Plate #');assert.ok(column>=0);
  assert.ok(app.issRows().every(row=>row[column]==='ABC 1234'));
 });
+
+test('CSV company labels cannot put rows into a different selected company',async()=>{
+ let calls=0;const {app}=await harness(async()=>{calls++;return {data:1,error:null};});app.set(state(100));
+ const message=await app.importCSV('Company,SRO Date,SRO Number,Quantity\nsugar,2026-10-29,SUGAR-ONLY,10');
+ assert.match(message,/another or unknown company/);assert.equal(calls,0);assert.equal(app.state().receipts.length,1);
+});

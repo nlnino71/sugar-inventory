@@ -318,3 +318,4 @@ body.login-screen #account{border:0;background:transparent;padding:30px 22px;max
 .client-total-quantity{display:block;font-family:'Barlow Condensed','Arial Narrow',Arial,sans-serif;font-size:clamp(48px,7.5vw,112px);font-weight:700;font-variant-numeric:tabular-nums;line-height:1;letter-spacing:-.025em;overflow-wrap:anywhere}
 @media(max-width:479px){.client-total{padding:20px;border-radius:14px}.client-total p{font-size:15px}.client-total-quantity{font-size:clamp(36px,12vw,56px)}}
 .client-total .sr-only{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.transfer-panel .btn{height:auto;min-height:46px;white-space:normal;overflow-wrap:anywhere}

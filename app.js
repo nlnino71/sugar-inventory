@@ -1,3 +1,4 @@
+import {createScopedBackup,prepareScopedRestore} from './backup-scope.js';
 import {COMPANIES,companyName,companyInventory,saveCompany,registryRows} from './companies.js';
 import {isSimpleAuditEvent} from './audit-policy.js';
 import {pageFromUrl,pageUrl} from './navigation.js';
@@ -34,7 +35,7 @@ let backupsCleanup=null;
 let authMode='signin', authBusy=false;
 const KEY='sugar-inventory.v1';
 const blank = ()=>({unit:'bags (LKg)',receipts:[],issues:[],clients:[],seq:0,clientProfiles:{},activity:[],lowStockPercent:20});
-let CO='oil', cloudDocument=blank();
+let CO='oil', cloudDocument=blank(),transferScope='company';
 let S=blank(), committed=structuredClone(S), revision=0, saving=false, ready=false;
 const url=import.meta.env.VITE_SUPABASE_URL;
 const key=import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -132,7 +133,7 @@ async function showAccount(session){
   await activity.stop();
   isSuperadmin=false;
   document.body.classList.toggle('login-screen',!session);
-  if(accountId!==(session?.user?.id||null)){tab='dashboard';adminView=false;q='';rq='';clientQuery='';deliveryFilter={query:'',from:'',to:'',client:''};}
+  if(accountId!==(session?.user?.id||null)){transferScope='company';tab='dashboard';adminView=false;q='';rq='';clientQuery='';deliveryFilter={query:'',from:'',to:'',client:''};}
   accountId=session?.user?.id||null;
   CO='oil';try{const stored=localStorage.getItem('inventory-company:'+accountId);if(COMPANIES.some(c=>c.id===stored))CO=stored;}catch{}
   shareSettings=null;shareError='';revision=0;
@@ -439,11 +440,11 @@ function vMore(){
    '<button class="btn block" data-act="csvRec"'+(dl?'':' disabled')+'>SRO Registry (.csv)</button>'+
    '<button class="btn block" data-act="csvIss"'+(dl?'':' disabled')+'>Withdrawal (.csv)</button></div>'+
    '<p>The workbook opens with a Dashboard summary (totals per sugar type, running balance per SRO, issued per client, data checks), followed by SRO Registry, Withdrawal with running balance, SRO Balance and Client Summary sheets.'+(dl?'':' Downloads are not available in this view.')+'</p></div>'+
-   '<div class="sec"><h2>Backup and import</h2></div><div class="setting"><div class="stack">'+
+   '<div class="sec"><h2>Backup and import</h2></div><section class="setting transfer-panel" aria-label="Backup and import"><div class="chips" role="group" aria-label="Backup and restore scope"><button type="button" class="chip-b" data-act="transferScope" data-scope="company" aria-pressed="'+(transferScope==='company')+'">Selected company</button><button type="button" class="chip-b" data-act="transferScope" data-scope="both" aria-pressed="'+(transferScope==='both')+'">Both companies</button></div><p class="transfer-scope-hint">'+(transferScope==='both'?'Backup or restore BOTH Wilmar Sugar and Wilmar Edible Oil inventories together.':'Backup or restore only '+esc(companyName(CO))+'. The other company stays unchanged.')+'</p><div class="stack">'+
    '<button class="btn block" data-act="backup"'+(dl?'':' disabled')+'>Save backup (.json)</button>'+
    '<button class="btn block" data-act="restore">Restore from backup</button>'+
-   '<button class="btn block" data-act="import">Import SRO quantity or withdrawal CSV</button></div>'+
-   '<p>CSV quantities without a Unit column use '+esc(S.unit)+'. A recognized Unit column is converted automatically. CSV columns must match the Excel inventory file: SRO Date, SRO Number, Type of Sugar, Mill Source, Quantity for SRO quantity; Date, SRO Number, Ref ATW Number, Type of Sugar, Client, SRA Permit No., Mill Waybill Number, Batch Codes, Quantity per Batch Code for issuance, plus optional Bill of Lading No., Vessel, Voy No., Sailing Date, Van # / Truck Plate #.</p></div>'+
+   '<button class="btn block" data-act="import">Import CSV — '+esc(companyName(CO))+' only</button></div>'+
+   '<p>JSON backup/restore follows the scope selected above. CSV imports always add rows only to '+esc(companyName(CO))+'. Switch company to import the other company’s CSV. CSV quantities without a Unit column use '+esc(S.unit)+'. A recognized Unit column is converted automatically. CSV columns must match the Excel inventory file: SRO Date, SRO Number, Type of Sugar, Mill Source, Quantity for SRO quantity; Date, SRO Number, Ref ATW Number, Type of Sugar, Client, SRA Permit No., Mill Waybill Number, Batch Codes, Quantity per Batch Code for issuance, plus optional Bill of Lading No., Vessel, Voy No., Sailing Date, Van # / Truck Plate #.</p></section>'+
    '<div class="sec"><h2>Data</h2></div><div class="setting"><div class="stack"><button class="btn block" data-act="sample">Load sample data</button><button class="btn danger block" data-act="clear">Delete all data</button></div>'+
    '<p>Your records are saved to your private Supabase inventory. Public links are read-only and controlled by you. Automatic account snapshots protect saved changes in the background. You can also download a backup file to keep a separate copy.</p></div>';
 }
@@ -1133,6 +1134,8 @@ function normDate(v){
 async function importCSV(text){
   const rows=parseCSV(text); if(rows.length<2) return 'The file has no data rows.';
   const H=rows[0].map(h=>h.trim().toLowerCase()), ix=n=>H.indexOf(n.toLowerCase());
+  const companyColumn=ix('Company');
+  if(companyColumn>=0&&rows.slice(1).some(row=>{const label=String(row[companyColumn]||'').trim().toLowerCase();return label&&label!==CO&&label!==companyName(CO).toLowerCase();}))return 'This CSV contains another or unknown company. Import one company at a time into the matching selected company.';
   const num=v=>parseFloat(String(v||'').replace(/,/g,''));
   const unitColumn=ix('Unit');
   if(unitColumn>=0&&rows.slice(1).some(r=>r[unitColumn]&&r[unitColumn]!==S.unit&&(!unitWeight(r[unitColumn])||!unitWeight(S.unit))))return 'The CSV unit cannot be converted to this inventory unit. Use a supported unit or a file in '+S.unit+'.';
@@ -1157,20 +1160,29 @@ async function importCSV(text){
     S.receipts.push({id:uid(),date,sro,type:g(r,'type'),mill:g(r,'mill'),qty,crop:g(r,'crop')}); n++; });
   if(!await save()) return; return 'Imported '+n+' SRO'+(n===1?'':'s')+(dup?', skipped '+dup+' duplicate SRO':'')+(skip?', skipped '+skip+' incomplete':'')+'.';
 }
-let fileMode='';
-function pickFile(mode,accept){ fileMode=mode; const f=$('#file'); f.accept=accept; f.value=''; f.click(); }
+let fileMode='',fileTarget=null;
+function pickFile(mode,accept){ fileMode=mode;fileTarget={owner:accountId,company:CO,scope:transferScope}; const f=$('#file'); f.accept=accept; f.value=''; f.click(); }
 $('#file').addEventListener('change',async e=>{
-  const file=e.target.files&&e.target.files[0]; if(!file) return;
-  let text; try{ text=await file.text(); }catch(err){ toast('Could not read that file.'); return; }
-  if(fileMode==='import'){ const message=await importCSV(text); if(message) toast(message); render(); }
-  else if(fileMode==='restore'){
-    let o; try{ o=JSON.parse(text); }catch(err){ toast('That is not a valid backup file.'); return; }
-    if(!o||!Array.isArray(o.receipts)||!Array.isArray(o.issues)){ toast('That is not a valid backup file.'); return; }
-    if(o.company&&o.company!==CO){toast('Switch to '+companyName(o.company)+' before restoring this company backup.');return;}
-    if(await ask('Restore backup',(o.companyInventories?'This restores BOTH company inventories from the account snapshot. Edible Oil summary: (':'This replaces '+companyName(CO)+' data with the backup (')+o.receipts.length+' SRO quantities, '+o.issues.length+' issuance lines).','Restore',true)){
-      S=companyInventory(o,o.companyInventories?CO:'oil',blank); S.seq=Math.max(S.seq||0,...S.issues.map(i=>i.seq||0)); if(!await save({operation:'json_restore',document:o.companyInventories?o:undefined})) return; render(); toast('Backup restored');
-    }
-  }
+ if(!ready||saving||readOnly)return;
+ const file=e.target.files&&e.target.files[0];if(!file)return;
+ const mode=fileMode;
+ const target=fileTarget||{owner:accountId,company:CO,scope:transferScope};
+ const current=()=>target.owner===accountId&&target.company===CO&&ready&&!readOnly&&!saving;
+ let text;try{text=await file.text();}catch{toast('Could not read that file.');return;}
+ if(!current()){toast('The account or company changed. Open import or restore again.');return;}
+ if(mode==='import'){const message=await importCSV(text);if(message)toast(message);render();return;}
+ if(mode!=='restore')return;
+ let fileData,prepared;
+ try{fileData=JSON.parse(text);prepared=prepareScopedRestore(fileData,CO,target.scope,blank);}
+ catch(error){toast(error instanceof SyntaxError?'That is not a valid JSON backup.':error.message);return;}
+ const describe=(inventory)=>inventory.receipts.length+' SRO quantities and '+inventory.issues.length+' withdrawal lines';
+ const message=target.scope==='both'?'Replace BOTH company inventories? '+COMPANIES.map(company=>company.name+': '+describe(companyInventory(prepared.document,company.id,blank))).join('; ')+'.':
+  'Replace only '+companyName(CO)+' with '+describe(prepared.inventory)+'? '+companyName(CO==='oil'?'sugar':'oil')+' stays unchanged.';
+ if(!await ask('Restore backup',message,'Restore',true))return;
+ if(!current()){toast('The account or company changed. Open restore again.');return;}
+ S=prepared.inventory;
+ if(!await save({operation:'json_restore',document:prepared.document}))return;
+ render();toast(target.scope==='both'?'Both company inventories restored':'Company backup restored');
 });
 
 /* ---------- sample data ---------- */
@@ -1246,7 +1258,8 @@ document.addEventListener('click',async e=>{
     case 'xlsx': exportXlsx(d.company||CO); break;
     case 'csvRec': saveFile('SRO_Quantity_'+stamp()+'.csv',csv([[...REC_H,'Unit'],...recRows().map(r=>[...r,S.unit])])); break;
     case 'csvIss': saveFile('Issuance_'+stamp()+'.csv',csv([[...ISS_H,'Unit'],...issRows().map(r=>[...r,S.unit])])); break;
-    case 'backup': saveFile('Sugar_Inventory_backup_'+stamp()+'.json',JSON.stringify({...S,company:CO})); break;
+    case 'transferScope': if(['company','both'].includes(d.scope)){transferScope=d.scope;render();}break;
+    case 'backup': {const backup=createScopedBackup(saveCompany(cloudDocument,CO,S),CO,transferScope,blank);saveFile((transferScope==='both'?'Wilmar Sugar and Edible Oil - Both companies':companyName(CO))+' - Inventory backup - '+stamp()+'.json',JSON.stringify(backup,null,2));break;}
     case 'restore': pickFile('restore','.json,application/json'); break;
     case 'import': pickFile('import','.csv,text/csv'); break;
     case 'sample':
