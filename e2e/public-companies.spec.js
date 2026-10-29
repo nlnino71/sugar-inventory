@@ -9,10 +9,10 @@ test('shared links show both separate company inventories and keep all edits blo
   return r.fulfill({json:null});
  });
  await page.goto('/view/company?company=sugar');
- await expect(page.getByLabel('Company',{exact:true})).toHaveValue('sugar');await expect(page.locator('.metrics')).toContainText('25.00');
+ await expect(page.getByLabel('Company',{exact:true})).toHaveValue('sugar');await expect(page.locator('[data-chart="inventory-sugar-summary"]')).toBeVisible();
  await expect(page.locator('#unitLbl')).toHaveText('Unit: bags (LKg)');
- await page.getByLabel('Company',{exact:true}).selectOption('oil');await expect(page.locator('.metrics')).toContainText('100.00');await expect(page.locator('#unitLbl')).toHaveText('Unit: kg');
- await page.reload();await expect(page.getByLabel('Company',{exact:true})).toHaveValue('oil');await expect(page.locator('.metrics')).toContainText('100.00');
+ await page.getByLabel('Company',{exact:true}).selectOption('oil');await expect(page.locator('[data-chart="inventory-sugar-summary"]')).toBeVisible();await expect(page.locator('#unitLbl')).toHaveText('Unit: kg');
+ await page.reload();await expect(page.getByLabel('Company',{exact:true})).toHaveValue('oil');await expect(page.locator('[data-chart="inventory-sugar-summary"]')).toBeVisible();
  await page.getByLabel('Company',{exact:true}).selectOption('sugar');await page.locator('#nav').getByRole('button',{name:'Stock',exact:true}).click();await expect(page).toHaveURL(/company=sugar/);
  await expect(page.locator('#main')).toContainText('Refined');await expect(page.locator('#main')).not.toContainText('Raw');
  await expect(page.getByRole('button',{name:'New issuance',exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Receive stock',exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Spreadsheet',exact:true})).toHaveCount(0);

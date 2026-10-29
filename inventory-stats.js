@@ -39,3 +39,14 @@ export function inventorySpecs(state,days=30,end=new Date().toISOString().slice(
   spec('mills','Received by mill','Quantities received in the selected period. Largest eight mills plus the remaining total.','bar',millRows.map(x=>x[0]),[series('Received',millRows.map(x=>x[1]))],{horizontal:true})
  ]};
 }
+
+// The client dashboard shows all saved records, with no date-period analytics.
+export function clientDashboardSpecs(state,mixMetric='balance'){
+ const specs=inventorySpecs(state,30,undefined,mixMetric).specs;
+ const get=key=>specs.find(s=>s.key==='inventory-'+key);
+ const clients=new Map();
+ for(const issue of state.issues||[]){const name=(issue.client||'').trim()||'No client';clients.set(name,(clients.get(name)||0)+quantity(issue));}
+ const rows=entries(clients),unit=state.unit||'units';
+ const client={...get('clients'),note:'All recorded withdrawals per client · '+unit+'. Every client is shown; scroll horizontally for more clients.',labels:rows.map(r=>r[0]),datasets:[{label:'Withdrawal · '+unit,data:rows.map(r=>r[1])}]};
+ return [{...get('mix'),wide:true,shares:true},get('sugar-summary'),client];
+}

@@ -17,11 +17,11 @@ async function signIn(page,{failSave=false,unusualRecords=false}={}){
  await page.goto('/');
  await expect(page.getByRole('main')).toHaveCount(1);await expect(page.getByRole('main')).toHaveAttribute('id','account');
  await page.getByLabel('Email',{exact:true}).fill('staff@example.com');await page.getByLabel('Password',{exact:true}).fill('password-example');await page.getByRole('button',{name:'Sign in',exact:true}).click();
- await expect(page.getByRole('heading',{name:'Inventory at a glance'})).toBeVisible();await expect(page.getByRole('main')).toHaveCount(1);await expect(page.getByRole('main')).toHaveAttribute('id','main');
+ await expect(page.locator('#inventoryCharts')).toBeVisible();await expect(page.getByRole('main')).toHaveCount(1);await expect(page.getByRole('main')).toHaveAttribute('id','main');
 }
 test('modal focus is contained and restored to its trigger',async({page})=>{
- await signIn(page);const trigger=page.getByRole('button',{name:'New issuance',exact:true});await trigger.click();
- const dialog=page.getByRole('dialog',{name:'New issuance',exact:true});await expect(dialog).toBeVisible();await expect(dialog.locator('[name=date]')).toBeFocused();
+ await signIn(page);await page.getByRole('button',{name:'Withdrawal',exact:true}).click();const trigger=page.getByRole('button',{name:'New withdrawal',exact:true});await trigger.click();
+ const dialog=page.getByRole('dialog',{name:'New withdrawal',exact:true});await expect(dialog).toBeVisible();await expect(dialog.locator('[name=date]')).toBeFocused();
  await expect(page.locator('#nav')).toHaveAttribute('inert','');
  await dialog.getByRole('button',{name:'Save',exact:true}).focus();await page.keyboard.press('Tab');await expect(dialog.getByRole('button',{name:'Close',exact:true})).toBeFocused();
  await page.keyboard.press('Shift+Tab');await expect(dialog.getByRole('button',{name:'Save',exact:true})).toBeFocused();
@@ -37,12 +37,12 @@ test('ledger edits work with Enter and nested confirmation restores focus',async
  await expect(page.locator('#nav')).toHaveAttribute('inert','');await page.keyboard.press('Escape');await expect(page.locator('#nav')).not.toHaveAttribute('inert','');
 });
 test('validation announces the problem and focuses only the invalid field',async({page})=>{
- await signIn(page);await page.getByRole('button',{name:'Receive stock',exact:true}).click();
+ await signIn(page);await navigate(page,'SRO Registry');await page.getByRole('button',{name:'New SRO quantity',exact:true}).click();
  const dialog=page.getByRole('dialog',{name:'New SRO quantity',exact:true});await dialog.locator('[name=qty]').fill('12');await dialog.getByRole('button',{name:'Save SRO quantity',exact:true}).click();
  await expect(dialog.getByRole('alert')).toContainText('Enter the date, SRO number');await expect(dialog.locator('[name=sro]')).toBeFocused();await expect(dialog.locator('[name=sro]')).toHaveAttribute('aria-invalid','true');await expect(dialog.locator('[name=qty]')).not.toHaveAttribute('aria-invalid','true');
 });
 test('a failed save preserves entered data and allows correcting or retrying',async({page})=>{
- await signIn(page,{failSave:true});await page.getByRole('button',{name:'Receive stock',exact:true}).click();
+ await signIn(page,{failSave:true});await navigate(page,'SRO Registry');await page.getByRole('button',{name:'New SRO quantity',exact:true}).click();
  const dialog=page.getByRole('dialog',{name:'New SRO quantity',exact:true});await dialog.locator('[name=sro]').fill('SRO-NEW');await dialog.locator('[name=qty]').fill('12');await dialog.getByRole('button',{name:'Save SRO quantity',exact:true}).click();
  await expect(page.locator('#toast')).toContainText('Save failed');await expect(dialog).toBeVisible();await expect(dialog.locator('[name=sro]')).toHaveValue('SRO-NEW');await expect(dialog.locator('[name=qty]')).toHaveValue('12');
  await expect(dialog.getByRole('button',{name:'Save SRO quantity',exact:true})).toBeEnabled();await page.keyboard.press('Escape');await expect(dialog).toBeHidden();
@@ -51,5 +51,5 @@ test('a failed save preserves entered data and allows correcting or retrying',as
 test('unusual record keys and imported markup stay inert',async({page})=>{
  await signIn(page,{unusualRecords:true});await page.getByRole('button',{name:'Stock',exact:true}).click();
  await expect(page.locator('[data-audit-injection]')).toHaveCount(0);await expect(page.getByText('<img data-audit-injection>',{exact:false}).first()).toBeVisible();
- await navigate(page,'SRO Qty');await expect(page.locator('[data-injected]')).toHaveCount(0);
+ await navigate(page,'SRO Registry');await expect(page.locator('[data-injected]')).toHaveCount(0);
 });

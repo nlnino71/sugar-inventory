@@ -14,7 +14,7 @@ async function setup(page,{empty=false,missing=false}={}){
  if(u.includes('/inventory_shares'))return r.fulfill({json:{enabled:false,token:user.id,slug:'private'}});
  if(u.includes('/rest/v1/inventory'))return r.fulfill({json:{data:{unit:'bags',receipts:[],issues:[],clients:[],seq:0},revision:0}});
  return r.fulfill({json:null});});
- await page.goto('/');await page.getByLabel('Email',{exact:true}).fill(user.email);await page.getByLabel('Password',{exact:true}).fill('password-example');await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.getByRole('heading',{name:'Inventory at a glance'})).toBeVisible();await navigate(page,'More');await page.getByRole('button',{name:'Open superadmin'}).click();await page.getByRole('tab',{name:'Statistics',exact:true}).click();return {requested,errors};
+ await page.goto('/');await page.getByLabel('Email',{exact:true}).fill(user.email);await page.getByLabel('Password',{exact:true}).fill('password-example');await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.locator('#inventoryCharts')).toBeVisible();await navigate(page,'More');await page.goto('/superadmin');await page.getByRole('tab',{name:'Statistics',exact:true}).click();return {requested,errors};
 }
 test('nine charts render, date range updates, theme changes and navigation clean up',async({page},info)=>{
  const {requested,errors}=await setup(page);await expect(page.locator('#adminStats canvas')).toHaveCount(9);await expect(page.locator('.admin-stats-metrics')).toContainText('1,200');

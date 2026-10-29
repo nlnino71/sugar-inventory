@@ -33,7 +33,7 @@ test('accounts use separate inventories and sharing settings across sign-out and
  await page.getByRole('button',{name:'Sign out',exact:true}).click();await expect(page.getByRole('button',{name:'Sign in',exact:true})).toBeVisible();
  await signIn('new');await expect(page.getByText('OWNER-ONLY',{exact:false})).toHaveCount(0);
  await navigate(page,'More');await expect(page.getByText('Sharing is disabled',{exact:true})).toBeVisible();await expect(page.getByLabel('View-only link')).toHaveCount(0);
- await page.getByRole('button',{name:'Overview',exact:true}).click();await page.getByRole('button',{name:'Receive stock',exact:true}).click();
+ await navigate(page,'SRO Registry');await page.getByRole('button',{name:'New SRO quantity',exact:true}).click();
  await page.getByLabel('SRO number',{exact:true}).fill('NEW-ONLY');await page.getByLabel('Quantity',{exact:true}).fill('25');await page.getByRole('button',{name:'Save SRO quantity',exact:true}).click();
  await expect(page.getByRole('dialog')).toBeHidden();expect(states.new.receipts[0].sro).toBe('NEW-ONLY');expect(states.owner.receipts[0].sro).toBe('OWNER-ONLY');
  await page.getByRole('button',{name:'Sign out',exact:true}).click();await signIn('owner');

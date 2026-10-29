@@ -1,9 +1,9 @@
-export const PAGE_PATHS={stock:'/stock',dashboard:'/overview',reports:'/reports',receive:'/sro-quantity',issue:'/issuance',clients:'/clients',spreadsheet:'/spreadsheet',more:'/settings',superadmin:'/superadmin'};
+export const PAGE_PATHS={stock:'/stock',dashboard:'/overview',receive:'/sro-quantity',issue:'/issuance',clients:'/clients',more:'/settings',superadmin:'/superadmin'};
 export function pageFromUrl(url,{readOnly=false,isSuperadmin=false}={}){
  const path=url.pathname.replace(/\/$/,'');
  const shared=path.match(/^\/view\/[^/]+(?:\/([^/]+))?$/);
  const requested=readOnly?(shared?.[1]?Object.keys(PAGE_PATHS).find(k=>PAGE_PATHS[k]==='/'+shared[1]):url.searchParams.get('page')):Object.keys(PAGE_PATHS).find(k=>PAGE_PATHS[k]===path);
- const allowed=readOnly?['stock','dashboard','issue','reports']:Object.keys(PAGE_PATHS).filter(k=>k!=='superadmin'||isSuperadmin);
+ const allowed=readOnly?['stock','dashboard','issue','clients']:Object.keys(PAGE_PATHS).filter(k=>k!=='superadmin'||isSuperadmin);
  return allowed.includes(requested)?requested:'dashboard';
 }
 export function pageUrl(url,page,{readOnly=false}={}){
@@ -11,7 +11,7 @@ export function pageUrl(url,page,{readOnly=false}={}){
  if(readOnly){
   const shared=next.pathname.match(/^\/view\/([^/]+)(?:\/[^/]+)?\/?$/);
   if(shared){
-   const allowed=['stock','dashboard','issue','reports'];
+   const allowed=['stock','dashboard','issue','clients'];
    next.pathname='/view/'+shared[1]+PAGE_PATHS[allowed.includes(page)?page:'stock'];
    next.searchParams.delete('page');
   }else next.searchParams.set('page',page);

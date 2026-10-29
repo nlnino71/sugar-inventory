@@ -31,7 +31,7 @@ for(const theme of ['light','dark','auto'])test('semantic color contrast and nat
   await expect(page.locator('.chip.low')).toHaveText('Low');await expect(page.locator('.chip.over')).toHaveText('Over-issued');
   await page.screenshot({path:'.impeccable/review/colors-deuteranopia-desktop.png',fullPage:true});await session.send('Emulation.setEmulatedVisionDeficiency',{type:'none'});
  }
- await page.getByRole('button',{name:'Issuance',exact:true}).click();await page.getByRole('button',{name:'New issuance',exact:true}).click();
+ await page.getByRole('button',{name:'Withdrawal',exact:true}).click();await page.getByRole('button',{name:'New withdrawal',exact:true}).click();
  const input=page.locator('#fIss [name=date]');
  const field=await input.evaluate(el=>{const s=getComputedStyle(el);return {border:s.borderTopColor,bg:s.backgroundColor,scheme:s.colorScheme,focus:s.outlineColor};});
  expect(contrast(field.border,field.bg)).toBeGreaterThanOrEqual(3);expect(field.scheme).toBe(theme==='light'?'light':'dark');

@@ -10,7 +10,7 @@ test('dashboard client withdrawal bars are vertical, scrollable and cover every 
   const url=source.match(/from\s*["']([^"']*chart[^"']*\.js[^"']*)["']/)[1];
   window.clientChart=(await import(url)).Chart.getChart(document.querySelector('[data-chart="inventory-clients"]'));
  });
- const section=page.locator('section').filter({has:page.locator('[data-chart="inventory-clients"]')});
+ const section=page.locator('.admin-chart').filter({has:page.locator('[data-chart="inventory-clients"]')});
  await expect(section.getByRole('heading',{name:'Withdrawal by client',exact:true})).toBeVisible();
  expect(await page.evaluate(()=>({axis:window.clientChart.options.indexAxis,count:window.clientChart.data.labels.length,y:window.clientChart.options.scales.y.title.text}))).toEqual({axis:'x',count:12,y:'Withdrawal · kg'});
  await section.locator('summary').click();await expect(section.locator('tbody tr')).toHaveCount(12);

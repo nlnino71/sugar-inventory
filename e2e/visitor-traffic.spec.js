@@ -16,7 +16,7 @@ async function setup(page,{empty=false,missing=false}={}){
   if(url.includes('/inventory_shares'))return r.fulfill({json:{enabled:false,token:user.id,slug:'private'}});
   if(url.includes('/rest/v1/inventory'))return r.fulfill({json:{data:{unit:'bags (LKg)',receipts:[],issues:[],clients:[],seq:0},revision:0}});return r.fulfill({json:null});
  });
- await page.goto('/');await expect(page.getByRole('button',{name:'Sign in',exact:true})).toBeEnabled();await page.getByLabel('Email',{exact:true}).fill(user.email);await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.locator('#account')).toBeHidden();await navigate(page,'More');await page.getByRole('button',{name:'Open superadmin',exact:true}).click();return {calls,errors};
+ await page.goto('/');await expect(page.getByRole('button',{name:'Sign in',exact:true})).toBeEnabled();await page.getByLabel('Email',{exact:true}).fill(user.email);await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.locator('#account')).toBeHidden();await navigate(page,'More');await page.goto('/superadmin');return {calls,errors};
 }
 test('visitor traffic filters, pagination, theme and responsive reporting',async({page},info)=>{
  const {calls,errors}=await setup(page);const traffic=page.locator('#adminTraffic');await expect(traffic.locator('.traffic-metrics')).toContainText('60');

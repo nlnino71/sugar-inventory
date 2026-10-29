@@ -7,7 +7,7 @@ test('sugar chart groups three vertical metrics and pie selector switches quanti
   mountInventory(document.querySelector('#charts'),{unit:'LKg',receipts:[{sro:'A',type:'Raw Sugar',qty:100},{sro:'B',type:'Refined Sugar',qty:60}],issues:[{sro:'A',qty:25}]},'2026-10-28');
  });
  await expect(page.locator('[data-chart="inventory-sugar-summary"]')).toBeVisible();
- const section=page.locator('section').filter({has:page.locator('[data-chart="inventory-sugar-summary"]')});
+ const section=page.locator('.admin-chart').filter({has:page.locator('[data-chart="inventory-sugar-summary"]')});
  await section.locator('summary').click();
  await expect(section.locator('thead')).toContainText('SRO Quantity · LKg');
  await expect(section.locator('tbody tr').first()).toContainText('75');

@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {inventorySpecs} from '../inventory-stats.js';
+import {inventorySpecs,clientDashboardSpecs} from '../inventory-stats.js';
 test('inventory trends carry opening stock, preserve fractions and separate all-record balances',()=>{
  const state={receipts:[{sro:'A',type:'Raw',qty:100.5,date:'2026-09-01'},{sro:'A',type:'Raw',qty:10.25,date:'2026-10-20'},{sro:'B',type:'Refined',qty:50,date:'2026-11-01'},{sro:'C',type:'Raw',qty:3,date:'bad'}],issues:[{sro:'A',qty:20.25,date:'2026-10-18',client:'A'},{sro:'missing',type:'Washed',qty:5,date:'2026-10-20',client:'B'}]};
  const result=inventorySpecs(state,7,'2026-10-20'),get=key=>result.specs.find(s=>s.key==='inventory-'+key);
@@ -36,4 +36,11 @@ test('client withdrawals combine batch lines and whitespace without merging name
  assert.deepEqual(chart.labels,['Client A','Client B','No client']);
  assert.deepEqual(chart.datasets[0].data,[5.125,4,1]);
  assert.equal(chart.datasets[0].label,'Withdrawal · kg');
+});
+
+test('client dashboard contains only the reference charts and all-record client withdrawals',()=>{
+ const state={unit:'kg',receipts:[{sro:'A',type:'Raw',qty:100,date:'2020-01-01'}],issues:[{sro:'A',client:'A',qty:15,date:'2020-01-01'},{sro:'A',client:'A',qty:5,date:'bad'}]};
+ const charts=clientDashboardSpecs(state,'issued');
+ assert.deepEqual(charts.map(c=>c.key),['inventory-mix','inventory-sugar-summary','inventory-clients']);
+ assert.deepEqual(charts[2].datasets[0].data,[20]);assert.deepEqual(charts[0].datasets[0].data,[20]);
 });

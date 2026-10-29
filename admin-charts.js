@@ -18,7 +18,10 @@ export function chartSpecs(stats){
   {key:'hours',title:'Activity by hour',note:'All logged events, grouped by hour in Asia/Manila.',type:'bar',wide:true,labels:(stats.hours||[]).map(h=>String(h.hour).padStart(2,'0')+':00'),datasets:[{label:'Logged events',data:(stats.hours||[]).map(h=>number(h.value))}]}
  ];
 }
-function dataTable(spec){return '<details class="chart-values"><summary>View '+esc(spec.title.toLowerCase())+' data</summary><div class="table-scroll" tabindex="0"><table class="led"><caption>'+esc(spec.title)+'</caption><thead><tr><th>Category</th>'+spec.datasets.map(s=>'<th class="r">'+esc(s.label)+'</th>').join('')+'</tr></thead><tbody>'+spec.labels.map((label,i)=>'<tr><td>'+esc(label)+'</td>'+spec.datasets.map(s=>'<td class="r">'+number(s.data[i]).toLocaleString(undefined,{maximumFractionDigits:6})+'</td>').join('')+'</tr>').join('')+'</tbody></table></div></details>';}
+function dataTable(spec){
+ const total=spec.datasets[0].data.reduce((n,v)=>n+number(v),0);
+ return '<details class="chart-values"'+(spec.shares?' open':'')+'><summary>View '+esc(spec.title.toLowerCase())+' data</summary><div class="table-scroll" tabindex="0"><table class="led"><caption>'+esc(spec.title)+'</caption><thead><tr><th>Category</th>'+spec.datasets.map(s=>'<th class="r">'+esc(s.label)+'</th>').join('')+(spec.shares?'<th class="r">% of total</th>':'')+'</tr></thead><tbody>'+spec.labels.map((label,i)=>'<tr><td>'+esc(label)+'</td>'+spec.datasets.map(s=>'<td class="r">'+number(s.data[i]).toLocaleString(undefined,{maximumFractionDigits:6})+'</td>').join('')+(spec.shares?'<td class="r">'+(total?number(spec.datasets[0].data[i])/total*100:0).toFixed(1)+'%</td>':'')+'</tr>').join('')+'</tbody></table></div></details>';
+}
 export function mountStats(host,stats){
  const specs=chartSpecs(stats),summary=stats.summary||{};
  host.innerHTML='<p class="hint stats-period">'+esc(stats.from)+' to '+esc(stats.to)+' · Asia/Manila · Includes today</p><dl class="metrics admin-stats-metrics">'+[['events','Logged events'],['pageViews','Page views'],['activeAccounts','Active signed-in accounts'],['guestSessions','Guest sessions']].map(([key,label])=>'<div><dt>'+label+'</dt><dd>'+number(summary[key]).toLocaleString(undefined,{maximumFractionDigits:6})+'</dd></div>').join('')+'</dl>';

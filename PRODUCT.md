@@ -8,7 +8,7 @@ web
 
 ## Product Purpose
 
-Sugar Inventory records SRO quantities and issuance batch lines and computes stock balances. The user requested expansion across stock monitoring, delivery tracking, and client reports (confirmed: all three).
+Sugar Inventory records SRO quantities and issuance batch lines and computes stock balances. The user now requests the client HTML’s six sections only: Dashboard, Stock, SRO Registry, Withdrawal, Clients, and More. Preserve the existing workspace styling and separate Sugar/Edible Oil inventories. Dashboard contains the sugar-type pie, combined vertical sugar quantities, and the separately requested vertical client withdrawal chart. Extra operational analytics, Reports, Spreadsheet, contact-directory editing, and unit conversion controls are removed from the inventory UI. Authentication, cloud persistence, file backups and the previously requested two-company public sharing remain.
 
 ## Operating Context
 

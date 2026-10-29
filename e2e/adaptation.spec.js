@@ -18,16 +18,14 @@ for(const size of sizes)test('reflow and touch targets — '+size.name,async({pa
  const touchTargets=async selector=>{
   const small=await page.locator(selector).evaluateAll(elements=>elements.filter(el=>el.getClientRects().length).map(el=>({name:el.textContent.trim(),w:el.getBoundingClientRect().width,h:el.getBoundingClientRect().height})).filter(v=>v.w<43.9||v.h<43.9));expect(small).toEqual([]);
  };
- await page.goto('/');await noOverflow();await page.getByLabel('Email',{exact:true}).fill('staff@example.com');await page.getByLabel('Password',{exact:true}).fill('password-example');await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('heading',{name:'Inventory at a glance'}).waitFor();await noOverflow();
+ await page.goto('/');await noOverflow();await page.getByLabel('Email',{exact:true}).fill('staff@example.com');await page.getByLabel('Password',{exact:true}).fill('password-example');await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.locator('#inventoryCharts').waitFor();await noOverflow();
  await page.getByRole('button',{name:'Stock',exact:true}).click();await noOverflow();await touchTargets('.chip-b,#nav button');
- await navigate(page,'Reports');await noOverflow();
- const scroll=page.getByRole('region',{name:'SRO movement report'});
- if(size.w<640){expect(await scroll.evaluate(el=>el.scrollWidth>el.clientWidth)).toBeTruthy();await scroll.focus();await page.keyboard.press('ArrowRight');await expect.poll(()=>scroll.evaluate(el=>el.scrollLeft)).toBeGreaterThan(0);await scroll.evaluate(el=>el.scrollLeft=0);}
+ await navigate(page,'Clients');await noOverflow();
  await page.evaluate(()=>window.scrollTo(0,0));
  await page.screenshot({path:'.impeccable/review/adapt-report-'+size.w+'x'+size.h+'.png',fullPage:true});
- await page.getByRole('button',{name:'Issuance',exact:true}).click();await noOverflow();await touchTargets('.line');
- await page.getByRole('button',{name:'New issuance',exact:true}).click();await touchTargets('.x,.batch button,[data-act=addBatch]');
- const modal=page.getByRole('dialog',{name:'New issuance'});await expect(modal.locator('[name=date]')).toBeFocused();
+ await page.getByRole('button',{name:'Withdrawal',exact:true}).click();await noOverflow();await touchTargets('.line');
+ await page.getByRole('button',{name:'New withdrawal',exact:true}).click();await touchTargets('.x,.batch button,[data-act=addBatch]');
+ const modal=page.getByRole('dialog',{name:'New withdrawal'});await expect(modal.locator('[name=date]')).toBeFocused();
  await expect(modal.getByRole('button',{name:'Save',exact:true})).toBeEnabled();await modal.getByRole('button',{name:'Save',exact:true}).scrollIntoViewIfNeeded();
  expect(await modal.evaluate(el=>el.scrollWidth<=el.clientWidth),'sheet content fits').toBeTruthy();
  if(size.w===320)await page.screenshot({path:'.impeccable/review/adapt-form-320.png',fullPage:false});
@@ -37,6 +35,6 @@ for(const size of sizes)test('reflow and touch targets — '+size.name,async({pa
  expect(bounds.x).toBeGreaterThanOrEqual(0);expect(bounds.y).toBeGreaterThanOrEqual(0);expect(bounds.height).toBeLessThanOrEqual(size.h);expect(await confirmation.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBeTruthy();
  await page.keyboard.press('Escape');await page.keyboard.press('Escape');
  await navigate(page,'Clients');await noOverflow();
- await page.goto('/view/public');await expect(page.getByText('Public view · Read only',{exact:true})).toBeVisible();await navigate(page,'Reports');await noOverflow();
+ await page.goto('/view/public');await expect(page.getByText('Public view · Read only',{exact:true})).toBeVisible();await navigate(page,'Clients');await noOverflow();
  await expect(page.getByRole('button',{name:'Export report CSV'})).toHaveCount(0);
 });

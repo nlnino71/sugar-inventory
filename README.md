@@ -1,5 +1,13 @@
 # Sugar Inventory
 
+## Current client-facing scope
+
+As requested on 29 October 2026, the inventory UI follows the supplied client HTML’s six sections: **Dashboard, Stock, SRO Registry, Withdrawal, Clients, More**. Existing workspace styling and Sugar/Edible Oil separation are retained. Dashboard contains only the sugar-type pie, combined vertical quantities/withdrawals/balance chart, and the separately requested vertical withdrawal chart for every client, all using all saved records. Reports, Spreadsheet, contact-directory editing, unit conversion controls, custom alert controls, movement trends, aging/sailing panels, and visible activity history are removed from the client workspace. Old Reports/Spreadsheet URLs redirect to Dashboard.
+
+More retains quantity-unit labeling (without conversion), exports with full company filenames, file backup/restore, CSV import, and the previously requested public sharing for both companies. Client details show withdrawal totals and delivery history. Sign-in, private cloud storage, revision checks, automatic account snapshots, data auditing and the role-protected `/superadmin` administration URL continue. No saved inventory, contacts, history or company data is deleted by this UI update. Automatic snapshot creation remains active, while its extra account-backup management screen is no longer shown.
+
+The historical implementation notes below describe earlier features and are superseded by this scope where they differ.
+
 Existing inventory interface, packaged with Vite for Vercel, using Supabase Auth and PostgreSQL. Every registered account owns a separate private inventory. Receipts, issuance lines, clients and settings are stored together in a JSONB document; revision checks prevent concurrent browser sessions from silently overwriting each other. This preserves the original backup format and atomic multi-record edits.
 
 ## Supabase setup
