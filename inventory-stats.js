@@ -30,7 +30,7 @@ export function inventorySpecs(state,days=30,end=new Date().toISOString().slice(
  const spec=(key,title,note,type,labels,datasets,extra={})=>({key:'inventory-'+key,title,note,type,labels,datasets,decimals:true,emptyLabel:'inventory quantities',...extra});
  const series=(label,data)=>({label:label+' · '+unit,data});
  return {from,to:end,undated,specs:[
-  spec('sugar-summary','SRO Quantity, Withdrawal and Balance by sugar type','All recorded quantities · '+unit+'. Negative balances show shortages.','bar',stock.map(x=>x[0]),[series('SRO Quantity',stock.map(([type])=>typeTotals.get(type).received)),series('Withdrawal',stock.map(([type])=>typeTotals.get(type).issued)),series('Balance',stock.map(x=>x[1]))],{wide:true,allCategories:true}),
+  spec('sugar-summary','SRO Quantity, Withdrawal and Balance by sugar type','All recorded quantities · '+unit+'. Negative balances show shortages.','bar',stock.map(x=>x[0]),[series('SRO Quantity',stock.map(([type])=>typeTotals.get(type).received)),series('Withdrawal',stock.map(([type])=>typeTotals.get(type).issued)),series('Balance',stock.map(x=>x[1]))],{wide:true,allCategories:true,referenceBars:true}),
   spec('movements','Received and issued','Daily quantities in the selected period · '+unit,'bar',labels,[series('Received',values.map(d=>d.received)),series('Issued',values.map(d=>d.issued))],{wide:true}),
   spec('balance','Running stock balance','End-of-day balance, including stock before this period. Undated records are excluded.','line',labels,[series('Balance',balances)],{wide:true}),
   spec('types','Balance by sugar type','All recorded quantities, including future and undated records. Negative values show shortages.','bar',stock.map(x=>x[0]),[series('On hand',stock.map(x=>x[1]))],{horizontal:true}),
