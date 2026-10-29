@@ -312,3 +312,9 @@ body.login-screen #account{border:0;background:transparent;padding:30px 22px;max
  :root[data-company] .nav-brand .product-name,:root[data-company] .nav-brand small{color:var(--company-sidebar-text)}
 }
 :root[data-company] .chip-b[aria-pressed="true"]{background:var(--cane);border-color:var(--cane);color:var(--cane-ink)}
+
+.client-total{padding:24px 28px 28px;border-radius:16px;background:var(--cane);color:var(--cane-ink);margin-bottom:28px}
+.client-total p{margin:0 0 12px;font-size:17px;line-height:1.4}
+.client-total-quantity{display:block;font-family:'Barlow Condensed','Arial Narrow',Arial,sans-serif;font-size:clamp(48px,7.5vw,112px);font-weight:700;font-variant-numeric:tabular-nums;line-height:1;letter-spacing:-.025em;overflow-wrap:anywhere}
+@media(max-width:479px){.client-total{padding:20px;border-radius:14px}.client-total p{font-size:15px}.client-total-quantity{font-size:clamp(36px,12vw,56px)}}
+.client-total .sr-only{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}

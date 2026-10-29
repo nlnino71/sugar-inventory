@@ -183,3 +183,5 @@ The sugar-type pie includes a matching HTML legend with teal Raw Sugar, amber Re
 ## Company themes and selection
 
 Selecting Wilmar Sugar applies blue workspace surfaces and accents; selecting Wilmar Edible Oil applies teal. Theme tokens cover the sidebar, navigation selection, controls, stock quantities, gauges, focus, surfaces, primary chart series and exported Excel headers in light/dark/device appearances. Sugar-type pie colors retain their categorical meaning. The company trigger sits beneath the sidebar logo and above Sugar Inventory Monitoring, opening two company buttons with SRO/withdrawal counts and a Current badge. The selected button uses that company's blue/teal fill. Mobile keeps the same chooser accessible at the top of the page.
+
+Clients opens with a company-accent summary banner: “Issued to N clients” above a large, bold Barlow Condensed total. Quantity text scales down on phones, uses tabular numerals, and retains exact displayed precision. Banner foreground follows the company theme's action-text color for light/dark contrast; the rest of the workspace keeps Barlow.

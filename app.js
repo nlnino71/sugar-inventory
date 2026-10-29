@@ -422,7 +422,7 @@ function vClients(){
  const cs=clientStats();
  if(!cs.length)return '<div class="empty"><b>No client withdrawals</b>Issued quantity per client appears here after your first delivery.</div>';
  const total=cs.reduce((n,c)=>n+c.total,0),max=cs[0].total||1;
- return '<section class="setting"><h2>Client withdrawals</h2><p>'+cs.length+' clients · <strong class="num">'+nf(total)+'</strong> '+esc(S.unit)+' issued</p></section><div class="sec"><h2>Issued per client</h2></div>'+cs.map(c=>
+ return '<section class="client-total" aria-label="Total client withdrawals"><p>Issued to '+cs.length+' client'+(cs.length===1?'':'s')+'</p><strong class="client-total-quantity">'+nf(total)+'</strong><span class="sr-only"> '+esc(S.unit)+'</span></section><div class="sec"><h2>Issued per client</h2></div>'+cs.map(c=>
   '<button class="card" data-act="client" data-name="'+esc(c.name)+'"><div class="row"><span class="sro-no">'+esc(c.name)+'</span><b class="num">'+nf(c.total)+'</b></div><div class="sub">'+(total?Math.round(c.total/total*100):0)+'% of issued · '+(c.atw.size||c.lines)+' deliveries · last '+fd(c.last)+'</div><div class="gauge"><i style="width:'+Math.round(c.total/max*100)+'%"></i></div></button>').join('');
 }
 function clientResults(){return '';}
