@@ -154,23 +154,49 @@ async function showAccount(session){
 }
 
 function companyControls(){
- return '<button type="button" class="company-trigger" data-act="company" aria-label="Switch company" aria-haspopup="dialog" aria-expanded="false"><span>'+esc(companyName(CO))+'</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>';
+ return '<button type="button" class="company-trigger" data-act="company" aria-label="Switch company" aria-haspopup="dialog" aria-controls="companyDropdown" aria-expanded="false"><span>'+esc(companyName(CO).toUpperCase())+'</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>';
 }
-function companySheet(){
- document.querySelectorAll('[data-act="company"]').forEach(button=>button.setAttribute('aria-expanded','true'));
- openSheet(sheetHead('Switch company','Each company keeps its own separate records.')+'<div class="company-choices">'+COMPANIES.map(company=>{
+let companyMenuTrigger=null,companyMenuCleanup=null;
+function closeCompanyMenu(restore=true){
+ companyMenuCleanup?.();companyMenuCleanup=null;
+ const menu=$('#companyDropdown'),trigger=companyMenuTrigger;
+ if(menu){if(menu.matches(':popover-open'))menu.hidePopover();menu.remove();}
+ document.querySelectorAll('[data-act="company"]').forEach(button=>button.setAttribute('aria-expanded','false'));
+ companyMenuTrigger=null;if(restore&&trigger?.isConnected)trigger.focus({preventScroll:true});
+}
+function companySheet(trigger){
+ if($('#companyDropdown')){closeCompanyMenu();return;}
+ companyMenuTrigger=trigger;
+ const menu=document.createElement('div');menu.id='companyDropdown';menu.className='company-dropdown';menu.setAttribute('popover','auto');menu.setAttribute('role','dialog');menu.setAttribute('aria-label','Switch company');
+ menu.innerHTML='<div class="company-dropdown-head"><span>SELECT COMPANY</span><button type="button" class="x" data-close-company aria-label="Close">×</button></div><div class="company-choices">'+COMPANIES.map(company=>{
   const inventory=company.id===CO?S:companyInventory(cloudDocument,company.id,blank);
-  return '<button type="button" class="company-choice" data-act="setCompany" data-company="'+company.id+'" aria-pressed="'+(company.id===CO)+'"><span class="company-choice-title">'+esc(company.name)+'</span><span class="company-choice-count">'+inventory.receipts.length+' SRO '+(inventory.receipts.length===1?'quantity':'quantities')+' · '+inventory.issues.length+' withdrawal '+(inventory.issues.length===1?'line':'lines')+'</span>'+(company.id===CO?'<span class="company-choice-current">Current</span>':'')+'</button>';
- }).join('')+'</div>');
+  return '<button type="button" class="company-choice" data-act="setCompany" data-company="'+company.id+'" aria-pressed="'+(company.id===CO)+'"><span class="company-choice-title">'+esc(company.name.toUpperCase())+'</span><span class="company-choice-count">'+inventory.receipts.length+' SRO '+(inventory.receipts.length===1?'quantity':'quantities')+' · '+inventory.issues.length+' withdrawal '+(inventory.issues.length===1?'line':'lines')+'</span>'+(company.id===CO?'<span class="company-choice-current">Current</span>':'')+'</button>';
+ }).join('')+'</div>';
+ document.body.append(menu);
+ const position=()=>{const rect=trigger.getBoundingClientRect(),width=Math.min(340,innerWidth-24);menu.style.width=width+'px';menu.style.left=Math.max(12,Math.min(rect.left,innerWidth-width-12))+'px';menu.style.top=(rect.bottom+8)+'px';menu.style.maxHeight=Math.max(120,innerHeight-rect.bottom-20)+'px';};
+ position();menu.showPopover();trigger.setAttribute('aria-expanded','true');
+ menu.querySelector('[aria-pressed="true"]').focus({preventScroll:true});
+ menu.querySelector('[data-close-company]').onclick=()=>closeCompanyMenu();
+ menu.addEventListener('keydown',event=>{
+  if(event.key==='Escape'){event.preventDefault();closeCompanyMenu();return;}
+  if(!['ArrowDown','ArrowUp','Home','End'].includes(event.key))return;
+  event.preventDefault();const buttons=[...menu.querySelectorAll('.company-choice')],index=buttons.indexOf(document.activeElement);
+  const next=event.key==='Home'?0:event.key==='End'?buttons.length-1:(index+(event.key==='ArrowUp'?-1:1)+buttons.length)%buttons.length;buttons[next].focus();
+ });
+ menu.addEventListener('toggle',event=>{if(event.newState==='closed'&&menu.isConnected)closeCompanyMenu(false);});
+ menu.addEventListener('focusout',event=>{if(event.relatedTarget&&!menu.contains(event.relatedTarget)&&event.relatedTarget!==trigger)closeCompanyMenu(false);});
+ const resize=()=>closeCompanyMenu(false),scroll=event=>{if(event.target instanceof Node&&menu.contains(event.target))return;const rect=trigger.getBoundingClientRect();if(rect.bottom<=0||rect.top>=innerHeight)closeCompanyMenu(false);else position();};
+ window.addEventListener('resize',resize);document.addEventListener('scroll',scroll,true);companyMenuCleanup=()=>{window.removeEventListener('resize',resize);document.removeEventListener('scroll',scroll,true);};
 }
 async function setCompany(id){
+ const fromCompanyMenu=!!$('#companyDropdown');
  if(saving||exportingXlsx||!COMPANIES.some(c=>c.id===id))return;
- if(id===CO){closeSheet();return;}
+ if(id===CO){closeCompanyMenu();return;}
  if(spreadsheetView&&!await spreadsheetView.canLeave())return;
  CO=id;S=companyInventory(cloudDocument,CO,blank);committed=structuredClone(S);
  if(readOnly){const next=new URL(location.href);next.searchParams.set('company',CO);history.replaceState(history.state,'',next.pathname+next.search+next.hash);}else try{localStorage.setItem('inventory-company:'+accountId,CO);}catch{}
  filter='all';q='';rq='';rcrop='all';rtype='all';stockType=null;clientQuery='';
- deliveryFilter={query:'',from:'',to:'',client:''};closeSheet();render();toast('Switched to '+companyName(CO));
+ deliveryFilter={query:'',from:'',to:'',client:''};closeSheet();render();if(fromCompanyMenu)queueMicrotask(()=>[...document.querySelectorAll('[data-act="company"]')].find(button=>button.getClientRects().length)?.focus({preventScroll:true}));toast('Switched to '+companyName(CO));
 }
 
 
@@ -265,6 +291,7 @@ function syncPageTitle(){
  document.title=page+' - Sugar Inventory';
 }
 function render(){
+  closeCompanyMenu(false);
   COMPANY=companyName(CO).toUpperCase(); APPNAME=COMPANY+' Sugar Inventory Monitoring';
   document.documentElement.dataset.company=CO;
   syncThemeControl();
@@ -1220,7 +1247,7 @@ document.addEventListener('click',async e=>{
   if(!ready||saving) return; const t=e.target.closest('[data-act]'); if(!t) return; const a=t.dataset.act, d=t.dataset;
   if(readOnly&&!['tab','filter','sro','client','company','setCompany','close','resetDelivery','xlsx'].includes(a))return;
   switch(a){
-    case 'company': companySheet();break;
+    case 'company': companySheet(t);break;
     case 'setCompany': await setCompany(d.company);break;
     case 'delType': {
       const rows=registryRows(S,{type:rtype,crop:rcrop,query:rq});if(rtype==='all'||!rows.length)break;

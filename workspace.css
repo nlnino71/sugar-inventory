@@ -319,3 +319,12 @@ body.login-screen #account{border:0;background:transparent;padding:30px 22px;max
 @media(max-width:479px){.client-total{padding:20px;border-radius:14px}.client-total p{font-size:15px}.client-total-quantity{font-size:clamp(36px,12vw,56px)}}
 .client-total .sr-only{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 .transfer-panel .btn{height:auto;min-height:46px;white-space:normal;overflow-wrap:anywhere}
+
+.company-dropdown{position:fixed;inset:auto;margin:0;padding:12px;border:1px solid var(--control-line);border-radius:12px;background:var(--surface);color:var(--ink);box-shadow:0 10px 28px rgb(0 0 0 / .24);overflow-y:auto}
+.company-dropdown::backdrop{background:transparent}
+.company-dropdown-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px;font-size:12px;font-weight:600;letter-spacing:.04em}
+.company-dropdown-head .x{width:32px;height:32px;font-size:18px}
+.company-dropdown .company-choices{gap:8px}
+.company-dropdown .company-choice{padding:14px}
+.company-dropdown .company-choice-title{font-size:14px;line-height:1.5;letter-spacing:0}
+.company-dropdown .company-choice-count{font-size:12px}

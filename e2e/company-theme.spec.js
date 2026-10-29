@@ -17,12 +17,19 @@ test('company chooser lives above the sidebar product and applies blue or teal t
  }
  await page.getByRole('button',{name:'Switch company',exact:true}).click();
  const chooser=page.getByRole('dialog',{name:'Switch company',exact:true});await expect(chooser.locator('.company-choice')).toHaveCount(2);
+ const triggerBounds=await page.getByRole('button',{name:'Switch company',exact:true}).boundingBox(),menuBounds=await chooser.boundingBox();
+ expect(Math.abs(menuBounds.y-triggerBounds.y-triggerBounds.height-8)).toBeLessThan(2);
+ await expect(page.locator('#sheet')).not.toHaveClass(/on/);await expect(page.locator('#scrim')).not.toHaveClass(/on/);
+ await expect(chooser.locator('.company-choice-title').first()).toHaveText('WILMAR SUGAR PHILIPPINES INC.');
  await expect(chooser.locator('[data-company="oil"]')).toContainText('Current');await expect(chooser.locator('[data-company="sugar"]')).toContainText('1 SRO quantity · 1 withdrawal line');
+ await page.getByRole('button',{name:'Switch company',exact:true}).click();await expect(chooser).toHaveCount(0);
+ await page.getByRole('button',{name:'Switch company',exact:true}).click();await page.getByRole('heading',{name:'Dashboard',exact:true}).click();await expect(chooser).toHaveCount(0);
+ await page.getByRole('button',{name:'Switch company',exact:true}).click();await page.keyboard.press('Home');await expect(chooser.locator('[data-company="sugar"]')).toBeFocused();
  await chooser.locator('[data-company="sugar"]').click();await expectCompany(page,'sugar');expect(await accent()).toBe('#096d9e');
  await page.getByRole('button',{name:'Switch to dark mode',exact:true}).click();expect(await accent()).toBe('#5bb6e8');
  await page.getByRole('button',{name:'Switch company',exact:true}).click();await expect(chooser.locator('[data-company="sugar"]')).toHaveAttribute('aria-pressed','true');
  await page.screenshot({path:'/tmp/company-chooser-'+info.project.name+'.png',fullPage:false,animations:'disabled'});
- await page.getByRole('button',{name:'Close',exact:true}).click();await page.getByRole('button',{name:'Stock',exact:true}).click();await expect(page.locator('#sroList')).toContainText('SUGAR');await expect(page.locator('#sroList')).not.toContainText('OIL');
+ await page.keyboard.press('Escape');await expect(chooser).toHaveCount(0);await expect(page.getByRole('button',{name:'Switch company',exact:true})).toBeFocused();await page.getByRole('button',{name:'Stock',exact:true}).click();await expect(page.locator('#sroList')).toContainText('SUGAR');await expect(page.locator('#sroList')).not.toContainText('OIL');
  await page.screenshot({path:'/tmp/company-sugar-'+info.project.name+'.png',fullPage:false,animations:'disabled'});
  await selectCompany(page,'oil');expect(await accent()).toBe('#4fc3bf');await expect(page.locator('#sroList')).toContainText('OIL');
  await page.reload();await expectCompany(page,'oil');expect(await accent()).toBe('#4fc3bf');
