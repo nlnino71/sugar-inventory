@@ -3,7 +3,7 @@ test('motion is brief and respects the device reduced-motion preference',async({
  await page.route(/https:\/\/fonts\.(googleapis|gstatic)\.com\//,r=>r.abort());
  await page.emulateMedia({reducedMotion:'no-preference'});await page.goto('/');
  await page.locator('#sheet').evaluate(el=>{document.body.classList.add('workspace');el.classList.add('on');});
- await expect(page.locator('#sheet')).toHaveCSS('animation-name',info.project.name==='desktop'?'inventory-side-sheet':'inventory-sheet');
+ await expect(page.locator('#sheet')).toHaveCSS('animation-name',page.viewportSize().width>=1024?'inventory-side-sheet':'inventory-sheet');
  await expect(page.locator('#sheet')).toHaveCSS('animation-duration','0.2s');
  await page.emulateMedia({reducedMotion:'reduce'});
  await expect(page.locator('#sheet')).toHaveCSS('animation-name','none');

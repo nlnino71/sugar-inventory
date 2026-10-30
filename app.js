@@ -311,11 +311,11 @@ function render(){
   document.body.classList.toggle('workspace',ready);
   const nextView=adminView&&ready&&isSuperadmin&&!readOnly?'superadmin':tab;
   const main=$('#main');
-  if(main.dataset.view!==nextView&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&typeof main.animate==='function'){
+  if((main.dataset.view!==nextView||main.dataset.company!==CO)&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&typeof main.animate==='function'){
     main.getAnimations().forEach(animation=>animation.cancel());
-    main.animate([{opacity:.6},{opacity:1}],{duration:160,easing:'ease-out'});
+    main.animate([{opacity:.8,transform:'translateY(6px)'},{opacity:1,transform:'translateY(0)'}],{duration:220,easing:'cubic-bezier(.16,1,.3,1)'});
   }
-  main.dataset.view=nextView;
+  main.dataset.view=nextView;main.dataset.company=CO;
   $('#title').textContent=TITLES[tab]; $('#unitLbl').textContent='Unit: '+S.unit;
   renderNav();
   if(adminView&&ready&&isSuperadmin&&!readOnly){$('#main').dataset.view='superadmin';$('#title').textContent='Superadmin';adminCleanup=openAdmin(db,$('#main'));return;}
