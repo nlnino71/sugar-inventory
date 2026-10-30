@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<script>if(location.pathname.startsWith('/view/')||new URLSearchParams(location.hash.slice(1)).has('view'))document.documentElement.classList.add('public-pending');</script>
+<style>.public-pending body{visibility:hidden}</style>
 <link rel="icon" href="/favicon.ico?v=2" sizes="any">
 <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">
 <link rel="icon" href="/favicon-32.png?v=2" type="image/png" sizes="32x32">

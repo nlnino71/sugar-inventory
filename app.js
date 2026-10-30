@@ -1,3 +1,4 @@
+import {mountInventory} from './inventory-charts.js';
 import {createScopedBackup,prepareScopedRestore} from './backup-scope.js';
 import {COMPANIES,companyName,companyInventory,saveCompany,registryRows} from './companies.js';
 import {isSimpleAuditEvent} from './audit-policy.js';
@@ -316,9 +317,7 @@ function render(){
   if(ready)$('#main').insertAdjacentHTML('afterbegin','<div class="company-mobile">'+companyControls()+'</div>');
   if(tab==='more'&&isSuperadmin&&!readOnly)$('#main').insertAdjacentHTML('beforeend','<section class="setting" id="superadminEntry"><h2>Superadmin</h2><p>Private administration for your account: company inventories, accounts, traffic, authentication, sessions and activity.</p><button type="button" class="btn primary" data-act="superadmin">Open superadmin</button></section>');
   if(tab==='dashboard'){
-    const host=$('#inventoryCharts');let cancelled=false,dispose=null;
-    inventoryCleanup=()=>{cancelled=true;dispose?.();};
-    import('./inventory-charts.js').then(({mountInventory})=>{if(!cancelled)dispose=mountInventory(host,S,today(),inventoryDays,days=>{inventoryDays=days;});}).catch(()=>{if(!cancelled)host.innerHTML='<p class="hint">Charts could not load. Reload the page to try again.</p>';});
+    inventoryCleanup=mountInventory($('#inventoryCharts'),S);
   }
   if(tab==='stock') updateList();
   if(tab==='receive') updateRList();
@@ -1237,7 +1236,7 @@ function deliveryFilters(){
  return '<div class="filter-panel"><label class="f wide">Find deliveries<input id="deliveryQuery" type="search" value="'+esc(deliveryFilter.query)+'" placeholder="ATW, SRO, client, batch, vessel…"></label><label class="f">From<input type="date" data-delivery="from" value="'+esc(deliveryFilter.from)+'"></label><label class="f">To<input type="date" data-delivery="to" value="'+esc(deliveryFilter.to)+'"></label><label class="f wide">Client<select data-delivery="client">'+options(knownClients(),deliveryFilter.client,'All clients')+'</select></label><button class="btn" data-act="resetDelivery">Clear filters</button></div>';
 }
 function vDashboard(){
- return '<section id="inventoryCharts" class="admin-statistics" aria-label="Dashboard charts"><p class="hint">Loading dashboard charts…</p></section>';
+ return '<section id="inventoryCharts" class="admin-statistics" aria-label="Dashboard charts"></section>';
 }
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')void activity.flush();});
 window.addEventListener('pagehide',()=>void activity.flush());
@@ -1374,13 +1373,15 @@ async function updateSharing(changes){
  finally{saving=false;lock(false);}
 }
 async function showPublic(){
- await activity.stop();startGuest('public-loading');
+ const cacheKey='inventory-public-view:'+ (slugPath?'slug:'+publicSlug:'token:'+publicToken);
+ const display=data=>{cloudDocument=data;CO=new URL(location.href).searchParams.get('company')==='sugar'?'sugar':'oil';S=companyInventory(cloudDocument,CO,blank);committed=structuredClone(S);ready=true;restoreNavigation();$('#nav').hidden=false;$('#main').hidden=false;render();lock(false);document.documentElement.classList.remove('public-pending');};
+ if(!ready)try{const cached=JSON.parse(sessionStorage.getItem(cacheKey));if(cached&&Array.isArray(cached.receipts)&&Array.isArray(cached.issues))display(cached);}catch{}
  document.body.classList.remove('login-screen');
  const refreshing=ready;
  $('#account').hidden=true;$('#signOut').hidden=true;
  $('#nav').hidden=!refreshing;$('#main').hidden=!refreshing;
  $('#reloadCloud').disabled=true;
- $('#cloudStatus').hidden=false;$('#cloudStatus').textContent=refreshing?'Updating…':'Loading…';
+ $('#cloudStatus').hidden=!refreshing;$('#cloudStatus').textContent='Public view · Read only';
  $('#main').setAttribute('aria-busy','true');
  try{
   if(slugPath&&!validSlug(publicSlug))throw new Error('This sharing address is invalid.');
@@ -1388,8 +1389,9 @@ async function showPublic(){
   const {data,error}=await db.rpc(slugPath?'get_public_inventory_by_slug':'get_public_inventory',slugPath?{share_slug:publicSlug}:{share_token:publicToken});
   if(error)throw new Error('Public sharing is not available. Ask the owner to finish sharing setup.');
   if(!data)throw new Error('This link is disabled or has been replaced. Ask the owner for a new link.');
-  cloudDocument=data;CO=new URL(location.href).searchParams.get('company')==='sugar'?'sugar':'oil';S=companyInventory(cloudDocument,CO,blank);committed=structuredClone(S);ready=true;restoreNavigation();await activity.stop();startGuest(tab,{slug:publicSlug,shareToken:publicToken});$('#nav').hidden=false;$('#main').hidden=false;render();lock(false);
- }catch(error){ready=false;$('#nav').hidden=true;$('#main').hidden=false;trackPage('public-unavailable');$('#main').innerHTML='<div class="empty"><b>Shared inventory unavailable</b>'+esc(error.message)+'</div>';$('#cloudStatus').textContent='Public view unavailable';}
+  try{sessionStorage.setItem(cacheKey,JSON.stringify(data));}catch{}
+  display(data);await activity.stop();startGuest(tab,{slug:publicSlug,shareToken:publicToken});
+ }catch(error){try{sessionStorage.removeItem(cacheKey);}catch{}document.documentElement.classList.remove('public-pending');ready=false;$('#nav').hidden=true;$('#main').hidden=false;trackPage('public-unavailable');$('#main').innerHTML='<div class="empty"><b>Shared inventory unavailable</b>'+esc(error.message)+'</div>';$('#cloudStatus').textContent='Public view unavailable';}
  finally{$('#reloadCloud').disabled=false;$('#main').removeAttribute('aria-busy');}
 }
 

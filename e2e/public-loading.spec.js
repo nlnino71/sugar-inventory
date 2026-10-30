@@ -14,8 +14,10 @@ test('public loading skips the loading card and refresh keeps current content un
  await expect(page.getByText('Loading shared inventory…')).toHaveCount(0);
  await expect(page.locator('#main')).toBeHidden();
  release();await expect(page.locator('#inventoryCharts')).toBeVisible();
- await page.getByRole('button',{name:'Refresh',exact:true}).click();
+ await page.reload();
  await expect.poll(()=>requests).toBe(2);
+ await expect(page.getByText('Loading…',{exact:true})).toHaveCount(0);
+ await expect(page.locator('html')).not.toHaveClass(/public-pending/);
  await expect(page.locator('#inventoryCharts')).toBeVisible();
  await expect(page.locator('#main')).toHaveAttribute('aria-busy','true');
  release();await expect(page.locator('#main')).not.toHaveAttribute('aria-busy');
