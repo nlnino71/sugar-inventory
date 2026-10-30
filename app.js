@@ -82,10 +82,11 @@ function applyTheme(theme){
  syncThemeControl();
 }
 
+function cacheAccount(){if(accountId&&!readOnly)try{sessionStorage.setItem('inventory-account-view:'+accountId,JSON.stringify({data:cloudDocument,revision}));}catch{}}
 async function readCloud(){
   const {data,error}=await db.from('inventory').select('data,revision').eq('owner_id',accountId).single();
   if(error) throw error;
-  cloudDocument=data.data; S=companyInventory(cloudDocument,CO,blank); revision=data.revision; committed=structuredClone(S);
+  cloudDocument=data.data; S=companyInventory(cloudDocument,CO,blank); revision=data.revision; committed=structuredClone(S);cacheAccount();
 }
 async function save(options={}){
   if(!ready||saving||readOnly) return false;
@@ -103,7 +104,7 @@ async function save(options={}){
       toast('Inventory changed on another device. Latest records loaded; please reapply your edit.');
       return false;
     }
-    revision=data; cloudDocument=document; S=next; committed=structuredClone(next); return true;
+    revision=data; cloudDocument=document; S=next; committed=structuredClone(next);cacheAccount(); return true;
   } catch(error){
     track('save.failed',{revision,code:String(error.code||'unknown').slice(0,80)});
     S=structuredClone(committed); if(!options.preserveView)render();
@@ -132,6 +133,7 @@ async function restoreAccountBackup(backupId){
 }
 async function showAccount(session){
   await activity.stop();
+  if(!session&&accountId)try{sessionStorage.removeItem('inventory-account-view:'+accountId);}catch{}
   isSuperadmin=false;
   document.body.classList.toggle('login-screen',!session);
   if(accountId!==(session?.user?.id||null)){transferScope='company';tab='dashboard';adminView=false;q='';rq='';clientQuery='';deliveryFilter={query:'',from:'',to:'',client:''};}
@@ -141,6 +143,10 @@ async function showAccount(session){
   ready=false; closeSheet(true); S=blank();committed=structuredClone(S); render();
   $('#account').hidden=!!session; $('#nav').hidden=true;
   if(!session){startGuest(authMode==='signup'?'signup':'signin'); lock(false); $('#main').hidden=true; $('#accountMessage').textContent='Sign in with your inventory account.'; return; }
+  try{const cached=JSON.parse(sessionStorage.getItem('inventory-account-view:'+accountId));if(cached?.data&&Array.isArray(cached.data.receipts)&&Array.isArray(cached.data.issues)){
+    cloudDocument=cached.data;revision=cached.revision;S=companyInventory(cloudDocument,CO,blank);committed=structuredClone(S);ready=true;saving=true;
+    restoreNavigation();if(adminView){adminView=false;tab='dashboard';}render();$('#main').hidden=false;$('#nav').hidden=false;$('#account').hidden=true;$('#main').inert=true;document.documentElement.classList.remove('session-pending');
+  }}catch{}
   try { const {error:setupError}=await db.rpc('ensure_inventory');if(setupError)throw setupError; await readCloud();
     const {data:adminAllowed}=await db.rpc('is_inventory_admin');
     if(accountId!==session.user.id)return;
@@ -150,8 +156,8 @@ async function showAccount(session){
     trackPage(tab);
     void db.rpc('record_inventory_access',{device:deviceInfo()}).then(()=>{},()=>{});
     ready=true; $('#main').hidden=false; $('#account').hidden=true; $('#nav').hidden=false; render(); }
-  catch(error){ $('#account').hidden=false;$('#main').hidden=true; $('#accountMessage').textContent=(error.code==='PGRST116'||error.code==='42501')?'Your private inventory could not be opened. Select Refresh to retry. If this continues, ask the site owner to finish the account-inventories database upgrade.':'Could not load inventory. Select Refresh to retry. '+error.message; }
-  lock(false);
+  catch(error){ready=false;try{sessionStorage.removeItem('inventory-account-view:'+accountId);}catch{}$('#nav').hidden=true; $('#account').hidden=false;$('#main').hidden=true; $('#accountMessage').textContent=(error.code==='PGRST116'||error.code==='42501')?'Your private inventory could not be opened. Select Refresh to retry. If this continues, ask the site owner to finish the account-inventories database upgrade.':'Could not load inventory. Select Refresh to retry. '+error.message; }
+  saving=false;$('#main').inert=false;lock(false);
 }
 
 function companyControls(){

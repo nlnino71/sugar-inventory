@@ -2,6 +2,7 @@ import {test,expect} from '@playwright/test';
 import {navigate,selectCompany,expectCompany} from './navigation.js';
 test('matches client sections and dashboard content while preserving records and styling',async({page},info)=>{
  const state={unit:'bags (LKg)',receipts:[{id:'r1',sro:'OIL-1',type:'Raw Sugar',mill:'Oil mill',date:'2024-01-01',qty:100,crop:'2023-2024'}],issues:[{id:'i1',sro:'OIL-1',type:'Raw Sugar',date:'2024-02-01',client:'Client A',qty:25,seq:1,van:'ABC 1234'}],clients:['Client A'],clientProfiles:{'Client A':{email:'private@example.com'}},activity:[{summary:'Private history'}],seq:1,companyInventories:{sugar:{unit:'kg',receipts:[],issues:[],clients:[],seq:0}}};
+ let delayInventory=false,releaseInventory;
  const writes=[];const errors=[];page.on('pageerror',e=>errors.push(e.message));
  const user={id:'11111111-1111-1111-1111-111111111111',aud:'authenticated',role:'authenticated',email:'staff@example.com',app_metadata:{provider:'email'},user_metadata:{}};
  await page.route(/https:\/\/fonts\.(googleapis|gstatic)\.com\//,r=>r.abort());
@@ -10,13 +11,18 @@ test('matches client sections and dashboard content while preserving records and
   if(url.includes('/auth/v1/user'))return r.fulfill({json:user});
   if(url.includes('/rpc/save_inventory')){writes.push(r.request().postDataJSON());return r.fulfill({json:1});}
   if(url.includes('/rest/v1/inventory_shares'))return r.fulfill({json:{enabled:true,slug:'public',token:user.id}});
-  if(url.includes('/rest/v1/inventory'))return r.fulfill({json:{data:state,revision:0}});
+  if(url.includes('/rest/v1/inventory')){if(delayInventory)await new Promise(resolve=>releaseInventory=resolve);return r.fulfill({json:{data:state,revision:0}});}
   return r.fulfill({json:null});
  });
  await page.goto('/');await page.getByLabel('Email',{exact:true}).fill(user.email);await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();
  await expect(page.locator('#title')).toHaveText('Dashboard');
  await expect(page.locator('#inventoryCharts canvas')).toHaveCount(3);
- await page.reload();
+ delayInventory=true;await page.reload();
+ await expect(page.locator('#inventoryCharts canvas')).toHaveCount(3);
+ await expect(page.locator('html')).not.toHaveClass(/session-pending/);
+ await expect(page.locator('#main')).toHaveAttribute('inert','');
+ await expect.poll(()=>typeof releaseInventory).toBe('function');releaseInventory();delayInventory=false;
+ await expect(page.locator('#main')).not.toHaveAttribute('inert');
  await expect(page.locator('#inventoryCharts canvas')).toHaveCount(3);
  await expect(page.locator('#account')).toBeHidden();
  await expect(page.getByText('Connecting to Supabase…')).toHaveCount(0);
