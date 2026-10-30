@@ -1376,17 +1376,21 @@ async function updateSharing(changes){
 async function showPublic(){
  await activity.stop();startGuest('public-loading');
  document.body.classList.remove('login-screen');
- ready=false;$('#account').hidden=true;$('#nav').hidden=true;$('#signOut').hidden=true;$('#main').hidden=false;
- $('#cloudStatus').hidden=false;$('#cloudStatus').textContent='Loading public inventory…';
- $('#main').innerHTML='<p class="setting" role="status">Loading shared inventory…</p>';
+ const refreshing=ready;
+ $('#account').hidden=true;$('#signOut').hidden=true;
+ $('#nav').hidden=!refreshing;$('#main').hidden=!refreshing;
+ $('#reloadCloud').disabled=true;
+ $('#cloudStatus').hidden=false;$('#cloudStatus').textContent=refreshing?'Updating…':'Loading…';
+ $('#main').setAttribute('aria-busy','true');
  try{
   if(slugPath&&!validSlug(publicSlug))throw new Error('This sharing address is invalid.');
   if(!slugPath&&!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(publicToken))throw new Error('This sharing link is invalid.');
   const {data,error}=await db.rpc(slugPath?'get_public_inventory_by_slug':'get_public_inventory',slugPath?{share_slug:publicSlug}:{share_token:publicToken});
   if(error)throw new Error('Public sharing is not available. Ask the owner to finish sharing setup.');
   if(!data)throw new Error('This link is disabled or has been replaced. Ask the owner for a new link.');
-  cloudDocument=data;CO=new URL(location.href).searchParams.get('company')==='sugar'?'sugar':'oil';S=companyInventory(cloudDocument,CO,blank);committed=structuredClone(S);ready=true;restoreNavigation();await activity.stop();startGuest(tab,{slug:publicSlug,shareToken:publicToken});$('#nav').hidden=false;render();lock(false);
- }catch(error){trackPage('public-unavailable');$('#main').innerHTML='<div class="empty"><b>Shared inventory unavailable</b>'+esc(error.message)+'</div>';$('#cloudStatus').textContent='Public view unavailable';}
+  cloudDocument=data;CO=new URL(location.href).searchParams.get('company')==='sugar'?'sugar':'oil';S=companyInventory(cloudDocument,CO,blank);committed=structuredClone(S);ready=true;restoreNavigation();await activity.stop();startGuest(tab,{slug:publicSlug,shareToken:publicToken});$('#nav').hidden=false;$('#main').hidden=false;render();lock(false);
+ }catch(error){ready=false;$('#nav').hidden=true;$('#main').hidden=false;trackPage('public-unavailable');$('#main').innerHTML='<div class="empty"><b>Shared inventory unavailable</b>'+esc(error.message)+'</div>';$('#cloudStatus').textContent='Public view unavailable';}
+ finally{$('#reloadCloud').disabled=false;$('#main').removeAttribute('aria-busy');}
 }
 
 function setAuthMode(mode){
