@@ -16,6 +16,10 @@ test('matches client sections and dashboard content while preserving records and
  await page.goto('/');await page.getByLabel('Email',{exact:true}).fill(user.email);await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();
  await expect(page.locator('#title')).toHaveText('Dashboard');
  await expect(page.locator('#inventoryCharts canvas')).toHaveCount(3);
+ await page.reload();
+ await expect(page.locator('#inventoryCharts canvas')).toHaveCount(3);
+ await expect(page.locator('#account')).toBeHidden();
+ await expect(page.getByText('Connecting to Supabase…')).toHaveCount(0);
  await expect(page.locator('#nav [data-act="tab"]')).toHaveCount(6);
  expect(await page.locator('#nav [data-act="tab"]').allTextContents()).toEqual(['Dashboard','Stock','SRO Registry','Withdrawal','Clients','More']);
  await expect(page.getByText('Stock needs attention',{exact:true})).toHaveCount(0);await expect(page.getByText('Recent changes',{exact:true})).toHaveCount(0);

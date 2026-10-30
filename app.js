@@ -139,7 +139,7 @@ async function showAccount(session){
   CO='oil';try{const stored=localStorage.getItem('inventory-company:'+accountId);if(COMPANIES.some(c=>c.id===stored))CO=stored;}catch{}
   shareSettings=null;shareError='';revision=0;
   ready=false; closeSheet(true); S=blank();committed=structuredClone(S); render();
-  $('#account').hidden=false; $('#nav').hidden=true;
+  $('#account').hidden=!!session; $('#nav').hidden=true;
   if(!session){startGuest(authMode==='signup'?'signup':'signin'); lock(false); $('#main').hidden=true; $('#accountMessage').textContent='Sign in with your inventory account.'; return; }
   try { const {error:setupError}=await db.rpc('ensure_inventory');if(setupError)throw setupError; await readCloud();
     const {data:adminAllowed}=await db.rpc('is_inventory_admin');
@@ -150,7 +150,7 @@ async function showAccount(session){
     trackPage(tab);
     void db.rpc('record_inventory_access',{device:deviceInfo()}).then(()=>{},()=>{});
     ready=true; $('#main').hidden=false; $('#account').hidden=true; $('#nav').hidden=false; render(); }
-  catch(error){ $('#main').hidden=true; $('#accountMessage').textContent=(error.code==='PGRST116'||error.code==='42501')?'Your private inventory could not be opened. Select Refresh to retry. If this continues, ask the site owner to finish the account-inventories database upgrade.':'Could not load inventory. Select Refresh to retry. '+error.message; }
+  catch(error){ $('#account').hidden=false;$('#main').hidden=true; $('#accountMessage').textContent=(error.code==='PGRST116'||error.code==='42501')?'Your private inventory could not be opened. Select Refresh to retry. If this continues, ask the site owner to finish the account-inventories database upgrade.':'Could not load inventory. Select Refresh to retry. '+error.message; }
   lock(false);
 }
 
@@ -1374,7 +1374,7 @@ async function updateSharing(changes){
 }
 async function showPublic(){
  const cacheKey='inventory-public-view:'+ (slugPath?'slug:'+publicSlug:'token:'+publicToken);
- const display=data=>{cloudDocument=data;CO=new URL(location.href).searchParams.get('company')==='sugar'?'sugar':'oil';S=companyInventory(cloudDocument,CO,blank);committed=structuredClone(S);ready=true;restoreNavigation();$('#nav').hidden=false;$('#main').hidden=false;render();lock(false);document.documentElement.classList.remove('public-pending');};
+ const display=data=>{cloudDocument=data;CO=new URL(location.href).searchParams.get('company')==='sugar'?'sugar':'oil';S=companyInventory(cloudDocument,CO,blank);committed=structuredClone(S);ready=true;restoreNavigation();$('#nav').hidden=false;$('#main').hidden=false;render();lock(false);document.documentElement.classList.remove('public-pending','session-pending');};
  if(!ready)try{const cached=JSON.parse(sessionStorage.getItem(cacheKey));if(cached&&Array.isArray(cached.receipts)&&Array.isArray(cached.issues))display(cached);}catch{}
  document.body.classList.remove('login-screen');
  const refreshing=ready;
@@ -1439,6 +1439,7 @@ else {
  else await showAccount(data.session);
  $('#loginButton').disabled=false;$('#switchAuth').disabled=false;
 }
+document.documentElement.classList.remove('session-pending');
 })();
 
 document.addEventListener('keydown',e=>{
