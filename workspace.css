@@ -79,6 +79,9 @@ body.login-screen #account{border:0;background:transparent;padding:30px 22px;max
 
 /* Private analytics shares the workspace's type, surface and spacing tokens. */
 .admin-statistics{margin:28px 0 44px}
+/* Keep dashboard metric controls close to the page header. */
+#main[data-view="dashboard"]{padding-top:20px}
+#inventoryCharts.admin-statistics{margin-top:0}
 .stats-toolbar{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:16px}
 .stats-toolbar h2{margin:0 0 4px}.stats-toolbar p{margin:0}.stats-toolbar label.f{margin:0;min-width:160px}
 .stats-period{margin:0 0 12px}.admin-stats-metrics{margin:16px 0 24px}
