@@ -14,6 +14,16 @@ test('guests can save the shared inventory as Excel from navigation',async({page
  const workbook=XLSX.read(await readFile(await download.path()),{type:'buffer'});
  expect(workbook.SheetNames).toHaveLength(5);
  expect(Object.values(workbook.Sheets['SRO Registry']).some(c=>c?.v==='PUBLIC-SRO')).toBe(true);
+ const retry=page.getByRole('link',{name:'Download file',exact:true});
+ await expect(retry).toBeVisible();
+ // The file remains available after the old one-second cleanup window.
+ await page.waitForTimeout(1200);
+ const [retried]=await Promise.all([page.waitForEvent('download'),retry.click()]);
+ expect(await retried.failure()).toBeNull();
+ expect(retried.suggestedFilename()).toBe(download.suggestedFilename());
+ const again=XLSX.read(await readFile(await retried.path()),{type:'buffer'});
+ expect(again.SheetNames).toEqual(workbook.SheetNames);
+ await page.getByRole('button',{name:'Close',exact:true}).click();
  await expect(button).toBeEnabled();
  await expect(button.locator('svg')).toHaveCount(1);
  await page.getByRole('button',{name:'Stock',exact:true}).click();

@@ -461,9 +461,15 @@ function vClients(){
 }
 function clientResults(){return '';}
 
+let pendingDownloadUrl=null;
 let DL={async save({filename,data}){
  const blob=new Blob([data],{type:filename.endsWith('.xlsx')?'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':filename.endsWith('.json')?'application/json':'text/csv;charset=utf-8'});
- const href=URL.createObjectURL(blob),a=document.createElement('a'); a.href=href; a.download=filename; a.click(); setTimeout(()=>URL.revokeObjectURL(href),1000);
+ if(pendingDownloadUrl)URL.revokeObjectURL(pendingDownloadUrl);
+ const href=URL.createObjectURL(blob);pendingDownloadUrl=href;
+ openSheet('<h2 id="sheetTitle" tabindex="-1">Your download is ready</h2><p>'+esc(filename)+'</p><p>If the download did not start, use the link below to save the file.</p><a class="btn primary block" id="downloadFile" href="'+href+'" download="'+esc(filename)+'">Download file</a><button class="btn block" data-act="close">Close</button>');
+ const link=$('#downloadFile');
+ link.addEventListener('click',()=>track('file.exported',{filename}));
+ link.click();
 }};
 function vMore(){
   const dl=!!DL;
@@ -519,6 +525,7 @@ function openSheet(html){
 function closeSheet(force=false){
  if(modalOpen('dlg')){$('#dNo')?.click();if(!force)return;}
  const wasOpen=modalOpen('sheet'),trigger=sheetTrigger;
+ if(pendingDownloadUrl){URL.revokeObjectURL(pendingDownloadUrl);pendingDownloadUrl=null;}
  $('#sheet').classList.remove('on');$('#sheet').innerHTML='';sheetTrigger=null;document.querySelectorAll('[data-act="company"]').forEach(button=>button.setAttribute('aria-expanded','false'));syncModalLayers();
  if(wasOpen)track('panel.close');
  if(wasOpen)queueMicrotask(()=>restoreFocus(trigger));
@@ -680,7 +687,7 @@ const recRows=()=>[...S.receipts].sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0
 const issRows=()=>compute().sorted.map(i=>[i.date,i.sro,i.atw,i.type,i.client,i.permit,i.waybill,i.batch,i.qty,i.bol,i.vessel,i.voy,i.sail,i.van]);
 async function saveFile(name,data){
   if(!DL){ toast('Downloads are not available in this view.'); return; }
-  try{ await DL.save({filename:name,data}); track('file.exported',{filename:name});toast('Saved '+name); }
+  try{ await DL.save({filename:name,data});toast('Download ready. If it did not start, use Download file.'); }
   catch(e){ if(e&&e.code==='declined') return; toast('Could not save: '+((e&&e.message)||'unknown error')); }
 }
 const serial=s=>{ const p=s.split('-'); return (Date.UTC(+p[0],+p[1]-1,+p[2])-Date.UTC(1899,11,30))/86400000; };
