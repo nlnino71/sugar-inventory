@@ -1,0 +1,45 @@
+import {test,expect} from '@playwright/test';
+import {readFile} from 'node:fs/promises';
+import XLSX from 'xlsx-js-style';
+import {navigate,selectCompany} from './navigation.js';
+
+test('ATW registry joins withdrawals, saves by company, and exports both ATW worksheets',async({page})=>{
+ const user={id:'11111111-1111-1111-1111-111111111111',aud:'authenticated',role:'authenticated',email:'staff@example.com',app_metadata:{},user_metadata:{}};
+ let state={unit:'bags',receipts:[],issues:[{id:'i1',sro:'SRO-1',atw:' atw-1 ',qty:25}],clients:[],seq:1};
+ await page.route(/https:\/\/fonts\.(googleapis|gstatic)\.com\//,r=>r.abort());
+ await page.route('https://nvkawrmoacikzdfowvem.supabase.co/**',r=>{
+  const url=r.request().url();
+  if(url.includes('/auth/v1/token'))return r.fulfill({json:{access_token:'test-token',refresh_token:'test-refresh',expires_in:3600,user}});
+  if(url.includes('/rpc/save_inventory')){
+   state=r.request().postDataJSON().new_data;
+   return r.fulfill({json:1});
+  }
+  if(url.includes('/rest/v1/inventory?'))return r.fulfill({json:{data:state,revision:0}});
+  return r.fulfill({json:null});
+ });
+ await page.goto('/');
+ await page.getByLabel('Email',{exact:true}).fill(user.email);
+ await page.getByLabel('Password',{exact:true}).fill('password-example');
+ await page.getByRole('button',{name:'Sign in',exact:true}).click();
+ await page.getByRole('button',{name:'New ATW',exact:true}).click();
+ const form=page.locator('#fAtw');
+ await form.getByLabel('ATW No.').fill('ATW-1');
+ await form.getByLabel('Source mill').fill('Mill A');
+ await form.getByLabel('Quantity').fill('100');
+ await form.getByLabel('DR #').fill('DR-1');
+ await form.getByRole('button',{name:'Save ATW'}).click();
+ const registry=page.getByRole('region',{name:'ATW records'});
+ await expect(registry.getByRole('row',{name:/ATW-1 Mill A 100\.00 DR-1/})).toContainText('75.00');
+ await expect(page.locator('[data-chart="atw-mill"]')).toBeVisible();
+ await selectCompany(page,'sugar');
+ await expect(page.getByText('No ATWs recorded yet.',{exact:false})).toBeVisible();
+ await selectCompany(page,'oil');
+ await expect(registry).toContainText('Not shipped');
+ await navigate(page,'More');
+ const [download]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:/Excel workbook.*Wilmar Edible Oil/}).click()]);
+ const book=XLSX.read(await readFile(await download.path()),{type:'buffer'});
+ for(const name of ['ATW Registry','Not Shipped']){
+  expect(XLSX.utils.sheet_to_json(book.Sheets[name],{range:2})[0]).toMatchObject({'ATW No.':'ATW-1','DR #':'DR-1',Withdrawn:25,Balance:75});
+ }
+ expect(Object.values(book.Sheets.Dashboard).some(cell=>cell?.v==='Mill A')).toBe(true);
+});

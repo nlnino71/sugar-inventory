@@ -1,3 +1,5 @@
+import {mountCharts} from './admin-charts.js';
+import {ATW_COLUMNS, atwRows, atwMillTotals, atwValues} from './atw-registry.js';
 import {mountInventory} from './inventory-charts.js';
 import {createScopedBackup,prepareScopedRestore} from './backup-scope.js';
 import {COMPANIES,companyName,companyInventory,saveCompany,registryRows} from './companies.js';
@@ -35,7 +37,7 @@ let isSuperadmin=false,adminCleanup=null,inventoryCleanup=null,inventoryDays=30,
 let backupsCleanup=null;
 let authMode='signin', authBusy=false;
 const KEY='sugar-inventory.v1';
-const blank = ()=>({unit:'bags (LKg)',receipts:[],issues:[],clients:[],seq:0,clientProfiles:{},activity:[],lowStockPercent:20});
+const blank = ()=>({unit:'bags (LKg)',receipts:[],issues:[],clients:[],atws:[],seq:0,clientProfiles:{},activity:[],lowStockPercent:20});
 let CO='oil', cloudDocument=blank(),transferScope='company';
 let S=blank(), committed=structuredClone(S), revision=0, saving=false, ready=false;
 const url=import.meta.env.VITE_SUPABASE_URL;
@@ -323,7 +325,15 @@ function render(){
   if(ready)$('#main').insertAdjacentHTML('afterbegin','<div class="company-mobile">'+companyControls()+'</div>');
   if(tab==='more'&&isSuperadmin&&!readOnly)$('#main').insertAdjacentHTML('beforeend','<section class="setting" id="superadminEntry"><h2>Superadmin</h2><p>Private administration for your account: company inventories, accounts, traffic, authentication, sessions and activity.</p><button type="button" class="btn primary" data-act="superadmin">Open superadmin</button></section>');
   if(tab==='dashboard'){
-    inventoryCleanup=mountInventory($('#inventoryCharts'),S);
+    const cleanCharts=mountInventory($('#inventoryCharts'),S);
+    const mills=readOnly?[]:atwMillTotals(atwRows(S));
+    const cleanAtw=mills.length?mountCharts($('#atwMillChart'),[{
+      key:'atw-mill',title:'ATW quantity by source mill',note:'Quantities in '+S.unit,
+      type:'bar',wide:true,allCategories:true,labels:mills.map(mill=>mill.name),
+      datasets:[{label:'Shipped',data:mills.map(mill=>mill.shipped)},{label:'Not shipped',data:mills.map(mill=>mill.pending)}],
+      shippingStatus:true,emptyLabel:'ATW quantities'
+    }]):null;
+    inventoryCleanup=()=>{cleanCharts();cleanAtw?.();};
   }
   if(tab==='stock') updateList();
   if(tab==='receive') updateRList();
@@ -478,7 +488,7 @@ function vMore(){
    COMPANIES.map(co=>'<button class="btn block" data-act="xlsx" data-company="'+co.id+'"'+(dl?'':' disabled')+'>Excel workbook (.xlsx) — '+esc(co.name)+'</button>').join('')+
    '<button class="btn block" data-act="csvRec"'+(dl?'':' disabled')+'>SRO Registry (.csv)</button>'+
    '<button class="btn block" data-act="csvIss"'+(dl?'':' disabled')+'>Withdrawal (.csv)</button></div>'+
-   '<p>The workbook opens with a Dashboard summary (totals per sugar type, running balance per SRO, issued per client, data checks), followed by SRO Registry, Withdrawal with running balance, SRO Balance and Client Summary sheets.'+(dl?'':' Downloads are not available in this view.')+'</p></div>'+
+   '<p>The workbook opens with a Dashboard summary (totals per sugar type, running balance per SRO, issued per client, data checks), followed by SRO Registry, Withdrawal with running balance, SRO Balance, Client Summary, ATW Registry and Not Shipped sheets.'+(dl?'':' Downloads are not available in this view.')+'</p></div>'+
    '<div class="sec"><h2>Backup and import</h2></div><section class="setting transfer-panel" aria-label="Backup and import"><div class="chips" role="group" aria-label="Backup and restore scope"><button type="button" class="chip-b" data-act="transferScope" data-scope="company" aria-pressed="'+(transferScope==='company')+'">Selected company</button><button type="button" class="chip-b" data-act="transferScope" data-scope="both" aria-pressed="'+(transferScope==='both')+'">Both companies</button></div><p class="transfer-scope-hint">'+(transferScope==='both'?'Backup or restore BOTH Wilmar Sugar and Wilmar Edible Oil inventories together.':'Backup or restore only '+esc(companyName(CO))+'. The other company stays unchanged.')+'</p><div class="stack">'+
    '<button class="btn block" data-act="backup"'+(dl?'':' disabled')+'>Save backup (.json)</button>'+
    '<button class="btn block" data-act="restore">Restore from backup</button>'+
@@ -623,7 +633,7 @@ function issueSheet(opt){
    '<label class="f">SRO number<select name="sro" required><option value="">Select SRO</option>'+orphanOpt+
      list.map(o=>'<option value="'+esc(o.sro)+'"'+(o.sro===sel?' selected':'')+'>'+esc(o.sro)+' · '+esc(o.type||'')+' · '+nf(o.balance)+' left</option>').join('')+'</select></label>'+
    '<div class="info" id="info">Select an SRO to see its type and balance.</div>'+
-   '<div class="two"><label class="f">Ref ATW number<input name="atw" value="'+esc(e?e.atw:'')+'" autocomplete="off"></label>'+
+   '<div class="two"><label class="f">Ref ATW number<input name="atw" list="dlAtw" value="'+esc(e?e.atw:'')+'" autocomplete="off"></label>'+
    '<label class="f">Client<input name="client" list="dlClients" value="'+esc(e?e.client:'')+'" autocomplete="off" required></label></div>'+
    '<div class="two"><label class="f">SRA permit no.<input name="permit" value="'+esc(e?e.permit:'')+'" autocomplete="off"></label>'+
    '<label class="f">Mill waybill number<input name="waybill" value="'+esc(e?e.waybill:'')+'" autocomplete="off"></label></div>'+
@@ -632,7 +642,7 @@ function issueSheet(opt){
    '<label class="f">Vessel<input name="vessel" value="'+esc(e?e.vessel:'')+'" autocomplete="off"></label></div>'+
    '<div class="two"><label class="f">Voy no.<input name="voy" value="'+esc(e?e.voy:'')+'" autocomplete="off"></label>'+
    '<label class="f">Sailing date<input type="date" name="sail" value="'+esc(e?e.sail:'')+'"></label></div>'+
-   dl('dlClients',knownClients())+
+   dl('dlClients',knownClients())+dl('dlAtw',atwRows(S).map(row=>row.atw))+
    '<label class="f" style="margin-bottom:0">Batch codes and quantity</label><div id="batches">'+(e?batchRow(e.batch,e.qty):batchRow()+batchRow())+'</div>'+
    (e?'':'<button type="button" class="btn block" style="margin-top:8px" data-act="addBatch">Add batch code</button>')+
    '<div class="err" id="err" role="alert" tabindex="-1"></div><div class="btns">'+(e?'<button type="button" class="btn danger" data-act="delIssue" data-id="'+esc(e.id)+'">Delete</button>':'')+'<button type="submit" class="btn primary">Save</button></div></form>');
@@ -706,26 +716,47 @@ const SH={
 const isDateCell=c=>c.t==='n'&&c.z&&/mmm/.test(c.z);
 const bodyStyle=c=>c.t==='n'?(isDateCell(c)?SH.date:(c.z==='#,##0.00######'?SH.qty:SH.num)):SH.text;
 const cellLen=c=>{ if(c.v==null||c.v==='') return 0; if(c.t==='n') return isDateCell(c)?11:(c.z&&c.z.indexOf('%')>=0?7:(c.z==='0'?String(c.v).length:nf(c.v).length)); return String(c.v).length; };
-function fmtSheet(ws){
+function fmtSheet(ws,headerRow=0){
   const X=window.XLSX, rg=X.utils.decode_range(ws['!ref']), w=[];
   for(let R=rg.s.r;R<=rg.e.r;R++) for(let C=rg.s.c;C<=rg.e.c;C++){
     const a=X.utils.encode_cell({r:R,c:C}); let cell=ws[a]; if(!cell) cell=ws[a]={t:'s',v:''};
     if(R>0&&cell.t==='n'&&!cell.z) cell.z='#,##0.00######';
-    cell.s=R===0?SH.head:bodyStyle(cell);
+    cell.s=R===headerRow?SH.head:bodyStyle(cell);
     w[C]=Math.max(w[C]||10,Math.min(cellLen(cell)+3,44));
   }
-  ws['!cols']=w.map(x=>({wch:x})); ws['!autofilter']={ref:ws['!ref']};
+  ws['!cols']=w.map(x=>({wch:x})); ws['!autofilter']={ref:X.utils.encode_range({s:{r:headerRow,c:0},e:rg.e})};
 }
 function xlsxBook(){
   const X=window.XLSX; if(!X) return null; const c=compute();
-  const mk=(rows,dateCols,w,pctCols,intCols)=>{ const ws=X.utils.aoa_to_sheet(rows); rows.forEach((r,ri)=>{ if(!ri) return; dateCols.forEach(ci=>{ const a=X.utils.encode_cell({r:ri,c:ci}); const cell=ws[a]; if(cell&&/^\d{4}-\d{2}-\d{2}$/.test(String(cell.v))){ cell.v=serial(cell.v); cell.t='n'; cell.z='dd-mmm-yyyy'; } }); }); (pctCols||[]).concat(intCols||[]).forEach(ci=>{ const z=(pctCols||[]).indexOf(ci)>=0?'0.0%':'0'; rows.forEach((r,ri)=>{ if(!ri) return; const cell=ws[X.utils.encode_cell({r:ri,c:ci})]; if(cell&&cell.t==='n') cell.z=z; }); });
-    fmtSheet(ws); return ws; };
+  const makeAtwSheet=(title,rows)=>{
+    const records=rows.map(row=>{
+      const values=atwValues(row);
+      if(values[4]) values[4]=serial(values[4]);
+      return values;
+    });
+    const ws=X.utils.aoa_to_sheet([[title],[COMPANY+' | Unit: '+S.unit],ATW_COLUMNS,...records]);
+    for(let i=0;i<records.length;i++){
+      const date=ws['E'+(i+4)];
+      if(date?.t==='n')date.z='dd-mmm-yyyy';
+    }
+    fmtSheet(ws,2);
+    ws['!merges']=[0,1].map(r=>({s:{r,c:0},e:{r,c:ATW_COLUMNS.length-1}}));
+    ws['!cols'][0]={wch:24};
+    ws['!cols'][4]={wch:18};
+    ws.A1.s={font:{bold:true,sz:16,color:{rgb:'FFFFFF'}},fill:FILL(COMPANY.startsWith('WILMAR SUGAR')?'096D9E':'0E7C7B')};
+    return ws;
+  };
   const wb=X.utils.book_new();
   X.utils.book_append_sheet(wb,dashSheet(c),'Dashboard');
   X.utils.book_append_sheet(wb,sroQuantitySheet(c),'SRO Registry');
   X.utils.book_append_sheet(wb,issuanceSheet(c),'Withdrawal');
   X.utils.book_append_sheet(wb,sroBalanceSheet(c),'SRO Balance');
   X.utils.book_append_sheet(wb,clientSummarySheet(c),'Client Summary');
+  if(!readOnly){
+    const rows=atwRows(S);
+    X.utils.book_append_sheet(wb,makeAtwSheet('ATW Registry',rows),'ATW Registry');
+    X.utils.book_append_sheet(wb,makeAtwSheet('Not Shipped',rows.filter(a=>!a.ship)),'Not Shipped');
+  }
   return wb;
 }
 function dashSheet(c){
@@ -819,6 +850,24 @@ function dashSheet(c){
   });
   r++;
   /* data checks */
+  if(!readOnly){
+    const atws=atwRows(S), pending=atws.filter(row=>!row.ship);
+    sec(r,'ATW REGISTRY | '+atws.length+' logged | '+pending.length+' not shipped',8); r++;
+    headRow(r,['Source mill','ATWs','Shipped quantity','Not shipped quantity','Not shipped ATWs']); r++;
+    for(const mill of atwMillTotals(atws)){
+      [mill.name,mill.count,mill.shipped,mill.pending,mill.pendingCount].forEach((value,col)=>set(r,col,value,{z:col===1||col===4?'0':undefined}));
+      r++;
+    }
+    r++;
+    sec(r,'ATWs NOT SHIPPED',8); r++;
+    headRow(r,ATW_COLUMNS); r++;
+    if(!pending.length){set(r,0,atws.length?'All ATWs have shipped.':'No ATWs recorded.'); r++;}
+    for(const row of pending){
+      atwValues(row).forEach((value,col)=>set(r,col,value,{fill:'FFC7CE'}));
+      r++;
+    }
+    r++;
+  }
   sec(r,'DATA CHECKS',6); r++;
   const dup=S.receipts.filter(x=>S.receipts.filter(y=>y.sro===x.sro).length>1).length;
   const mis=S.issues.filter(i=>c.by[i.sro]&&i.type&&i.type!==c.by[i.sro].type).length;
@@ -1249,7 +1298,58 @@ function deliveryFilters(){
  return '<div class="filter-panel"><label class="f wide">Find deliveries<input id="deliveryQuery" type="search" value="'+esc(deliveryFilter.query)+'" placeholder="ATW, SRO, client, batch, vessel…"></label><label class="f">From<input type="date" data-delivery="from" value="'+esc(deliveryFilter.from)+'"></label><label class="f">To<input type="date" data-delivery="to" value="'+esc(deliveryFilter.to)+'"></label><label class="f wide">Client<select data-delivery="client">'+options(knownClients(),deliveryFilter.client,'All clients')+'</select></label><button class="btn" data-act="resetDelivery">Clear filters</button></div>';
 }
 function vDashboard(){
- return '<section id="inventoryCharts" class="admin-statistics" aria-label="Dashboard charts"></section>';
+ const charts='<section id="inventoryCharts" class="admin-statistics" aria-label="Dashboard charts"></section>';
+ if(readOnly)return charts;
+ const rows=atwRows(S);
+ const pending=rows.filter(row=>!row.ship).length;
+ return charts+'<section class="setting atw-registry" aria-labelledby="atwHeading">'+
+   '<div class="overview-heading"><div><h2 id="atwHeading">ATW Registry</h2>'+
+   '<p>'+rows.length+' logged · '+(rows.length-pending)+' shipped · '+pending+' not shipped · '+esc(S.unit)+'</p></div>'+
+   '<button class="btn primary" type="button" data-act="newAtw">New ATW</button></div>'+
+   (rows.length?'<div id="atwMillChart"></div><div class="table-scroll" tabindex="0" role="region" aria-label="ATW records"><table class="led"><thead><tr>'+
+     ATW_COLUMNS.map(label=>'<th scope="col">'+label+'</th>').join('')+
+     '<th scope="col">Action</th></tr></thead><tbody>'+rows.map(row=>'<tr>'+
+       atwValues(row).map((value,index)=>index===7?'<td><span class="chip '+(row.ship?'ok':'over')+'">'+esc(value)+'</span></td>':
+       '<td>'+([2,5,6].includes(index)?nf(value):index===4&&value?fd(value):esc(value||'—'))+'</td>').join('')+
+       '<td><button type="button" class="ledger-edit" data-act="editAtw" data-id="'+esc(row.id)+'" aria-label="Edit ATW '+esc(row.atw)+'">Edit</button></td></tr>').join('')+
+     '</tbody></table></div>':'<p class="hint">No ATWs recorded yet. Add an ATW to track its quantity and shipping status.</p>')+
+   '</section>';
+}
+
+function openAtw(id){
+ const row=atwRows(S).find(item=>item.id===id);
+ if(id&&!row)return;
+ openSheet(sheetHead(row?'Edit ATW':'New ATW')+
+   '<form id="fAtw" data-id="'+esc(id||'')+'">'+
+   '<label class="f">ATW No.<input name="atw" required value="'+esc(row?.atw)+'"></label>'+
+   '<label class="f">Source mill<input name="mill" value="'+esc(row?.mill)+'"></label>'+
+   '<div class="two"><label class="f">Quantity<input name="qty" type="number" min="0" step="any" required value="'+esc(row?.qty)+'"></label>'+
+   '<label class="f">DR #<input name="dr" value="'+esc(row?.dr)+'"></label></div>'+
+   '<label class="f">Shipping date<input type="date" name="ship" value="'+esc(row?.ship)+'"></label>'+
+   '<p class="hint">Leave the shipping date blank for an ATW that has yet to ship.</p>'+
+   '<div class="err" role="alert" id="atwError"></div><div class="btns">'+
+   (row?'<button type="button" class="btn danger" data-act="deleteAtw" data-id="'+esc(id)+'">Delete ATW</button>':'')+
+   '<button class="btn primary" type="submit">Save ATW</button></div></form>');
+}
+
+async function saveAtw(form){
+ const fields=new FormData(form);
+ const field=name=>String(fields.get(name)??'').trim();
+ const id=form.dataset.id||uid();
+ const atw=field('atw'), qty=Number(field('qty'));
+ const rows=atwRows(S);
+ if(!atw||!field('qty')||!Number.isFinite(qty)||qty<0){
+   $('#atwError').textContent='Enter an ATW number and a valid quantity.';
+   return;
+ }
+ if(rows.some(row=>row.id!==id&&String(row.atw).trim().toUpperCase()===atw.toUpperCase())){
+   $('#atwError').textContent='This ATW number is already in the registry.';
+   return;
+ }
+ const stored=Array.isArray(S.atws)?S.atws:[];
+ S.atws=[...stored.filter(row=>row?.id!==id),
+   {id,atw,mill:field('mill'),qty,dr:field('dr'),ship:field('ship')}];
+ if(await save()){closeSheet();render();toast('ATW saved');}
 }
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')void activity.flush();});
 window.addEventListener('pagehide',()=>void activity.flush());
@@ -1260,6 +1360,15 @@ document.addEventListener('click',async e=>{
   if(!ready||saving) return; const t=e.target.closest('[data-act]'); if(!t) return; const a=t.dataset.act, d=t.dataset;
   if(readOnly&&!['tab','filter','sro','client','company','setCompany','close','resetDelivery','xlsx'].includes(a))return;
   switch(a){
+    case 'newAtw': openAtw();break;
+    case 'editAtw': openAtw(d.id);break;
+    case 'deleteAtw': {
+      const row=atwRows(S).find(item=>item.id===d.id);
+      if(!row||!await ask('Delete ATW',row.atw+' will be removed from the registry. Withdrawal lines are kept.','Delete ATW',true))break;
+      S.atws=S.atws.filter(item=>item.id!==row.id);
+      if(await save()){closeSheet();render();toast('ATW deleted');}
+      break;
+    }
     case 'company': companySheet(t);break;
     case 'setCompany': await setCompany(d.company);break;
     case 'delType': {
@@ -1303,12 +1412,12 @@ document.addEventListener('click',async e=>{
     case 'restore': pickFile('restore','.json,application/json'); break;
     case 'import': pickFile('import','.csv,text/csv'); break;
     case 'sample':
-      if(!S.receipts.length&&!S.issues.length || await ask('Load sample data','This replaces your current data with fictitious examples.','Replace',true)){ if(await loadSample()) toast('Sample data loaded'); } break;
+      if(!S.receipts.length&&!S.issues.length&&!atwRows(S).length || await ask('Load sample data','This replaces your current data with fictitious examples.','Replace',true)){ if(await loadSample()) toast('Sample data loaded'); } break;
     case 'clear':
-      if(await ask('Delete all data','All SRO quantities and issuances in '+companyName(CO)+' will be removed. Save a backup first if you need one.','Delete everything',true)){ S=blank(); if(!await save()) return; render(); toast('All data deleted'); } break;
+      if(await ask('Delete all data','All SRO quantities, withdrawals and ATWs in '+companyName(CO)+' will be removed. Save a backup first if you need one.','Delete everything',true)){ S=blank(); if(!await save()) return; render(); toast('All data deleted'); } break;
   }
 });
-document.addEventListener('submit',e=>{ e.preventDefault(); if(!ready||saving||readOnly) return; if(e.target.id==='fRec') saveReceipt(e.target); if(e.target.id==='fIss') saveIssue(e.target); });
+document.addEventListener('submit',e=>{ e.preventDefault(); if(!ready||saving||readOnly) return; if(e.target.id==='fRec') saveReceipt(e.target); if(e.target.id==='fIss') saveIssue(e.target); if(e.target.id==='fAtw') saveAtw(e.target); });
 document.addEventListener('input',async e=>{
   if(e.target.id==='publicCode'){
    codeRequest++;clearTimeout(codeTimer);e.target.removeAttribute('aria-invalid');
