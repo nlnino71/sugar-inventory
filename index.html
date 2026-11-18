@@ -2,8 +2,21 @@
 <html lang="en" class="session-pending">
 <head>
 <meta charset="utf-8">
-<script>if(location.pathname.startsWith('/view/')||new URLSearchParams(location.hash.slice(1)).has('view'))document.documentElement.classList.add('public-pending');</script>
-<style>.public-pending body,.session-pending body{visibility:hidden}</style>
+<style>
+#startupSkeleton{display:none}
+.session-pending body > :not(#startupSkeleton){visibility:hidden}
+.session-pending #startupSkeleton{display:block}
+#startupSkeleton{position:fixed;inset:0;padding:clamp(16px,4vw,48px);color:var(--muted);background:var(--bg);overflow:hidden}
+#startupSkeleton i{display:block;border-radius:8px;background:var(--soft)}
+#startupSkeleton .sk-title{width:140px;height:26px;margin-bottom:32px}
+#startupSkeleton .sk-controls{display:flex;gap:8px;margin-bottom:12px}
+#startupSkeleton .sk-controls i{width:min(24vw,104px);height:42px;border-radius:24px}
+#startupSkeleton .sk-card{padding:24px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+#startupSkeleton .sk-caption{width:min(60%,220px);height:20px}
+#startupSkeleton .sk-pie{width:min(40vw,240px);aspect-ratio:1;border-radius:50%;margin:28px auto}
+#startupSkeleton .sk-row{height:16px;margin:18px 0}
+#startupSkeleton .sk-row:last-child{width:74%}
+</style>
 <link rel="icon" href="/favicon.ico?v=2" sizes="any">
 <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">
 <link rel="icon" href="/favicon-32.png?v=2" type="image/png" sizes="32x32">
@@ -399,6 +412,10 @@ body.login-screen #account{width:100%;flex-shrink:0;margin:auto!important}
 <link rel="stylesheet" href="/workspace.css">
 </head>
 <body class="login-screen">
+<div id="startupSkeleton" role="status" aria-label="Loading inventory">
+ <div aria-hidden="true"><i class="sk-title"></i><div class="sk-controls"><i></i><i></i><i></i></div>
+ <div class="sk-card"><i class="sk-caption"></i><i class="sk-pie"></i><i class="sk-row"></i><i class="sk-row"></i></div></div>
+</div>
 <header class="top"><div class="page-heading"><h1 id="title">Stock</h1><span class="unit" id="unitLbl"></span></div>
 <div class="connection-bar"><button id="themeToggle" class="btn theme-toggle" type="button" aria-label="Switch to dark mode" title="Switch to dark mode"></button><span id="cloudStatus" role="status">Sign in to continue</span><div class="header-actions"><button class="btn" id="reloadCloud" type="button" aria-label="Refresh" title="Refresh"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></svg><span>Refresh</span></button><button class="btn" id="signOut" type="button" aria-label="Sign out" title="Sign out"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4H4v16h5M10 12h10m-4-4 4 4-4 4"/></svg><span>Sign out</span></button></div></div></header>
 <aside class="login-intro" aria-label="About Wilmar Sugar Inventory Monitoring">

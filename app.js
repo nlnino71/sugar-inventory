@@ -1509,27 +1509,56 @@ async function updateSharing(changes){
  catch(error){toast('Sharing could not be updated: '+error.message);}
  finally{saving=false;lock(false);}
 }
-async function showPublic(){
+async function showPublic(background=false){
  const cacheKey='inventory-public-view:'+ (slugPath?'slug:'+publicSlug:'token:'+publicToken);
  const display=data=>{cloudDocument=data;CO=new URL(location.href).searchParams.get('company')==='sugar'?'sugar':'oil';S=companyInventory(cloudDocument,CO,blank);committed=structuredClone(S);ready=true;restoreNavigation();$('#nav').hidden=false;$('#main').hidden=false;render();lock(false);document.documentElement.classList.remove('public-pending','session-pending');};
  if(!ready)try{const cached=JSON.parse(sessionStorage.getItem(cacheKey));if(cached&&Array.isArray(cached.receipts)&&Array.isArray(cached.issues))display(cached);}catch{}
  document.body.classList.remove('login-screen');
  const refreshing=ready;
+ if(!background){
  $('#account').hidden=true;$('#signOut').hidden=true;
  $('#nav').hidden=!refreshing;$('#main').hidden=!refreshing;
  $('#reloadCloud').disabled=true;
  $('#cloudStatus').hidden=!refreshing;$('#cloudStatus').textContent='Public view · Read only';
  $('#main').setAttribute('aria-busy','true');
+ }
  try{
   if(slugPath&&!validSlug(publicSlug))throw new Error('This sharing address is invalid.');
   if(!slugPath&&!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(publicToken))throw new Error('This sharing link is invalid.');
   const {data,error}=await db.rpc(slugPath?'get_public_inventory_by_slug':'get_public_inventory',slugPath?{share_slug:publicSlug}:{share_token:publicToken});
+  if(error&&background)return;
   if(error)throw new Error('Public sharing is not available. Ask the owner to finish sharing setup.');
   if(!data)throw new Error('This link is disabled or has been replaced. Ask the owner for a new link.');
+  if(background&&(!canRefreshInventory()||JSON.stringify(data)===JSON.stringify(cloudDocument)))return;
   try{sessionStorage.setItem(cacheKey,JSON.stringify(data));}catch{}
-  display(data);await activity.stop();startGuest(tab,{slug:publicSlug,shareToken:publicToken});
+  display(data);if(background)return;
+  await activity.stop();startGuest(tab,{slug:publicSlug,shareToken:publicToken});
  }catch(error){try{sessionStorage.removeItem(cacheKey);}catch{}document.documentElement.classList.remove('public-pending');ready=false;$('#nav').hidden=true;$('#main').hidden=false;trackPage('public-unavailable');$('#main').innerHTML='<div class="empty"><b>Shared inventory unavailable</b>'+esc(error.message)+'</div>';$('#cloudStatus').textContent='Public view unavailable';}
- finally{$('#reloadCloud').disabled=false;$('#main').removeAttribute('aria-busy');}
+ finally{if(!background){$('#reloadCloud').disabled=false;$('#main').removeAttribute('aria-busy');}}
+}
+
+// Use the same authorized inventory reads as Refresh, without interrupting edits.
+function canRefreshInventory(){
+ return ready&&!saving&&!document.hidden&&!adminView&&tab!=='more'&&
+  !modalOpen('sheet')&&!modalOpen('dlg')&&!$('#companyDropdown')&&
+  !document.activeElement?.matches('#main input,#main select,#main textarea');
+}
+let refreshingInventory=false;
+async function refreshInventory(){
+ if(!db||refreshingInventory||!canRefreshInventory()||$('#reloadCloud').disabled)return;
+ refreshingInventory=true;
+ const owner=accountId,startingRevision=revision;
+ try{
+  if(readOnly){await showPublic(true);return;}
+  const {data,error}=await db.from('inventory').select('data,revision').eq('owner_id',owner).single();
+  if(error||!canRefreshInventory()||accountId!==owner||revision!==startingRevision||data.revision===revision)return;
+  cloudDocument=data.data;
+  S=companyInventory(cloudDocument,CO,blank);
+  revision=data.revision;
+  committed=structuredClone(S);
+  cacheAccount();
+  render();
+ }catch{}finally{refreshingInventory=false;}
 }
 
 function setAuthMode(mode){
@@ -1562,7 +1591,7 @@ $('#loginForm').addEventListener('submit',async e=>{
  finally{authBusy=false;button.disabled=false;$('#switchAuth').disabled=false;}
 });
 $('#signOut').addEventListener('click',async()=>{ if(saving||!db) return;if(spreadsheetView&&!await spreadsheetView.canLeave())return;track('session.end',{reason:'sign_out'});await activity.stop(); const {error}=await db.auth.signOut({scope:'local'}); if(error){toast(error.message);return;} await showAccount(null); });
-$('#reloadCloud').addEventListener('click',async()=>{ if(!db||saving) return;if(spreadsheetView&&!await spreadsheetView.canLeave())return; if(readOnly){await showPublic();return;} const {data,error}=await db.auth.getSession(); if(error){toast(error.message);return;} await showAccount(data.session); });
+$('#reloadCloud').addEventListener('click',async()=>{ if(!db||saving||refreshingInventory) return;if(spreadsheetView&&!await spreadsheetView.canLeave())return; if(readOnly){await showPublic();return;} const {data,error}=await db.auth.getSession(); if(error){toast(error.message);return;} await showAccount(data.session); });
 syncThemeControl();
 $('#themeToggle').addEventListener('click',()=>applyTheme(effectiveDark()?'light':'dark'));
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',syncThemeControl);
@@ -1577,6 +1606,9 @@ else {
  $('#loginButton').disabled=false;$('#switchAuth').disabled=false;
 }
 document.documentElement.classList.remove('session-pending');
+window.addEventListener('focus',refreshInventory);
+document.addEventListener('visibilitychange',refreshInventory);
+setInterval(refreshInventory,5000);
 })();
 
 document.addEventListener('keydown',e=>{
