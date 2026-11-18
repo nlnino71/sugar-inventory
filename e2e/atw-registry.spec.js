@@ -27,7 +27,14 @@ test('ATW registry saves manual withdrawals by company and exports both ATW work
  await form.getByLabel('Source mill').fill('Mill A');
  await form.getByLabel('Total ATW Quantity').fill('100');
  await expect(form.getByLabel('Withdrawal Quantity')).toHaveValue('0');
+ await form.getByLabel('Withdrawal Quantity').fill('105');
+ await expect(form.getByRole('status')).toHaveText('Balance: -5.00');
+ await form.getByRole('button',{name:'Save ATW'}).click();
+ await expect(page.getByRole('heading',{name:'Withdrawal exceeds total'})).toBeVisible();
+ await page.locator('#dNo').click();
+ await expect(form.getByLabel('Withdrawal Quantity')).toHaveValue('105');
  await form.getByLabel('Withdrawal Quantity').fill('30.5');
+ await expect(form.getByRole('status')).toHaveText('Balance: 69.50');
  await form.getByLabel('DR #').fill('DR-1');
  await form.getByRole('button',{name:'Save ATW'}).click();
  const registry=page.getByRole('region',{name:'ATW records'});

@@ -1326,6 +1326,7 @@ function openAtw(id){
    '<div class="two"><label class="f">Total ATW Quantity<input name="qty" type="number" min="0" step="any" required value="'+esc(row?.qty)+'"></label>'+
    '<label class="f">Withdrawal Quantity<input name="withdrawalQty" type="number" min="0" step="any" required value="'+esc(row?.withdrawn??0)+'" aria-describedby="atwWithdrawalHint"></label></div>'+
    '<p class="hint" id="atwWithdrawalHint">Enter the quantity to deduct from the total ATW quantity.</p>'+
+   '<p class="info" id="atwBalance" role="status">Balance: '+nf(row?.balance??0)+'</p>'+
    '<label class="f">DR #<input name="dr" value="'+esc(row?.dr)+'"></label>'+
    '<label class="f">Shipping date<input type="date" name="ship" value="'+esc(row?.ship)+'"></label>'+
    '<p class="hint">Leave the shipping date blank for an ATW that has yet to ship.</p>'+
@@ -1353,6 +1354,8 @@ async function saveAtw(form){
    $('#atwError').textContent='This ATW number is already in the registry.';
    return;
  }
+ if(withdrawalQty>qty&&!await ask('Withdrawal exceeds total',
+   'This ATW will have a negative balance of '+nf(qty-withdrawalQty)+'. Save anyway?','Save anyway'))return;
  const stored=Array.isArray(S.atws)?S.atws:[];
  S.atws=[...stored.filter(row=>row?.id!==id),
    {id,atw,mill:field('mill'),qty,withdrawalQty,dr:field('dr'),ship:field('ship')}];
@@ -1442,6 +1445,11 @@ document.addEventListener('input',async e=>{
   else if(e.target.id==='q'){ q=e.target.value; updateList(); }
   else if(e.target.id==='rq'){ rq=e.target.value; updateRList(); }
   
+  else if(e.target.form?.id==='fAtw'&&['qty','withdrawalQty'].includes(e.target.name)){
+    const {qty,withdrawalQty}=e.target.form.elements;
+    const balance=(Number(qty.value)||0)-(Number(withdrawalQty.value)||0);
+    $('#atwBalance').textContent='Balance: '+nf(balance);
+  }
   else if(e.target.closest&&e.target.closest('#fIss')) updateIssueInfo();
 });
 document.addEventListener('change',async e=>{ if(!ready||saving) return; if(readOnly&&!e.target.dataset.delivery&&!e.target.dataset.report)return; if(e.target.id==='appearance'){applyTheme(e.target.value);return;}
