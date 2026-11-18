@@ -12,14 +12,10 @@ function withdrawalTotals(issues) {
   return withdrawals;
 }
 
-export function atwWithdrawalQuantity(state, atw) {
-  return withdrawalTotals(state.issues).get(numberKey(atw)) ?? 0;
-}
-
 export function atwRows(state) {
   const withdrawals = withdrawalTotals(state.issues);
   return (Array.isArray(state.atws) ? state.atws : []).filter(record => record && numberKey(record.atw)).map(record => {
-    const withdrawn = withdrawals.get(numberKey(record.atw)) ?? 0;
+    const withdrawn = record.withdrawalQty ?? withdrawals.get(numberKey(record.atw)) ?? 0;
     const quantity = +record.qty || 0;
     const balance = Number((quantity - withdrawn).toFixed(6));
     return {...record, quantity, withdrawn, balance, status:!record.ship ? 'Not shipped' : balance > 0 ? 'Shipped, balance left' : 'Shipped'};

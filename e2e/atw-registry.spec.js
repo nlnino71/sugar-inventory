@@ -3,7 +3,7 @@ import {readFile} from 'node:fs/promises';
 import XLSX from 'xlsx-js-style';
 import {navigate,selectCompany} from './navigation.js';
 
-test('ATW registry joins withdrawals, saves by company, and exports both ATW worksheets',async({page})=>{
+test('ATW registry saves manual withdrawals by company and exports both ATW worksheets',async({page})=>{
  const user={id:'11111111-1111-1111-1111-111111111111',aud:'authenticated',role:'authenticated',email:'staff@example.com',app_metadata:{},user_metadata:{}};
  let state={unit:'bags',receipts:[],issues:[{id:'i1',sro:'SRO-1',atw:' atw-1 ',qty:25}],clients:[],seq:1};
  await page.route(/https:\/\/fonts\.(googleapis|gstatic)\.com\//,r=>r.abort());
@@ -26,22 +26,25 @@ test('ATW registry joins withdrawals, saves by company, and exports both ATW wor
  await form.getByLabel('ATW No.').fill('ATW-1');
  await form.getByLabel('Source mill').fill('Mill A');
  await form.getByLabel('Total ATW Quantity').fill('100');
- await expect(form.getByLabel('Withdrawal Quantity')).toHaveValue('25.00');
- await expect(form.getByLabel('Withdrawal Quantity')).toHaveAttribute('readonly','');
+ await expect(form.getByLabel('Withdrawal Quantity')).toHaveValue('0');
+ await form.getByLabel('Withdrawal Quantity').fill('30.5');
  await form.getByLabel('DR #').fill('DR-1');
  await form.getByRole('button',{name:'Save ATW'}).click();
  const registry=page.getByRole('region',{name:'ATW records'});
- await expect(registry.getByRole('row',{name:/ATW-1 Mill A 100\.00 DR-1/})).toContainText('75.00');
+ await expect(registry.getByRole('row',{name:/ATW-1 Mill A 100\.00 DR-1/})).toContainText('69.50');
  await expect(page.locator('[data-chart="atw-mill"]')).toBeVisible();
  await selectCompany(page,'sugar');
  await expect(page.getByText('No ATWs recorded yet.',{exact:false})).toBeVisible();
  await selectCompany(page,'oil');
  await expect(registry).toContainText('Not shipped');
+ await page.getByRole('button',{name:'Edit ATW ATW-1'}).click();
+ await expect(form.getByLabel('Withdrawal Quantity')).toHaveValue('30.5');
+ await page.locator('#sheet').getByRole('button',{name:'Close'}).click();
  await navigate(page,'More');
  const [download]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:/Excel workbook.*Wilmar Edible Oil/}).click()]);
  const book=XLSX.read(await readFile(await download.path()),{type:'buffer'});
  for(const name of ['ATW Registry','Not Shipped']){
-  expect(XLSX.utils.sheet_to_json(book.Sheets[name],{range:2})[0]).toMatchObject({'ATW No.':'ATW-1','DR #':'DR-1','Total ATW Quantity':100,'Withdrawal Quantity':25,Balance:75});
+  expect(XLSX.utils.sheet_to_json(book.Sheets[name],{range:2})[0]).toMatchObject({'ATW No.':'ATW-1','DR #':'DR-1','Total ATW Quantity':100,'Withdrawal Quantity':30.5,Balance:69.5});
  }
  expect(Object.values(book.Sheets.Dashboard).some(cell=>cell?.v==='Mill A')).toBe(true);
 });

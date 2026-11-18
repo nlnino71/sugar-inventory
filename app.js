@@ -1,5 +1,5 @@
 import {mountCharts} from './admin-charts.js';
-import {ATW_COLUMNS, atwRows, atwMillTotals, atwValues, atwWithdrawalQuantity} from './atw-registry.js';
+import {ATW_COLUMNS, atwRows, atwMillTotals, atwValues} from './atw-registry.js';
 import {mountInventory} from './inventory-charts.js';
 import {createScopedBackup,prepareScopedRestore} from './backup-scope.js';
 import {COMPANIES,companyName,companyInventory,saveCompany,registryRows} from './companies.js';
@@ -1324,8 +1324,8 @@ function openAtw(id){
    '<label class="f">ATW No.<input name="atw" required value="'+esc(row?.atw)+'"></label>'+
    '<label class="f">Source mill<input name="mill" value="'+esc(row?.mill)+'"></label>'+
    '<div class="two"><label class="f">Total ATW Quantity<input name="qty" type="number" min="0" step="any" required value="'+esc(row?.qty)+'"></label>'+
-   '<label class="f">Withdrawal Quantity<input name="withdrawalQty" readonly value="'+esc(nf(row?.withdrawn??0))+'" aria-describedby="atwWithdrawalHint"></label></div>'+
-   '<p class="hint" id="atwWithdrawalHint">Calculated from withdrawals linked to this ATW number.</p>'+
+   '<label class="f">Withdrawal Quantity<input name="withdrawalQty" type="number" min="0" step="any" required value="'+esc(row?.withdrawn??0)+'" aria-describedby="atwWithdrawalHint"></label></div>'+
+   '<p class="hint" id="atwWithdrawalHint">Enter the quantity to deduct from the total ATW quantity.</p>'+
    '<label class="f">DR #<input name="dr" value="'+esc(row?.dr)+'"></label>'+
    '<label class="f">Shipping date<input type="date" name="ship" value="'+esc(row?.ship)+'"></label>'+
    '<p class="hint">Leave the shipping date blank for an ATW that has yet to ship.</p>'+
@@ -1339,9 +1339,14 @@ async function saveAtw(form){
  const field=name=>String(fields.get(name)??'').trim();
  const id=form.dataset.id||uid();
  const atw=field('atw'), qty=Number(field('qty'));
+ const withdrawalQty=Number(field('withdrawalQty'));
  const rows=atwRows(S);
  if(!atw||!field('qty')||!Number.isFinite(qty)||qty<0){
    $('#atwError').textContent='Enter an ATW number and a valid quantity.';
+   return;
+ }
+ if(!field('withdrawalQty')||!Number.isFinite(withdrawalQty)||withdrawalQty<0){
+   $('#atwError').textContent='Enter a withdrawal quantity of zero or more.';
    return;
  }
  if(rows.some(row=>row.id!==id&&String(row.atw).trim().toUpperCase()===atw.toUpperCase())){
@@ -1350,7 +1355,7 @@ async function saveAtw(form){
  }
  const stored=Array.isArray(S.atws)?S.atws:[];
  S.atws=[...stored.filter(row=>row?.id!==id),
-   {id,atw,mill:field('mill'),qty,dr:field('dr'),ship:field('ship')}];
+   {id,atw,mill:field('mill'),qty,withdrawalQty,dr:field('dr'),ship:field('ship')}];
  if(await save()){closeSheet();render();toast('ATW saved');}
 }
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')void activity.flush();});
@@ -1437,9 +1442,6 @@ document.addEventListener('input',async e=>{
   else if(e.target.id==='q'){ q=e.target.value; updateList(); }
   else if(e.target.id==='rq'){ rq=e.target.value; updateRList(); }
   
-  else if(e.target.form?.id==='fAtw'&&e.target.name==='atw'){
-    e.target.form.elements.withdrawalQty.value=nf(atwWithdrawalQuantity(S,e.target.value));
-  }
   else if(e.target.closest&&e.target.closest('#fIss')) updateIssueInfo();
 });
 document.addEventListener('change',async e=>{ if(!ready||saving) return; if(readOnly&&!e.target.dataset.delivery&&!e.target.dataset.report)return; if(e.target.id==='appearance'){applyTheme(e.target.value);return;}
