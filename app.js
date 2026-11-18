@@ -1,5 +1,5 @@
 import {mountCharts} from './admin-charts.js';
-import {ATW_COLUMNS, atwRows, atwMillTotals, atwValues} from './atw-registry.js';
+import {ATW_COLUMNS, atwRows, atwMillTotals, atwValues, atwWithdrawalQuantity} from './atw-registry.js';
 import {mountInventory} from './inventory-charts.js';
 import {createScopedBackup,prepareScopedRestore} from './backup-scope.js';
 import {COMPANIES,companyName,companyInventory,saveCompany,registryRows} from './companies.js';
@@ -1323,8 +1323,10 @@ function openAtw(id){
    '<form id="fAtw" data-id="'+esc(id||'')+'">'+
    '<label class="f">ATW No.<input name="atw" required value="'+esc(row?.atw)+'"></label>'+
    '<label class="f">Source mill<input name="mill" value="'+esc(row?.mill)+'"></label>'+
-   '<div class="two"><label class="f">Quantity<input name="qty" type="number" min="0" step="any" required value="'+esc(row?.qty)+'"></label>'+
-   '<label class="f">DR #<input name="dr" value="'+esc(row?.dr)+'"></label></div>'+
+   '<div class="two"><label class="f">Total ATW Quantity<input name="qty" type="number" min="0" step="any" required value="'+esc(row?.qty)+'"></label>'+
+   '<label class="f">Withdrawal Quantity<input name="withdrawalQty" readonly value="'+esc(nf(row?.withdrawn??0))+'" aria-describedby="atwWithdrawalHint"></label></div>'+
+   '<p class="hint" id="atwWithdrawalHint">Calculated from withdrawals linked to this ATW number.</p>'+
+   '<label class="f">DR #<input name="dr" value="'+esc(row?.dr)+'"></label>'+
    '<label class="f">Shipping date<input type="date" name="ship" value="'+esc(row?.ship)+'"></label>'+
    '<p class="hint">Leave the shipping date blank for an ATW that has yet to ship.</p>'+
    '<div class="err" role="alert" id="atwError"></div><div class="btns">'+
@@ -1435,6 +1437,9 @@ document.addEventListener('input',async e=>{
   else if(e.target.id==='q'){ q=e.target.value; updateList(); }
   else if(e.target.id==='rq'){ rq=e.target.value; updateRList(); }
   
+  else if(e.target.form?.id==='fAtw'&&e.target.name==='atw'){
+    e.target.form.elements.withdrawalQty.value=nf(atwWithdrawalQuantity(S,e.target.value));
+  }
   else if(e.target.closest&&e.target.closest('#fIss')) updateIssueInfo();
 });
 document.addEventListener('change',async e=>{ if(!ready||saving) return; if(readOnly&&!e.target.dataset.delivery&&!e.target.dataset.report)return; if(e.target.id==='appearance'){applyTheme(e.target.value);return;}

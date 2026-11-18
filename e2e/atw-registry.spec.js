@@ -25,7 +25,9 @@ test('ATW registry joins withdrawals, saves by company, and exports both ATW wor
  const form=page.locator('#fAtw');
  await form.getByLabel('ATW No.').fill('ATW-1');
  await form.getByLabel('Source mill').fill('Mill A');
- await form.getByLabel('Quantity').fill('100');
+ await form.getByLabel('Total ATW Quantity').fill('100');
+ await expect(form.getByLabel('Withdrawal Quantity')).toHaveValue('25.00');
+ await expect(form.getByLabel('Withdrawal Quantity')).toHaveAttribute('readonly','');
  await form.getByLabel('DR #').fill('DR-1');
  await form.getByRole('button',{name:'Save ATW'}).click();
  const registry=page.getByRole('region',{name:'ATW records'});
@@ -39,7 +41,7 @@ test('ATW registry joins withdrawals, saves by company, and exports both ATW wor
  const [download]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:/Excel workbook.*Wilmar Edible Oil/}).click()]);
  const book=XLSX.read(await readFile(await download.path()),{type:'buffer'});
  for(const name of ['ATW Registry','Not Shipped']){
-  expect(XLSX.utils.sheet_to_json(book.Sheets[name],{range:2})[0]).toMatchObject({'ATW No.':'ATW-1','DR #':'DR-1',Withdrawn:25,Balance:75});
+  expect(XLSX.utils.sheet_to_json(book.Sheets[name],{range:2})[0]).toMatchObject({'ATW No.':'ATW-1','DR #':'DR-1','Total ATW Quantity':100,'Withdrawal Quantity':25,Balance:75});
  }
  expect(Object.values(book.Sheets.Dashboard).some(cell=>cell?.v==='Mill A')).toBe(true);
 });
