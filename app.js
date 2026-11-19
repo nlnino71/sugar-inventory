@@ -1,5 +1,5 @@
 import {mountCharts} from './admin-charts.js';
-import {ATW_COLUMNS, atwRows, atwMillTotals, atwValues} from './atw-registry.js';
+import {ATW_COLUMNS, atwRows, atwMillTotals} from './atw-registry.js';
 import {mountInventory} from './inventory-charts.js';
 import {createScopedBackup,prepareScopedRestore} from './backup-scope.js';
 import {COMPANIES,companyName,companyInventory,saveCompany,registryRows} from './companies.js';
@@ -202,6 +202,7 @@ async function setCompany(id){
  if(saving||exportingXlsx||!COMPANIES.some(c=>c.id===id))return;
  if(id===CO){closeCompanyMenu();return;}
  if(spreadsheetView&&!await spreadsheetView.canLeave())return;
+ atwQuery='';atwFilter='all';
  CO=id;S=companyInventory(cloudDocument,CO,blank);committed=structuredClone(S);
  if(readOnly){const next=new URL(location.href);next.searchParams.set('company',CO);history.replaceState(history.state,'',next.pathname+next.search+next.hash);}else try{localStorage.setItem('inventory-company:'+accountId,CO);}catch{}
  filter='all';q='';rq='';rcrop='all';rtype='all';stockType=null;clientQuery='';
@@ -281,19 +282,20 @@ window.addEventListener('popstate',async()=>{
  navigationIndex=nextIndex;restoreNavigation();if(tab==='more'&&!readOnly)await loadSharing();
  closeSheet();render();trackPage(adminView?'superadmin':tab);window.scrollTo(0,0);
 });
-const TITLES={dashboard:'Dashboard',stock:'Stock',receive:'SRO Registry',issue:'Withdrawal',clients:'Clients',more:'More'};
+const TITLES={dashboard:'Dashboard',stock:'Stock',receive:'SRO Registry',atw:'ATW Registry',issue:'Withdrawal',clients:'Clients',more:'More'};
 const ICON={
  spreadsheet:'<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>',
  dashboard:'<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>',
  reports:'<svg viewBox="0 0 24 24"><path d="M5 3h10l4 4v14H5zM14 3v5h5M8 12h8M8 16h8"/></svg>',
  stock:'<svg viewBox="0 0 24 24"><rect x="4" y="12" width="4" height="8"/><rect x="10" y="7" width="4" height="13"/><rect x="16" y="4" width="4" height="16"/></svg>',
  receive:'<svg viewBox="0 0 24 24"><path d="M12 3v11"/><path d="M8 10l4 4 4-4"/><path d="M4 15v4h16v-4"/></svg>',
+ atw:'<svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9zM8.5 12h7M8.5 16h5"/></svg>',
  issue:'<svg viewBox="0 0 24 24"><path d="M12 15V4"/><path d="M8 8l4-4 4 4"/><path d="M4 15v4h16v-4"/></svg>',
  clients:'<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6"/><path d="M16 5.5a3 3 0 010 5.5"/><path d="M18 14.5c2 .7 3 2.7 3 5.5"/></svg>',
  more:'<svg viewBox="0 0 24 24"><path d="M4 7h10"/><path d="M18 7h2"/><circle cx="16" cy="7" r="2"/><path d="M4 17h2"/><path d="M10 17h10"/><circle cx="8" cy="17" r="2"/></svg>'
 };
 function renderNav(){
-  $('#nav').innerHTML='<div class="nav-brand"><img class="wilmar-logo" src="/wilmar-white.png" width="168" height="54" alt="Wilmar">'+companyControls()+'<span class="product-name">Sugar Inventory Monitoring</span><small>'+ (readOnly?'Shared inventory':'Inventory workspace')+'</small></div>'+Object.keys(TITLES).filter(k=>!readOnly||['dashboard','stock','issue','clients'].includes(k)).map(k=>'<button class="'+(!readOnly&&['receive','clients','more'].includes(k)?'nav-overflow':'')+'" data-act="tab" data-tab="'+k+'"'+(k===tab?' aria-current="page"':'')+'>'+ICON[k]+'<span>'+TITLES[k]+'</span></button>').join('')+(readOnly?'<button data-act="xlsx"'+(exportingXlsx?' disabled':'')+'>'+ICON.receive+'<span>'+(exportingXlsx?'Preparing Excel…':'Save as Excel Dashboard')+'</span></button>':'')+(!readOnly?'<button class="nav-menu" data-act="navMenu" aria-haspopup="dialog"'+(['receive','clients','more'].includes(tab)?' aria-current="page"':'')+'><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span>Menu</span></button>':'');
+  $('#nav').innerHTML='<div class="nav-brand"><img class="wilmar-logo" src="/wilmar-white.png" width="168" height="54" alt="Wilmar">'+companyControls()+'<span class="product-name">Sugar Inventory Monitoring</span><small>'+ (readOnly?'Shared inventory':'Inventory workspace')+'</small></div>'+Object.keys(TITLES).filter(k=>!readOnly||['dashboard','stock','issue','clients'].includes(k)).map(k=>'<button class="'+(!readOnly&&['receive','atw','clients','more'].includes(k)?'nav-overflow':'')+'" data-act="tab" data-tab="'+k+'"'+(k===tab?' aria-current="page"':'')+'>'+ICON[k]+'<span>'+TITLES[k]+'</span></button>').join('')+(readOnly?'<button data-act="xlsx"'+(exportingXlsx?' disabled':'')+'>'+ICON.receive+'<span>'+(exportingXlsx?'Preparing Excel…':'Save as Excel Dashboard')+'</span></button>':'')+(!readOnly?'<button class="nav-menu" data-act="navMenu" aria-haspopup="dialog"'+(['receive','atw','clients','more'].includes(tab)?' aria-current="page"':'')+'><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span>Menu</span></button>':'');
 }
 function syncPageTitle(){
  const page=ready?(adminView&&isSuperadmin&&!readOnly?'Superadmin':TITLES[tab]):readOnly?'Shared inventory':authMode==='signup'?'Create account':'Sign in';
@@ -321,7 +323,7 @@ function render(){
   $('#title').textContent=TITLES[tab]; $('#unitLbl').textContent='Unit: '+S.unit;
   renderNav();
   if(adminView&&ready&&isSuperadmin&&!readOnly){$('#main').dataset.view='superadmin';$('#title').textContent='Superadmin';adminCleanup=openAdmin(db,$('#main'));return;}
-  $('#main').innerHTML=({dashboard:vDashboard,stock:vStock,receive:vReceive,issue:vIssue,clients:vClients,more:vMore})[tab]();
+  $('#main').innerHTML=({dashboard:vDashboard,stock:vStock,receive:vReceive,atw:vAtw,issue:vIssue,clients:vClients,more:vMore})[tab]();
   if(ready)$('#main').insertAdjacentHTML('afterbegin','<div class="company-mobile">'+companyControls()+'</div>');
   if(tab==='more'&&isSuperadmin&&!readOnly)$('#main').insertAdjacentHTML('beforeend','<section class="setting" id="superadminEntry"><h2>Superadmin</h2><p>Private administration for your account: company inventories, accounts, traffic, authentication, sessions and activity.</p><button type="button" class="btn primary" data-act="superadmin">Open superadmin</button></section>');
   if(tab==='dashboard'){
@@ -1317,22 +1319,35 @@ function deliveryFilters(){
  return '<div class="filter-panel"><label class="f wide">Find deliveries<input id="deliveryQuery" type="search" value="'+esc(deliveryFilter.query)+'" placeholder="ATW, SRO, client, batch, vessel…"></label><label class="f">From<input type="date" data-delivery="from" value="'+esc(deliveryFilter.from)+'"></label><label class="f">To<input type="date" data-delivery="to" value="'+esc(deliveryFilter.to)+'"></label><label class="f wide">Client<select data-delivery="client">'+options(knownClients(),deliveryFilter.client,'All clients')+'</select></label><button class="btn" data-act="resetDelivery">Clear filters</button></div>';
 }
 function vDashboard(){
- const charts='<section id="inventoryCharts" class="admin-statistics" aria-label="Dashboard charts"></section>';
- if(readOnly)return charts;
- const rows=atwRows(S);
- const pending=rows.filter(row=>!row.ship).length;
- return charts+'<section class="setting atw-registry" aria-labelledby="atwHeading">'+
-   '<div class="overview-heading"><div><h2 id="atwHeading">ATW Registry</h2>'+
-   '<p>'+rows.length+' logged · '+(rows.length-pending)+' shipped · '+pending+' not shipped · '+esc(S.unit)+'</p></div>'+
-   '<button class="btn primary" type="button" data-act="newAtw">New ATW</button></div>'+
-   (rows.length?'<div id="atwMillChart"></div><div class="table-scroll" tabindex="0" role="region" aria-label="ATW records"><table class="led"><thead><tr>'+
-     ATW_COLUMNS.map(label=>'<th scope="col">'+label+'</th>').join('')+
-     '<th scope="col">Action</th></tr></thead><tbody>'+rows.map(row=>'<tr>'+
-       atwValues(row).map((value,index)=>index===7?'<td><span class="chip '+(row.ship?'ok':'over')+'">'+esc(value)+'</span></td>':
-       '<td>'+([2,5,6].includes(index)?nf(value):index===4&&value?fd(value):esc(value||'—'))+'</td>').join('')+
-       '<td><button type="button" class="ledger-edit" data-act="editAtw" data-id="'+esc(row.id)+'" aria-label="Edit ATW '+esc(row.atw)+'">Edit</button></td></tr>').join('')+
-     '</tbody></table></div>':'<p class="hint">No ATWs recorded yet. Add an ATW to track its quantity and shipping status.</p>')+
-   '</section>';
+ return '<section id="inventoryCharts" class="admin-statistics" aria-label="Dashboard charts"></section>'+
+   (!readOnly&&atwRows(S).length?'<section class="atw-registry"><div class="sec"><h2>ATW shipping summary</h2><button class="btn" data-act="tab" data-tab="atw">Open ATW Registry</button></div><div id="atwMillChart"></div></section>':'');
+}
+
+let atwFilter='all', atwQuery='';
+function vAtw(){
+ const rows=atwRows(S), pending=rows.filter(row=>!row.ship).length;
+ const filter=(key,label,count)=>'<button type="button" class="tc'+(key==='pending'?' warn':'')+(key===atwFilter?' on':'')+'" data-act="atwFilter" data-filter="'+key+'" aria-pressed="'+(key===atwFilter)+'"><b>'+label+'</b><span class="num">'+count+'</span></button>';
+ return '<section class="atw-registry" aria-label="ATW Registry">'+
+   '<button class="btn primary block" type="button" data-act="newAtw">New ATW</button>'+
+   '<div class="sec"><h2>ATW Registry</h2><span class="hint">'+rows.length+' logged</span></div>'+
+   (rows.length?'<div class="tcards">'+filter('pending','Not shipped',pending)+filter('shipped','Shipped',rows.length-pending)+
+   (atwFilter==='all'?'':filter('all','Show all',rows.length))+'</div>'+
+   '<div class="search"><input id="atwQuery" type="search" aria-label="Search ATW registry" placeholder="Search ATW no., mill, DR #" value="'+esc(atwQuery)+'"></div>'+
+   '<div id="atwList" class="atw-list" role="region" aria-label="ATW records">'+atwCards(rows)+'</div>':
+   '<div class="empty"><b>No ATWs recorded yet.</b>Add an ATW to track its source mill, quantity, DR number, and shipping date.</div>')+'</section>';
+}
+
+function atwCards(rows){
+ const needle=atwQuery.trim().toLowerCase();
+ const matches=rows.filter(row=>(atwFilter==='all'||!!row.ship===(atwFilter==='shipped'))&&
+   [row.atw,row.mill,row.dr].join(' ').toLowerCase().includes(needle));
+ if(!matches.length)return '<div class="empty">No ATW matches.</div>';
+ return matches.map(row=>'<button type="button" class="card atw-card'+(row.ship?'':' atw-pending')+'" data-act="editAtw" data-id="'+esc(row.id)+'" aria-label="Edit ATW '+esc(row.atw)+'">'+
+   '<div class="row"><span class="sro-no">'+esc(row.atw)+'</span><span class="chip '+(!row.ship?'over':row.balance>0?'low':'ok')+'">'+esc(row.status)+'</span></div>'+
+   '<div class="sub">'+esc(row.mill||'No source mill')+' · DR # '+esc(row.dr||'—')+' · '+(row.ship?'Shipped '+fd(row.ship):'Not yet shipped')+'</div>'+
+   '<div class="nums"><div><span>Total ATW qty</span><b>'+nf(row.quantity)+'</b></div>'+
+   '<div><span>Withdrawal qty</span><b>'+nf(row.withdrawn)+'</b></div>'+
+   '<div class="bal"><span>Balance</span><b>'+nf(row.balance)+'</b></div></div></button>').join('');
 }
 
 function openAtw(id){
@@ -1389,6 +1404,7 @@ document.addEventListener('click',async e=>{
   if(!ready||saving) return; const t=e.target.closest('[data-act]'); if(!t) return; const a=t.dataset.act, d=t.dataset;
   if(readOnly&&!['tab','filter','sro','client','company','setCompany','close','resetDelivery','xlsx'].includes(a))return;
   switch(a){
+    case 'atwFilter': atwFilter=d.filter;render();$('#main [data-filter="'+atwFilter+'"]')?.focus();break;
     case 'newAtw': openAtw();break;
     case 'editAtw': openAtw(d.id);break;
     case 'deleteAtw': {
@@ -1413,7 +1429,7 @@ document.addEventListener('click',async e=>{
     case 'rotateSharing': if(await ask('Replace public link','The previous link will stop working. A new random 6-character address will replace it. Your sharing setting stays the same.','Replace link'))await replaceSharingLink(); break;
     case 'copySharing': try{await navigator.clipboard.writeText(publicLink());toast('View-only link copied');}catch{ $('#publicLink').select();toast('Select and copy the link above.');} break;
     case 'superadmin': if(!isSuperadmin||readOnly)return;if(spreadsheetView&&!await spreadsheetView.canLeave())return; tab='more';adminView=true;rememberNavigation();render();track('admin.view');break;
-    case 'navMenu': openSheet(sheetHead('Menu')+'<div class="section-menu">'+['receive','clients','more'].map(k=>'<button class="btn" data-act="tab" data-tab="'+k+'"'+(tab===k?' aria-current="page"':'')+'>'+ICON[k]+'<span>'+TITLES[k]+'</span></button>').join('')+'</div>');break;
+    case 'navMenu': openSheet(sheetHead('Menu')+'<div class="section-menu">'+['receive','atw','clients','more'].map(k=>'<button class="btn" data-act="tab" data-tab="'+k+'"'+(tab===k?' aria-current="page"':'')+'>'+ICON[k]+'<span>'+TITLES[k]+'</span></button>').join('')+'</div>');break;
     case 'delClient': {const name=d.name,match=i=>((i.client||'').trim()||'(no client)')===name,lines=S.issues.filter(match);if(await ask('Delete '+name,'Delete '+lines.length+' withdrawal lines for this client? Their quantities return to the SRO balances.','Delete client',true)){S.issues=S.issues.filter(i=>!match(i));S.clients=S.clients.filter(n=>n!==name);if(await save()){closeSheet();render();toast('Client deleted');}}break;}
     case 'resetDelivery': deliveryFilter={query:'',from:'',to:'',client:''}; render(); break;
     case 'tab': if(spreadsheetView&&!await spreadsheetView.canLeave())return;if(readOnly&&!['dashboard','stock','issue','clients'].includes(d.tab))return; tab=d.tab;adminView=false;rememberNavigation(); if(tab==='more')await loadSharing(); closeSheet(); render();trackPage(tab); window.scrollTo(0,0); break;
@@ -1463,6 +1479,7 @@ document.addEventListener('input',async e=>{
     else if(e.target.name==='date'&&!f.dataset.id&&f.elements.crop&&!f.elements.crop.dataset.manual&&e.target.value) f.elements.crop.value=cropOf(e.target.value);
   }
   else if(e.target.id==='q'){ q=e.target.value; updateList(); }
+  else if(e.target.id==='atwQuery'){atwQuery=e.target.value;$('#atwList').innerHTML=atwCards(atwRows(S));}
   else if(e.target.id==='rq'){ rq=e.target.value; updateRList(); }
   
   else if(e.target.form?.id==='fAtw'&&['qty','withdrawalQty'].includes(e.target.name)){

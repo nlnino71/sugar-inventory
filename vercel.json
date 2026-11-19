@@ -48,6 +48,10 @@
       "destination": "/index.html"
     },
     {
+      "source": "/atw-registry",
+      "destination": "/index.html"
+    },
+    {
       "source": "/issuance",
       "destination": "/index.html"
     },

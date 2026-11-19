@@ -1,4 +1,4 @@
-export const PAGE_PATHS={stock:'/stock',dashboard:'/overview',receive:'/sro-quantity',issue:'/issuance',clients:'/clients',more:'/settings',superadmin:'/superadmin'};
+export const PAGE_PATHS={stock:'/stock',dashboard:'/overview',receive:'/sro-quantity',atw:'/atw-registry',issue:'/issuance',clients:'/clients',more:'/settings',superadmin:'/superadmin'};
 export function pageFromUrl(url,{readOnly=false,isSuperadmin=false}={}){
  const path=url.pathname.replace(/\/$/,'');
  const shared=path.match(/^\/view\/[^/]+(?:\/([^/]+))?$/);

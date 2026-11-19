@@ -338,8 +338,11 @@ body.login-screen #account{border:0;background:transparent;padding:30px 22px;max
 }
 @keyframes inventory-company-open{from{opacity:.75;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
 
-.atw-registry .overview-heading{flex-wrap:wrap;margin-bottom:16px}
 .atw-registry #atwMillChart{margin-bottom:16px}
-.atw-registry .table-scroll{overflow-x:auto}
-.atw-registry td{white-space:normal}
 .atw-registry .chip{white-space:nowrap}
+.atw-registry .atw-list{display:grid;gap:12px;margin-top:12px}
+.atw-registry .atw-card{width:100%;margin:0;overflow-wrap:anywhere}
+.atw-registry .atw-card .row{flex-wrap:wrap;gap:8px}
+.atw-registry .atw-pending,.atw-registry .tc.warn{border-color:var(--alert)}
+.atw-registry .tc.warn:not(.on) .num{color:var(--alert)}
+.atw-registry .nums{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}

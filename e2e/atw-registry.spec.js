@@ -21,6 +21,9 @@ test('ATW registry saves manual withdrawals by company and exports both ATW work
  await page.getByLabel('Email',{exact:true}).fill(user.email);
  await page.getByLabel('Password',{exact:true}).fill('password-example');
  await page.getByRole('button',{name:'Sign in',exact:true}).click();
+ await expect(page.locator('#nav')).toBeVisible();
+ await navigate(page,'ATW Registry');
+ await expect(page).toHaveURL(/\/atw-registry$/);
  await page.getByRole('button',{name:'New ATW',exact:true}).click();
  const form=page.locator('#fAtw');
  await form.getByLabel('ATW No.').fill('ATW-1');
@@ -38,8 +41,17 @@ test('ATW registry saves manual withdrawals by company and exports both ATW work
  await form.getByLabel('DR #').fill('DR-1');
  await form.getByRole('button',{name:'Save ATW'}).click();
  const registry=page.getByRole('region',{name:'ATW records'});
- await expect(registry.getByRole('row',{name:/ATW-1 Mill A 100\.00 DR-1/})).toContainText('69.50');
+ await expect(registry.getByRole('button',{name:'Edit ATW ATW-1'})).toContainText('69.50');
+ await page.getByRole('button',{name:/^Shipped 0$/}).click();
+ await expect(registry).toContainText('No ATW matches');
+ await page.getByRole('button',{name:/^Show all/}).click();
+ await page.getByRole('searchbox',{name:'Search ATW registry'}).fill('DR-1');
+ await expect(registry.getByRole('button',{name:'Edit ATW ATW-1'})).toBeVisible();
+ await page.reload();
+ await expect(page.getByRole('heading',{name:'ATW Registry',exact:true}).first()).toBeVisible();
+ await navigate(page,'Dashboard');
  await expect(page.locator('[data-chart="atw-mill"]')).toBeVisible();
+ await navigate(page,'ATW Registry');
  await selectCompany(page,'sugar');
  await expect(page.getByText('No ATWs recorded yet.',{exact:false})).toBeVisible();
  await selectCompany(page,'oil');
