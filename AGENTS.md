@@ -7,3 +7,5 @@ The established production URL is https://sugar-inventory.vercel.app/. Verify th
 The user explicitly authorizes committing and pushing verified changes for their requested system updates to the shared default `main` branch, including future updates, to trigger automatic production deployment. Do not request this authorization again for changes within the requested scope.
 
 For Excel export updates, use the latest client HTML supplied by the user as the reference for download filenames, workbook separation, worksheet names and order, column headers and order, summaries, number and date formats, colors, and status highlighting. Compare exports against that reference using equivalent test records before deploying. Preserve company separation and existing access rules.
+
+For app updates based on client HTML supplied by the user, follow the reference's tab structure, content order, fields, and workflows while using the current Sugar Inventory layout, components, and styling. Keep the ATW Registry as its own desktop tab and mobile menu entry, with its summary on the Dashboard.
