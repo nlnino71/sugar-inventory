@@ -1358,7 +1358,7 @@ function openAtw(id){
    '<label class="f">ATW No.<input name="atw" required value="'+esc(row?.atw)+'"></label>'+
    '<label class="f">Source mill<input name="mill" value="'+esc(row?.mill)+'"></label>'+
    '<div class="two"><label class="f">Total ATW Quantity<input name="qty" type="number" min="0" step="any" required value="'+esc(row?.qty)+'"></label>'+
-   '<label class="f">Withdrawal Quantity<input name="withdrawalQty" type="number" min="0" step="any" required value="'+esc(row?.withdrawn??0)+'" aria-describedby="atwWithdrawalHint"></label></div>'+
+   '<label class="f">Withdrawal Quantity<input name="withdrawalQty" type="number" min="0" step="any" value="'+esc(row?.withdrawn??0)+'" aria-describedby="atwWithdrawalHint"></label></div>'+
    '<p class="hint" id="atwWithdrawalHint">Enter the quantity to deduct from the total ATW quantity.</p>'+
    '<p class="info" id="atwBalance" role="status">Balance: '+nf(row?.balance??0)+'</p>'+
    '<label class="f">DR #<input name="dr" value="'+esc(row?.dr)+'"></label>'+
@@ -1376,24 +1376,35 @@ async function saveAtw(form){
  const atw=field('atw'), qty=Number(field('qty'));
  const withdrawalQty=Number(field('withdrawalQty'));
  const rows=atwRows(S);
+ const existing=rows.find(row=>row.id===form.dataset.id);
+ if(form.dataset.id&&!existing){
+   $('#atwError').textContent='This ATW was removed. Close this form and add a new ATW if needed.';
+   return;
+ }
  if(!atw||!field('qty')||!Number.isFinite(qty)||qty<0){
    $('#atwError').textContent='Enter an ATW number and a valid quantity.';
    return;
  }
- if(!field('withdrawalQty')||!Number.isFinite(withdrawalQty)||withdrawalQty<0){
+ if(!Number.isFinite(withdrawalQty)||withdrawalQty<0){
    $('#atwError').textContent='Enter a withdrawal quantity of zero or more.';
    return;
  }
- if(rows.some(row=>row.id!==id&&String(row.atw).trim().toUpperCase()===atw.toUpperCase())){
-   $('#atwError').textContent='This ATW number is already in the registry.';
-   return;
- }
+ const sameNumber=row=>String(row.atw).trim().toUpperCase()===atw.toUpperCase();
+ const duplicate=(!existing||!sameNumber(existing))&&rows.some(row=>row.id!==id&&sameNumber(row));
+ if(duplicate&&!await ask('Duplicate ATW No.',
+   atw+' is already in this registry. Save another record with this number?','Save anyway'))return;
  if(withdrawalQty>qty&&!await ask('Withdrawal exceeds total',
    'This ATW will have a negative balance of '+nf(qty-withdrawalQty)+'. Save anyway?','Save anyway'))return;
  const stored=Array.isArray(S.atws)?S.atws:[];
  S.atws=[...stored.filter(row=>row?.id!==id),
    {id,atw,mill:field('mill'),qty,withdrawalQty,dr:field('dr'),ship:field('ship')}];
- if(await save()){closeSheet();render();toast('ATW saved');}
+ const saved=await save();
+ if(!saved){
+   if(form.isConnected)$('#atwError').textContent='The ATW was not saved. Your entries are still here. Select Save ATW to retry.';
+   return;
+ }
+ atwFilter='all';atwQuery='';
+ closeSheet();render();toast('ATW saved');
 }
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')void activity.flush();});
 window.addEventListener('pagehide',()=>void activity.flush());

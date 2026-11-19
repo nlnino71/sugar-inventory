@@ -5,12 +5,14 @@ import {navigate,selectCompany} from './navigation.js';
 
 test('ATW registry saves manual withdrawals by company and exports both ATW worksheets',async({page})=>{
  const user={id:'11111111-1111-1111-1111-111111111111',aud:'authenticated',role:'authenticated',email:'staff@example.com',app_metadata:{},user_metadata:{}};
+ let conflict=true;
  let state={unit:'bags',receipts:[],issues:[{id:'i1',sro:'SRO-1',atw:' atw-1 ',qty:25}],clients:[],seq:1};
  await page.route(/https:\/\/fonts\.(googleapis|gstatic)\.com\//,r=>r.abort());
  await page.route('https://nvkawrmoacikzdfowvem.supabase.co/**',r=>{
   const url=r.request().url();
   if(url.includes('/auth/v1/token'))return r.fulfill({json:{access_token:'test-token',refresh_token:'test-refresh',expires_in:3600,user}});
   if(url.includes('/rpc/save_inventory')){
+   if(conflict){conflict=false;return r.fulfill({json:null});}
    state=r.request().postDataJSON().new_data;
    return r.fulfill({json:1});
   }
@@ -39,6 +41,9 @@ test('ATW registry saves manual withdrawals by company and exports both ATW work
  await form.getByLabel('Withdrawal Quantity').fill('30.5');
  await expect(form.getByRole('status')).toHaveText('Balance: 69.50');
  await form.getByLabel('DR #').fill('DR-1');
+ await form.getByRole('button',{name:'Save ATW'}).click();
+ await expect(form.getByRole('alert')).toContainText('The ATW was not saved');
+ await expect(form.getByLabel('DR #')).toHaveValue('DR-1');
  await form.getByRole('button',{name:'Save ATW'}).click();
  const registry=page.getByRole('region',{name:'ATW records'});
  await expect(registry.getByRole('button',{name:'Edit ATW ATW-1'})).toContainText('69.50');
