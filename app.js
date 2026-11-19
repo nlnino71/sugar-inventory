@@ -485,10 +485,11 @@ function vMore(){
   const dl=!!DL;
   return '<section class="setting"><h2>Quantity unit</h2><label class="f">Quantity unit<input id="unit" value="'+esc(S.unit)+'" maxlength="24"></label><p>Shown next to totals. Changing this label does not convert quantities.</p></section>'+sharingPanel()+
    '<div class="sec"><h2>Export</h2></div><div class="setting"><div class="stack">'+
-   COMPANIES.map(co=>'<button class="btn block" data-act="xlsx" data-company="'+co.id+'"'+(dl?'':' disabled')+'>Excel workbook (.xlsx) — '+esc(co.name)+'</button>').join('')+
+   COMPANIES.map(co=>'<button class="btn block" data-act="xlsx" data-company="'+co.id+'"'+(dl?'':' disabled')+'>Excel dashboard (.xlsx) — '+esc(co.name)+'</button>').join('')+
+   COMPANIES.map(co=>'<button class="btn block" data-act="atwx" data-company="'+co.id+'"'+(dl?'':' disabled')+'>Excel ATW Registry (.xlsx) — '+esc(co.name)+'</button>').join('')+
    '<button class="btn block" data-act="csvRec"'+(dl?'':' disabled')+'>SRO Registry (.csv)</button>'+
    '<button class="btn block" data-act="csvIss"'+(dl?'':' disabled')+'>Withdrawal (.csv)</button></div>'+
-   '<p>The workbook opens with a Dashboard summary (totals per sugar type, running balance per SRO, issued per client, data checks), followed by SRO Registry, Withdrawal with running balance, SRO Balance, Client Summary, ATW Registry and Not Shipped sheets.'+(dl?'':' Downloads are not available in this view.')+'</p></div>'+
+   '<p>The workbook opens with a Dashboard summary (totals per sugar type, running balance per SRO, issued per client, data checks), followed by SRO Registry, Withdrawal with running balance, SRO Balance and Client Summary sheets. The separate ATW workbook includes ATW Registry and Not Shipped sheets.'+(dl?'':' Downloads are not available in this view.')+'</p></div>'+
    '<div class="sec"><h2>Backup and import</h2></div><section class="setting transfer-panel" aria-label="Backup and import"><div class="chips" role="group" aria-label="Backup and restore scope"><button type="button" class="chip-b" data-act="transferScope" data-scope="company" aria-pressed="'+(transferScope==='company')+'">Selected company</button><button type="button" class="chip-b" data-act="transferScope" data-scope="both" aria-pressed="'+(transferScope==='both')+'">Both companies</button></div><p class="transfer-scope-hint">'+(transferScope==='both'?'Backup or restore BOTH Wilmar Sugar and Wilmar Edible Oil inventories together.':'Backup or restore only '+esc(companyName(CO))+'. The other company stays unchanged.')+'</p><div class="stack">'+
    '<button class="btn block" data-act="backup"'+(dl?'':' disabled')+'>Save backup (.json)</button>'+
    '<button class="btn block" data-act="restore">Restore from backup</button>'+
@@ -701,67 +702,36 @@ async function saveFile(name,data){
   catch(e){ if(e&&e.code==='declined') return; toast('Could not save: '+((e&&e.message)||'unknown error')); }
 }
 const serial=s=>{ const p=s.split('-'); return (Date.UTC(+p[0],+p[1]-1,+p[2])-Date.UTC(1899,11,30))/86400000; };
-const THIN={style:'thin',color:{rgb:'BFBFBF'}}, BOX={top:THIN,bottom:THIN,left:THIN,right:THIN};
+const wst=text=>String(text).replace('Over-issued','Over-withdrawn').replace('Fully issued','Fully withdrawn').replace('Partially issued','Partially withdrawn');
 const FILL=rgb=>({patternType:'solid',fgColor:{rgb:rgb}});
 let COMPANY=companyName(CO).toUpperCase();
 let APPNAME=COMPANY+' Sugar Inventory Monitoring';
 const YELLOW='FFFF00';
-const SH={
-  head:{font:{bold:true,color:{rgb:'000000'}},fill:FILL(YELLOW),alignment:{horizontal:'center',vertical:'center',wrapText:true},border:BOX},
-  text:{alignment:{horizontal:'justify',vertical:'center'},border:BOX},
-  num:{alignment:{horizontal:'center',vertical:'center'},border:BOX},
-  date:{alignment:{horizontal:'center',vertical:'center'},border:BOX},
-  qty:{alignment:{horizontal:'right',vertical:'center',indent:1},border:BOX}
-};
-const isDateCell=c=>c.t==='n'&&c.z&&/mmm/.test(c.z);
-const bodyStyle=c=>c.t==='n'?(isDateCell(c)?SH.date:(c.z==='#,##0.00######'?SH.qty:SH.num)):SH.text;
-const cellLen=c=>{ if(c.v==null||c.v==='') return 0; if(c.t==='n') return isDateCell(c)?11:(c.z&&c.z.indexOf('%')>=0?7:(c.z==='0'?String(c.v).length:nf(c.v).length)); return String(c.v).length; };
-function fmtSheet(ws,headerRow=0){
-  const X=window.XLSX, rg=X.utils.decode_range(ws['!ref']), w=[];
-  for(let R=rg.s.r;R<=rg.e.r;R++) for(let C=rg.s.c;C<=rg.e.c;C++){
-    const a=X.utils.encode_cell({r:R,c:C}); let cell=ws[a]; if(!cell) cell=ws[a]={t:'s',v:''};
-    if(R>0&&cell.t==='n'&&!cell.z) cell.z='#,##0.00######';
-    cell.s=R===headerRow?SH.head:bodyStyle(cell);
-    w[C]=Math.max(w[C]||10,Math.min(cellLen(cell)+3,44));
-  }
-  ws['!cols']=w.map(x=>({wch:x})); ws['!autofilter']={ref:X.utils.encode_range({s:{r:headerRow,c:0},e:rg.e})};
-}
-function xlsxBook(){
-  const X=window.XLSX; if(!X) return null; const c=compute();
-  const makeAtwSheet=(title,rows)=>{
-    const records=rows.map(row=>{
-      const values=atwValues(row);
-      if(values[4]) values[4]=serial(values[4]);
-      return values;
-    });
-    const ws=X.utils.aoa_to_sheet([[title],[COMPANY+' | Unit: '+S.unit],ATW_COLUMNS,...records]);
-    for(let i=0;i<records.length;i++){
-      const date=ws['E'+(i+4)];
-      if(date?.t==='n')date.z='dd-mmm-yyyy';
-    }
-    fmtSheet(ws,2);
-    ws['!merges']=[0,1].map(r=>({s:{r,c:0},e:{r,c:ATW_COLUMNS.length-1}}));
-    ws['!cols'][0]={wch:24};
-    ws['!cols'][4]={wch:18};
-    ws.A1.s={font:{bold:true,sz:16,color:{rgb:'FFFFFF'}},fill:FILL(COMPANY.startsWith('WILMAR SUGAR')?'096D9E':'0E7C7B')};
-    return ws;
-  };
+const canvasHex=()=>COMPANY.startsWith('WILMAR SUGAR')?'D9EEFA':'D8F0EE';
+const brandHex=()=>COMPANY.startsWith('WILMAR SUGAR')?'0B6FA4':'0E7C7B';
+const lgHex=()=>COMPANY.startsWith('WILMAR SUGAR')?'D6EAF8':'D5EEEC';
+const tbHex=()=>COMPANY.startsWith('WILMAR SUGAR')?'9CCBEA':'8FD0CB';
+const natCmp=(a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true,sensitivity:'base'});
+const exportAtwRows=()=>atwRows(S).map(row=>({...row,shipped:!!row.ship,out:row.withdrawn,bal:row.balance}));
+function xlsxBook(atwOnly=false){
+  const X=window.XLSX;
   const wb=X.utils.book_new();
+  if(atwOnly){
+    X.utils.book_append_sheet(wb,atwSheetFor(false),'ATW Registry');
+    X.utils.book_append_sheet(wb,atwSheetFor(true),'Not Shipped');
+    return wb;
+  }
+  const c=compute();
   X.utils.book_append_sheet(wb,dashSheet(c),'Dashboard');
   X.utils.book_append_sheet(wb,sroQuantitySheet(c),'SRO Registry');
-  X.utils.book_append_sheet(wb,issuanceSheet(c),'Withdrawal');
+  X.utils.book_append_sheet(wb,withdrawalSheet(c),'Withdrawal');
   X.utils.book_append_sheet(wb,sroBalanceSheet(c),'SRO Balance');
   X.utils.book_append_sheet(wb,clientSummarySheet(c),'Client Summary');
-  if(!readOnly){
-    const rows=atwRows(S);
-    X.utils.book_append_sheet(wb,makeAtwSheet('ATW Registry',rows),'ATW Registry');
-    X.utils.book_append_sheet(wb,makeAtwSheet('Not Shipped',rows.filter(a=>!a.ship)),'Not Shipped');
-  }
   return wb;
 }
 function dashSheet(c){
   const X=window.XLSX, ws={}, merges=[], H={};
-  const GREEN=COMPANY.startsWith('WILMAR SUGAR')?'096D9E':'0E7C7B', LG=COMPANY.startsWith('WILMAR SUGAR')?'D8EDFA':'D8F0ED', AMB='FFE699', LAMB='FFF2CC', BAND='F3F7F4';
+  const GREEN=brandHex(), LG=lgHex(), AMB='FFE699', LAMB='FFF2CC', BAND='F3F7F4';
   const T={style:'thin',color:{rgb:'BFBFBF'}}, BOX={top:T,bottom:T,left:T,right:T};
   const fnt=(sz,bold,rgb,it)=>({name:'Calibri',sz:sz,bold:!!bold,italic:!!it,color:{rgb:rgb||'000000'}});
   const set=(r,col,v,o)=>{
@@ -774,7 +744,7 @@ function dashSheet(c){
     if(o.border!==0) st.border=o.border||BOX;
     const isDate=typeof v==='number'&&o.z&&/mmm/.test(o.z);
     if(typeof v==='number'&&!isDate) st.alignment={horizontal:'right',vertical:'center',indent:1};
-    else if(!o.keep&&o.border!==0&&o.fill!==YELLOW&&o.fill!=='A9D08E'&&o.fill!==GREEN) st.alignment={horizontal:'center',vertical:'center'};
+    else if(!o.keep&&o.border!==0&&o.fill!==YELLOW&&o.fill!==tbHex()&&o.fill!==GREEN) st.alignment={horizontal:'center',vertical:'center'};
     cell.s=st; ws[X.utils.encode_cell({r:r,c:col})]=cell;
   };
   const span=(r,c1,c2,v,o)=>{ for(let k=c1;k<=c2;k++) set(r,k,k===c1?v:'',o); if(c2>c1) merges.push({s:{r:r,c:c1},e:{r:r,c:c2}}); };
@@ -800,7 +770,7 @@ function dashSheet(c){
       span(r+1,c0,c1,'BALANCE',{keep:true,font:fnt(9,true,'7F6000'),fill:LAMB,al:{horizontal:'center',vertical:'center'},border:BOX});
       span(r+2,c0,c1,bal,{keep:true,font:fnt(22,true,GREEN),fill:AMB,al:{horizontal:'center',vertical:'center'},border:BOX});
       set(r+3,c0,'Received',{border:BOX}); set(r+3,c1,t.received,{border:BOX});
-      set(r+4,c0,'Issued',{border:BOX});   set(r+4,c1,t.issued,{border:BOX});
+      set(r+4,c0,'Withdrawal',{border:BOX});   set(r+4,c1,t.issued,{border:BOX});
       set(r+5,c0,'% Left',{border:BOX});   set(r+5,c1,p/100,{z:'0.00%',border:BOX});
       span(r+6,c0,c1,bar(p),{keep:true,font:fnt(11,false,GREEN),al:{horizontal:'center',vertical:'center'},border:BOX});
     });
@@ -812,8 +782,8 @@ function dashSheet(c){
   ts.forEach(t=>{
     const g=c.list.filter(o=>(o.type||'(no type)')===t.name).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
     if(!g.length) return;
-    span(r,0,8,t.name.toUpperCase()+'   |   '+g.length+' SRO'+(g.length>1?'s':''),{font:fnt(12,true,GREEN),fill:'A9D08E',al:{horizontal:'left',vertical:'center',indent:1},border:BOX}); H[r]=24; r++;
-    headRow(r,['SRO Number','SRO Date','Mill Source','Received','Issued','Balance','% Issued','Stock Level','Status']); r++;
+    span(r,0,8,t.name.toUpperCase()+'   |   '+g.length+' SRO'+(g.length>1?'s':''),{font:fnt(12,true,GREEN),fill:tbHex(),al:{horizontal:'left',vertical:'center',indent:1},border:BOX}); H[r]=24; r++;
+    headRow(r,['SRO Number','SRO Date','Mill Source','Received','Withdrawal','Balance','% Withdrawal','Stock Level','Status']); r++;
     g.forEach((o,ix)=>{
       const f=ix%2?BAND:'FFFFFF', st=status(o), sc=STAT[st.k]||STAT.ok;
       set(r,0,o.sro,{fill:f,font:fnt(10,true)});
@@ -822,7 +792,7 @@ function dashSheet(c){
       set(r,5,o.balance,{fill:f,font:fnt(10,true,GREEN)});
       set(r,6,o.received?o.issued/o.received:0,{z:'0.00%',fill:f});
       set(r,7,bar(left(o.received,o.balance)),{fill:f,font:fnt(10,false,GREEN),al:{horizontal:'center',vertical:'center'}});
-      set(r,8,st.t,{fill:sc[0],font:fnt(10,true,sc[1]),al:{horizontal:'center',vertical:'center'}});
+      set(r,8,wst(st.t),{fill:sc[0],font:fnt(10,true,sc[1]),al:{horizontal:'center',vertical:'center'}});
       r++;
     });
     const gr=sum(g,o=>o.received), gi=sum(g,o=>o.issued), o2={fill:AMB,font:fnt(10,true,'000000')};
@@ -832,10 +802,10 @@ function dashSheet(c){
     set(r,7,bar(left(gr,gr-gi)),{fill:AMB,font:fnt(10,false,GREEN),al:{horizontal:'center',vertical:'center'}});
     set(r,8,'',o2); r+=2;
   });
-  /* issued per client */
+  /* withdrawal per client */
   const cc=ts.length+5;
-  sec(r,'ISSUED PER CLIENT (BY SUGAR TYPE)',Math.max(cc,6)); r++;
-  headRow(r,['Client'].concat(ts.map(t=>t.name),['Total Issued','% of Total','Deliveries','Last Issuance'])); r++;
+  sec(r,'WITHDRAWAL PER CLIENT (BY SUGAR TYPE)',Math.max(cc,6)); r++;
+  headRow(r,['Client'].concat(ts.map(t=>t.name),['Total Withdrawal','% of Total','Deliveries','Last Withdrawal'])); r++;
   const tot=sum(cs,k=>k.total);
   cs.forEach((k,ix)=>{
     const f=ix%2?BAND:'FFFFFF';
@@ -849,32 +819,38 @@ function dashSheet(c){
     r++;
   });
   r++;
-  /* data checks */
   if(!readOnly){
-    const atws=atwRows(S), pending=atws.filter(row=>!row.ship);
-    sec(r,'ATW REGISTRY | '+atws.length+' logged | '+pending.length+' not shipped',8); r++;
-    headRow(r,['Source mill','ATWs','Shipped quantity','Not shipped quantity','Not shipped ATWs']); r++;
-    for(const mill of atwMillTotals(atws)){
-      [mill.name,mill.count,mill.shipped,mill.pending,mill.pendingCount].forEach((value,col)=>set(r,col,value,{z:col===1||col===4?'0':undefined}));
-      r++;
-    }
+  /* ATW registry */
+  const atAll=exportAtwRows().sort((x,y)=>natCmp(x.atw,y.atw)), atNS=atAll.filter(a=>!a.shipped);
+  sec(r,'ATW REGISTRY   |   ATWs: '+atAll.length+'   |   Not shipped: '+atNS.length+'   |   Shipped: '+(atAll.length-atNS.length),7); r++;
+  if(!atAll.length){ span(r,0,6,'No ATWs recorded yet.',{font:fnt(10,false,'404040',true),al:{horizontal:'center',vertical:'center'}}); r++; }
+  else{
+    const ml=Object.create(null); atAll.forEach(a=>{ const k=a.mill||'(no mill)'; const m=ml[k]||(ml[k]={name:k,n:0,tq:0,wq:0,nn:0}); m.n++; m.tq+=+a.qty||0; m.wq+=a.out; if(!a.shipped) m.nn++; });
+    headRow(r,['Source Mill','No. of ATWs','Total ATW Quantity','Withdrawal Quantity','Balance','Not Shipped ATWs']); r++;
+    Object.values(ml).sort((x,y)=>natCmp(x.name,y.name)).forEach((m,ix)=>{
+      const f=ix%2?BAND:'FFFFFF', red=m.nn>0, ro={fill:red?'FFC7CE':f,font:red?fnt(10,true,'9C0006'):fnt(10)};
+      set(r,0,m.name,{fill:f,font:fnt(10,true)}); set(r,1,m.n,{z:'#,##0',fill:f}); set(r,2,m.tq,{fill:f}); set(r,3,m.wq,{fill:f}); set(r,4,m.tq-m.wq,{fill:f,font:fnt(10,true)});
+      set(r,5,m.nn,Object.assign({z:'#,##0'},ro)); r++;
+    });
     r++;
-    sec(r,'ATWs NOT SHIPPED',8); r++;
-    headRow(r,ATW_COLUMNS); r++;
-    if(!pending.length){set(r,0,atws.length?'All ATWs have shipped.':'No ATWs recorded.'); r++;}
-    for(const row of pending){
-      atwValues(row).forEach((value,col)=>set(r,col,value,{fill:'FFC7CE'}));
-      r++;
+    span(r,0,5,'ATWs NOT SHIPPED',{font:fnt(11,true,'9C0006'),fill:'FFC7CE',al:{horizontal:'left',vertical:'center',indent:1}}); H[r]=22; r++;
+    if(!atNS.length){ span(r,0,5,'All ATWs have been shipped.',{font:fnt(10,true,'006100'),fill:'C6EFCE',al:{horizontal:'center',vertical:'center'}}); r++; }
+    else{
+      headRow(r,['ATW No.','Source Mill','Total ATW Quantity','Withdrawal Quantity','DR #','Status']); r++;
+      atNS.forEach(a=>{ const o={fill:'FFC7CE',font:fnt(10,true,'9C0006')};
+        set(r,0,a.atw,o); set(r,1,a.mill,o); set(r,2,+a.qty||0,o); set(r,3,a.out,o); set(r,4,a.dr,o); set(r,5,'NOT SHIPPED',{fill:'C00000',font:fnt(10,true,'FFFFFF')}); r++; });
     }
-    r++;
   }
+  r++;
+  }
+  /* data checks */
   sec(r,'DATA CHECKS',6); r++;
   const dup=S.receipts.filter(x=>S.receipts.filter(y=>y.sro===x.sro).length>1).length;
   const mis=S.issues.filter(i=>c.by[i.sro]&&i.type&&i.type!==c.by[i.sro].type).length;
-  [['SROs over-issued',c.list.filter(o=>o.balance<0).length],
-   ['Issuance lines with SRO not in SRO Quantity',c.orphans.length],
-   ['Duplicate SRO numbers in SRO Quantity',dup],
-   ['Issuance lines with sugar type different from SRO',mis]].forEach(x=>{
+  [['SROs over-withdrawn',c.list.filter(o=>o.balance<0).length],
+   ['Withdrawal lines with SRO not in SRO Registry',c.orphans.length],
+   ['Duplicate SRO numbers in SRO Registry',dup],
+   ['Withdrawal lines with sugar type different from SRO',mis]].forEach(x=>{
     const okk=x[1]===0, col=okk?['C6EFCE','006100']:['FFC7CE','9C0006'];
     span(r,0,3,x[0],{}); set(r,4,x[1],{z:'#,##0',al:{horizontal:'center',vertical:'center'}});
     set(r,5,okk?'OK':'Review',{fill:col[0],font:fnt(10,true,col[1]),al:{horizontal:'center',vertical:'center'}}); r++;
@@ -883,7 +859,7 @@ function dashSheet(c){
   const endR=r+2, endC=ncols+1;
   for(let R=0;R<=endR;R++) for(let C=0;C<=endC;C++){
     const a=X.utils.encode_cell({r:R,c:C});
-    if(!ws[a]) ws[a]={t:'s',v:'',s:{fill:FILL('FFFFFF')}};
+    if(!ws[a]) ws[a]={t:'s',v:'',s:{fill:FILL(canvasHex())}};
   }
   ws['!ref']=X.utils.encode_range({s:{r:0,c:0},e:{r:endR,c:endC}});
   ws['!merges']=merges;
@@ -895,7 +871,7 @@ function dashSheet(c){
 }
 function sroBalanceSheet(c){
   const X=window.XLSX, ws={}, merges=[], H={};
-  const GREEN=COMPANY.startsWith('WILMAR SUGAR')?'096D9E':'0E7C7B', LG=COMPANY.startsWith('WILMAR SUGAR')?'D8EDFA':'D8F0ED', AMB='FFE699', BAND='F3F7F4';
+  const GREEN=brandHex(), LG=lgHex(), AMB='FFE699', BAND='F3F7F4';
   const T={style:'thin',color:{rgb:'BFBFBF'}}, BOX={top:T,bottom:T,left:T,right:T};
   const fnt=(sz,bold,rgb,it)=>({name:'Calibri',sz:sz,bold:!!bold,italic:!!it,color:{rgb:rgb||'000000'}});
   const CEN={horizontal:'center',vertical:'center'};
@@ -909,7 +885,7 @@ function sroBalanceSheet(c){
     if(o.border!==0) st.border=BOX;
     const isDate=typeof v==='number'&&o.z&&/mmm/.test(o.z);
     if(typeof v==='number'&&!isDate) st.alignment={horizontal:'right',vertical:'center',indent:1};
-    else if(!o.keep&&o.border!==0&&o.fill!==YELLOW&&o.fill!=='A9D08E'&&o.fill!==GREEN) st.alignment={horizontal:'center',vertical:'center'};
+    else if(!o.keep&&o.border!==0&&o.fill!==YELLOW&&o.fill!==tbHex()&&o.fill!==GREEN) st.alignment={horizontal:'center',vertical:'center'};
     cell.s=st; ws[X.utils.encode_cell({r:r,c:col})]=cell;
   };
   const span=(r,c1,c2,v,o)=>{ for(let k=c1;k<=c2;k++) set(r,k,k===c1?v:'',o); if(c2>c1) merges.push({s:{r:r,c:c1},e:{r:r,c:c2}}); };
@@ -921,8 +897,8 @@ function sroBalanceSheet(c){
   ts.forEach(t=>{
     const g=c.list.filter(o=>(o.type||'(no type)')===t.name).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
     if(!g.length) return;
-    span(r,0,7,t.name.toUpperCase()+'   |   '+g.length+' SRO'+(g.length>1?'s':''),{font:fnt(12,true,GREEN),fill:'A9D08E',al:{horizontal:'left',vertical:'center',indent:1}}); H[r]=24; r++;
-    ['SRO Number','SRO Date','Mill Source','Qty Received','Qty Issued','Running Balance','% Issued','Status'].forEach((l,i)=>set(r,i,l,{font:fnt(10,true),fill:YELLOW,al:{horizontal:'center',vertical:'center',wrapText:true}})); H[r]=28; r++;
+    span(r,0,7,t.name.toUpperCase()+'   |   '+g.length+' SRO'+(g.length>1?'s':''),{font:fnt(12,true,GREEN),fill:tbHex(),al:{horizontal:'left',vertical:'center',indent:1}}); H[r]=24; r++;
+    ['SRO Number','SRO Date','Mill Source','Qty Received','Qty Withdrawal','Running Balance','% Withdrawal','Status'].forEach((l,i)=>set(r,i,l,{font:fnt(10,true),fill:YELLOW,al:{horizontal:'center',vertical:'center',wrapText:true}})); H[r]=28; r++;
     g.forEach((o,ix)=>{
       const f=ix%2?BAND:'FFFFFF', st=status(o), sc=STAT[st.k]||STAT.ok;
       set(r,0,o.sro,{fill:f,font:fnt(10,true)});
@@ -930,7 +906,7 @@ function sroBalanceSheet(c){
       set(r,2,o.mill,{fill:f}); set(r,3,o.received,{fill:f}); set(r,4,o.issued,{fill:f});
       set(r,5,o.balance,{fill:f,font:fnt(10,true,GREEN)});
       set(r,6,o.received?o.issued/o.received:0,{z:'0.00%',fill:f});
-      set(r,7,st.t,{fill:sc[0],font:fnt(10,true,sc[1]),al:CEN});
+      set(r,7,wst(st.t),{fill:sc[0],font:fnt(10,true,sc[1]),al:CEN});
       r++;
     });
     const gr=sum(g,o=>o.received), gi=sum(g,o=>o.issued), o2={fill:AMB,font:fnt(10,true)};
@@ -939,7 +915,7 @@ function sroBalanceSheet(c){
     set(r,6,gr?gi/gr:0,Object.assign({z:'0.00%'},o2)); set(r,7,'',o2); r+=2;
   });
   const endR=r+1, endC=9;
-  for(let R=0;R<=endR;R++) for(let C=0;C<=endC;C++){ const a=X.utils.encode_cell({r:R,c:C}); if(!ws[a]) ws[a]={t:'s',v:'',s:{fill:FILL('FFFFFF')}}; }
+  for(let R=0;R<=endR;R++) for(let C=0;C<=endC;C++){ const a=X.utils.encode_cell({r:R,c:C}); if(!ws[a]) ws[a]={t:'s',v:'',s:{fill:FILL(canvasHex())}}; }
   ws['!ref']=X.utils.encode_range({s:{r:0,c:0},e:{r:endR,c:endC}});
   ws['!merges']=merges;
   ws['!cols']=[20,14,18,16,16,18,12,16,6,6].map(w=>({wch:w}));
@@ -948,7 +924,7 @@ function sroBalanceSheet(c){
 }
 function sroQuantitySheet(c){
   const X=window.XLSX, ws={}, merges=[], H={};
-  const GREEN=COMPANY.startsWith('WILMAR SUGAR')?'096D9E':'0E7C7B', LG=COMPANY.startsWith('WILMAR SUGAR')?'D8EDFA':'D8F0ED', AMB='FFE699', LAMB='FFF2CC', BAND='F3F7F4', LAST=4;
+  const GREEN=brandHex(), LG=lgHex(), AMB='FFE699', LAMB='FFF2CC', BAND='F3F7F4', LAST=4;
   const T={style:'thin',color:{rgb:'BFBFBF'}}, BOX={top:T,bottom:T,left:T,right:T};
   const fnt=(sz,bold,rgb,it)=>({name:'Calibri',sz:sz,bold:!!bold,italic:!!it,color:{rgb:rgb||'000000'}});
   const CEN={horizontal:'center',vertical:'center'};
@@ -962,7 +938,7 @@ function sroQuantitySheet(c){
     if(o.border!==0) st.border=BOX;
     const isDate=typeof v==='number'&&o.z&&/mmm/.test(o.z);
     if(typeof v==='number'&&!isDate) st.alignment={horizontal:'right',vertical:'center',indent:1};
-    else if(!o.keep&&o.border!==0&&o.fill!==YELLOW&&o.fill!=='A9D08E'&&o.fill!==GREEN) st.alignment={horizontal:'center',vertical:'center'};
+    else if(!o.keep&&o.border!==0&&o.fill!==YELLOW&&o.fill!==tbHex()&&o.fill!==GREEN) st.alignment={horizontal:'center',vertical:'center'};
     cell.s=st; ws[X.utils.encode_cell({r:r,c:col})]=cell;
   };
   const span=(r,c1,c2,v,o)=>{ for(let k=c1;k<=c2;k++) set(r,k,k===c1?v:'',o); if(c2>c1) merges.push({s:{r:r,c:c1},e:{r:r,c:c2}}); };
@@ -996,7 +972,7 @@ function sroQuantitySheet(c){
   }
   groups.forEach(x=>{
     const g=x.g;
-    span(r,0,LAST,x.t.name.toUpperCase()+'   |   '+g.length+' SRO'+(g.length>1?'s':''),{font:fnt(12,true,GREEN),fill:'A9D08E',al:{horizontal:'left',vertical:'center',indent:1}}); H[r]=24; r++;
+    span(r,0,LAST,x.t.name.toUpperCase()+'   |   '+g.length+' SRO'+(g.length>1?'s':''),{font:fnt(12,true,GREEN),fill:tbHex(),al:{horizontal:'left',vertical:'center',indent:1}}); H[r]=24; r++;
     head(r,['SRO Date','Crop Year','SRO Number','Mill Source','SRO Quantity']); r++;
     g.forEach((o,ix)=>{
       const f=ix%2?BAND:'FFFFFF';
@@ -1011,16 +987,16 @@ function sroQuantitySheet(c){
     set(r,4,sum(g,o=>o.received),{fill:AMB,font:fnt(11,true,GREEN)}); r+=2;
   });
   const endR=r+1, endC=LAST+2;
-  for(let R=0;R<=endR;R++) for(let C=0;C<=endC;C++){ const a=X.utils.encode_cell({r:R,c:C}); if(!ws[a]) ws[a]={t:'s',v:'',s:{fill:FILL('FFFFFF')}}; }
+  for(let R=0;R<=endR;R++) for(let C=0;C<=endC;C++){ const a=X.utils.encode_cell({r:R,c:C}); if(!ws[a]) ws[a]={t:'s',v:'',s:{fill:FILL(canvasHex())}}; }
   ws['!ref']=X.utils.encode_range({s:{r:0,c:0},e:{r:endR,c:endC}});
   ws['!merges']=merges;
   ws['!cols']=[20,14,18,20,18,6,6].map(w=>({wch:w}));
   ws['!rows']=[]; Object.keys(H).forEach(k=>{ ws['!rows'][+k]={hpt:H[k]}; });
   return ws;
 }
-function issuanceSheet(c){
+function withdrawalSheet(c){
   const X=window.XLSX, ws={}, merges=[], H={};
-  const GREEN=COMPANY.startsWith('WILMAR SUGAR')?'096D9E':'0E7C7B', LG=COMPANY.startsWith('WILMAR SUGAR')?'D8EDFA':'D8F0ED', AMB='FFE699', LAMB='FFF2CC', BAND='F3F7F4', LAST=13;
+  const GREEN=brandHex(), LG=lgHex(), AMB='FFE699', LAMB='FFF2CC', BAND='F3F7F4', LAST=13;
   const T={style:'thin',color:{rgb:'BFBFBF'}}, BOX={top:T,bottom:T,left:T,right:T};
   const fnt=(sz,bold,rgb,it)=>({name:'Calibri',sz:sz,bold:!!bold,italic:!!it,color:{rgb:rgb||'000000'}});
   const CEN={horizontal:'center',vertical:'center'};
@@ -1034,7 +1010,7 @@ function issuanceSheet(c){
     if(o.border!==0) st.border=BOX;
     const isDate=typeof v==='number'&&o.z&&/mmm/.test(o.z);
     if(typeof v==='number'&&!isDate) st.alignment={horizontal:'right',vertical:'center',indent:1};
-    else if(!o.keep&&o.border!==0&&o.fill!==YELLOW&&o.fill!=='A9D08E'&&o.fill!==GREEN) st.alignment={horizontal:'center',vertical:'center'};
+    else if(!o.keep&&o.border!==0&&o.fill!==YELLOW&&o.fill!==tbHex()&&o.fill!==GREEN) st.alignment={horizontal:'center',vertical:'center'};
     cell.s=st; ws[X.utils.encode_cell({r:r,c:col})]=cell;
   };
   const span=(r,c1,c2,v,o)=>{ for(let k=c1;k<=c2;k++) set(r,k,k===c1?v:'',o); if(c2>c1) merges.push({s:{r:r,c:c1},e:{r:r,c:c2}}); };
@@ -1046,7 +1022,7 @@ function issuanceSheet(c){
   span(r,0,LAST,'WITHDRAWAL (BY SUGAR TYPE)',{font:fnt(16,true,'FFFFFF'),fill:GREEN,al:{horizontal:'left',vertical:'center',indent:1},border:0}); H[r]=32; r++;
   span(r,0,LAST,COMPANY+'   |   As of '+fd(today())+'   |   Unit: '+S.unit,{font:fnt(10,false,'404040',true),fill:LG,al:{horizontal:'left',vertical:'center',indent:1},border:0}); H[r]=20; r+=2;
   span(r,0,3,'SUMMARY BY SUGAR TYPE',{font:fnt(12,true,'FFFFFF'),fill:GREEN,al:{horizontal:'left',vertical:'center',indent:1},border:0}); H[r]=22; r++;
-  head(r,['Type of Sugar','Batch Codes','Quantity Issued','Clients']); r++;
+  head(r,['Type of Sugar','Batch Codes','Quantity Withdrawal','Clients']); r++;
   groups.forEach(x=>{
     set(r,0,x.t.name,{fill:AMB,font:fnt(10,true)});
     set(r,1,x.g.length,{z:'#,##0',fill:LAMB,al:CEN});
@@ -1055,7 +1031,7 @@ function issuanceSheet(c){
     r++;
   });
   r++;
-  span(r,0,6,'TOTAL ISSUANCE PER ATW NUMBER',{font:fnt(12,true,'FFFFFF'),fill:GREEN,al:{horizontal:'left',vertical:'center',indent:1},border:0}); H[r]=22; r++;
+  span(r,0,6,'TOTAL WITHDRAWAL PER ATW NUMBER',{font:fnt(12,true,'FFFFFF'),fill:GREEN,al:{horizontal:'left',vertical:'center',indent:1},border:0}); H[r]=22; r++;
   head(r,['Ref ATW Number','Date','Client','SRO Number','Type of Sugar','Batch Codes','Total Quantity']); r++;
   const am0=Object.create(null), al=[];
   c.sorted.forEach(i=>{ const k=i.atw||'(no ATW)'; if(!am0[k]){ am0[k]={k:k,items:[]}; al.push(am0[k]); } am0[k].items.push(i); });
@@ -1071,8 +1047,8 @@ function issuanceSheet(c){
   r++;
   groups.forEach(x=>{
     const g=x.g;
-    span(r,0,LAST,x.t.name.toUpperCase()+'   |   '+g.length+' batch code'+(g.length>1?'s':''),{font:fnt(12,true,GREEN),fill:'A9D08E',al:{horizontal:'left',vertical:'center',indent:1}}); H[r]=24; r++;
-    head(r,['Date','SRO Number','Ref ATW Number','Client','SRA Permit No.','Mill Waybill Number','Batch Codes','Quantity per Batch Code','Bill of Lading No.','Vessel','Voy No.','Sailing Date','SRO Balance After This Line','Van # / Truck Plate #']); r++;
+    span(r,0,LAST,x.t.name.toUpperCase()+'   |   '+g.length+' batch code'+(g.length>1?'s':''),{font:fnt(12,true,GREEN),fill:tbHex(),al:{horizontal:'left',vertical:'center',indent:1}}); H[r]=24; r++;
+    head(r,['Date','SRO Number','Ref ATW Number','Client','SRA Permit No.','Mill Waybill Number','Van # / Truck Plate #','Batch Codes','Quantity per Batch Code','Bill of Lading No.','Vessel','Voy No.','Sailing Date','SRO Balance After This Line']); r++;
     const ag=[], amm=Object.create(null);
     g.forEach(i=>{ const k=i.atw||'(no ATW)'; if(!amm[k]){ amm[k]={k:k,items:[]}; ag.push(amm[k]); } amm[k].items.push(i); });
     let ix=0;
@@ -1081,33 +1057,32 @@ function issuanceSheet(c){
         const f=ix++%2?BAND:'FFFFFF';
         set(r,0,i.date?serial(i.date):'',{z:'dd-mmm-yyyy',fill:f,al:CEN});
         set(r,1,i.sro,{fill:f,font:fnt(10,true)}); set(r,2,i.atw,{fill:f}); set(r,3,i.client,{fill:f});
-        set(r,4,i.permit,{fill:f}); set(r,5,i.waybill,{fill:f}); set(r,6,i.batch,{fill:f});
-        set(r,7,+i.qty||0,{fill:f,font:fnt(10,true)});
-        set(r,8,i.bol,{fill:f}); set(r,9,i.vessel,{fill:f}); set(r,10,i.voy,{fill:f});
-        set(r,11,i.sail?serial(i.sail):'',{z:'dd-mmm-yyyy',fill:f,al:CEN});
-        set(r,12,c.run[i.id]==null?'':c.run[i.id],{fill:f,font:fnt(10,true,GREEN)});
-        set(r,13,i.van,{fill:f});
+        set(r,4,i.permit,{fill:f}); set(r,5,i.waybill,{fill:f}); set(r,6,i.van,{fill:f}); set(r,7,i.batch,{fill:f});
+        set(r,8,+i.qty||0,{fill:f,font:fnt(10,true)});
+        set(r,9,i.bol,{fill:f}); set(r,10,i.vessel,{fill:f}); set(r,11,i.voy,{fill:f});
+        set(r,12,i.sail?serial(i.sail):'',{z:'dd-mmm-yyyy',fill:f,al:CEN});
+        set(r,13,c.run[i.id]==null?'':c.run[i.id],{fill:f,font:fnt(10,true,GREEN)});
         r++;
       });
       const o4={fill:LAMB,font:fnt(10,true)};
-      span(r,0,6,a.k+' TOTAL',o4); set(r,7,sum(a.items,i=>+i.qty||0),{fill:LAMB,font:fnt(10,true,GREEN)}); span(r,8,LAST,'',o4); r++;
+      span(r,0,7,a.k+' TOTAL',o4); set(r,8,sum(a.items,i=>+i.qty||0),{fill:LAMB,font:fnt(10,true,GREEN)}); span(r,9,LAST,'',o4); r++;
     });
     const o2={fill:AMB,font:fnt(10,true)};
-    span(r,0,6,x.t.name+' SUBTOTAL',o2);
-    set(r,7,sum(g,i=>+i.qty||0),{fill:AMB,font:fnt(11,true,GREEN)});
-    span(r,8,LAST,'',o2); r+=2;
+    span(r,0,7,x.t.name+' SUBTOTAL',o2);
+    set(r,8,sum(g,i=>+i.qty||0),{fill:AMB,font:fnt(11,true,GREEN)});
+    span(r,9,LAST,'',o2); r+=2;
   });
   const endR=r+1, endC=LAST+2;
-  for(let R=0;R<=endR;R++) for(let C=0;C<=endC;C++){ const a=X.utils.encode_cell({r:R,c:C}); if(!ws[a]) ws[a]={t:'s',v:'',s:{fill:FILL('FFFFFF')}}; }
+  for(let R=0;R<=endR;R++) for(let C=0;C<=endC;C++){ const a=X.utils.encode_cell({r:R,c:C}); if(!ws[a]) ws[a]={t:'s',v:'',s:{fill:FILL(canvasHex())}}; }
   ws['!ref']=X.utils.encode_range({s:{r:0,c:0},e:{r:endR,c:endC}});
   ws['!merges']=merges;
-  ws['!cols']=[20,18,17,20,17,18,16,16,18,18,10,14,18,24,6,6].map(w=>({wch:w}));
+  ws['!cols']=[20,18,17,20,17,18,18,16,16,18,18,10,14,18,6,6].map(w=>({wch:w}));
   ws['!rows']=[]; Object.keys(H).forEach(k=>{ ws['!rows'][+k]={hpt:H[k]}; });
   return ws;
 }
 function clientSummarySheet(c){
   const X=window.XLSX, ws={}, merges=[], H={};
-  const GREEN=COMPANY.startsWith('WILMAR SUGAR')?'096D9E':'0E7C7B', LG=COMPANY.startsWith('WILMAR SUGAR')?'D8EDFA':'D8F0ED', AMB='FFE699', LAMB='FFF2CC', BAND='F3F7F4';
+  const GREEN=brandHex(), LG=lgHex(), AMB='FFE699', LAMB='FFF2CC', BAND='F3F7F4';
   const T={style:'thin',color:{rgb:'BFBFBF'}}, BOX={top:T,bottom:T,left:T,right:T};
   const fnt=(sz,bold,rgb,it)=>({name:'Calibri',sz:sz,bold:!!bold,italic:!!it,color:{rgb:rgb||'000000'}});
   const CEN={horizontal:'center',vertical:'center',wrapText:true};
@@ -1121,7 +1096,7 @@ function clientSummarySheet(c){
     if(o.border!==0) st.border=BOX;
     const isDate=typeof v==='number'&&o.z&&/mmm/.test(o.z);
     if(typeof v==='number'&&!isDate) st.alignment={horizontal:'right',vertical:'center',indent:1};
-    else if(!o.keep&&o.border!==0&&o.fill!==YELLOW&&o.fill!=='A9D08E'&&o.fill!==GREEN) st.alignment={horizontal:'center',vertical:'center'};
+    else if(!o.keep&&o.border!==0&&o.fill!==YELLOW&&o.fill!==tbHex()&&o.fill!==GREEN) st.alignment={horizontal:'center',vertical:'center'};
     cell.s=st; ws[X.utils.encode_cell({r:r,c:col})]=cell;
   };
   const span=(r,c1,c2,v,o)=>{ for(let k=c1;k<=c2;k++) set(r,k,k===c1?v:'',o); if(c2>c1) merges.push({s:{r:r,c:c1},e:{r:r,c:c2}}); };
@@ -1137,8 +1112,8 @@ function clientSummarySheet(c){
   span(r,0,LAST,'CLIENT SUMMARY (BY SUGAR TYPE)',{font:fnt(16,true,'FFFFFF'),fill:GREEN,al:{horizontal:'left',vertical:'center',indent:1},border:0}); H[r]=32; r++;
   span(r,0,LAST,COMPANY+'   |   As of '+fd(today())+'   |   Unit: '+S.unit+'   |   Clients served: '+cs.length,{font:fnt(10,false,'404040',true),fill:LG,al:{horizontal:'left',vertical:'center',indent:1},border:0}); H[r]=20; r+=2;
   /* 1) matrix: client x sugar type */
-  span(r,0,LAST,'ISSUED PER CLIENT, BY SUGAR TYPE',{font:fnt(12,true,'FFFFFF'),fill:GREEN,al:{horizontal:'left',vertical:'center',indent:1},border:0}); H[r]=22; r++;
-  head(r,['Client'].concat(ts.map(t=>t.name),['Total Issued','% of Total','Deliveries','Last Issuance'])); r++;
+  span(r,0,LAST,'WITHDRAWAL PER CLIENT, BY SUGAR TYPE',{font:fnt(12,true,'FFFFFF'),fill:GREEN,al:{horizontal:'left',vertical:'center',indent:1},border:0}); H[r]=22; r++;
+  head(r,['Client'].concat(ts.map(t=>t.name),['Total Withdrawal','% of Total','Deliveries','Last Withdrawal'])); r++;
   cs.forEach((k,ix)=>{
     const f=ix%2?BAND:'FFFFFF';
     set(r,0,k.name,{fill:f,font:fnt(10,true)});
@@ -1155,8 +1130,8 @@ function clientSummarySheet(c){
   span(r,0,LAST,'SUGAR TYPE PER CLIENT (DETAIL BY BATCH CODE)',{font:fnt(12,true,'FFFFFF'),fill:GREEN,al:{horizontal:'left',vertical:'center',indent:1},border:0}); H[r]=22; r+=2;
   cs.forEach(k=>{
     const nd=dcount(k.items);
-    span(r,0,5,k.name.toUpperCase()+'   |   '+nd+' deliver'+(nd===1?'y':'ies')+'   |   '+k.lines+' batch code'+(k.lines===1?'':'s'),{font:fnt(12,true,GREEN),fill:'A9D08E',al:{horizontal:'left',vertical:'center',indent:1}}); H[r]=24; r++;
-    head(r,['Type of Sugar','SRO Number','Ref ATW Number','Batch Code','Quantity Issued','Date']); r++;
+    span(r,0,5,k.name.toUpperCase()+'   |   '+nd+' deliver'+(nd===1?'y':'ies')+'   |   '+k.lines+' batch code'+(k.lines===1?'':'s'),{font:fnt(12,true,GREEN),fill:tbHex(),al:{horizontal:'left',vertical:'center',indent:1}}); H[r]=24; r++;
+    head(r,['Type of Sugar','SRO Number','Ref ATW Number','Batch Code','Quantity Withdrawal','Date']); r++;
     ts.forEach(t=>{
       const it=k.items.filter(i=>typeOf(i)===t.name).sort((x,y)=>x.date<y.date?-1:x.date>y.date?1:x.seq-y.seq);
       if(!it.length) return;
@@ -1176,18 +1151,62 @@ function clientSummarySheet(c){
     r+=2;
   });
   const endR=r+1, endC=ncols+1;
-  for(let R=0;R<=endR;R++) for(let C=0;C<=endC;C++){ const a=X.utils.encode_cell({r:R,c:C}); if(!ws[a]) ws[a]={t:'s',v:'',s:{fill:FILL('FFFFFF')}}; }
+  for(let R=0;R<=endR;R++) for(let C=0;C<=endC;C++){ const a=X.utils.encode_cell({r:R,c:C}); if(!ws[a]) ws[a]={t:'s',v:'',s:{fill:FILL(canvasHex())}}; }
   ws['!ref']=X.utils.encode_range({s:{r:0,c:0},e:{r:endR,c:endC}});
   ws['!merges']=merges;
   ws['!cols']=[]; for(let C=0;C<=endC;C++) ws['!cols'].push({wch:C===0?26:C<=ncols-1?18:6});
   ws['!rows']=[]; Object.keys(H).forEach(k=>{ ws['!rows'][+k]={hpt:H[k]}; });
   return ws;
 }
+function atwSheetFor(onlyNS){
+  const X=window.XLSX, ws={}, merges=[], H={};
+  const GREEN=brandHex(), LG=lgHex(), BAND='F3F7F4', NSF='FFC7CE', NSC='9C0006';
+  const T={style:'thin',color:{rgb:'BFBFBF'}}, BOX={top:T,bottom:T,left:T,right:T};
+  const fnt=(sz,bold,rgb,it)=>({name:'Calibri',sz:sz,bold:!!bold,italic:!!it,color:{rgb:rgb||'000000'}});
+  const set=(r,col,v,o)=>{
+    o=o||{}; let cell;
+    if(v===''||v==null) cell={t:'s',v:''};
+    else if(typeof v==='number') cell={t:'n',v:v,z:o.z||'#,##0.00'};
+    else cell={t:'s',v:String(v)};
+    const isDate=typeof v==='number'&&o.z&&/mmm/.test(o.z);
+    const al=o.al||((typeof v==='number'&&!isDate)?{horizontal:'right',vertical:'center',indent:1}:{horizontal:'center',vertical:'center'});
+    const st={font:o.font||fnt(10),alignment:al};
+    if(o.fill) st.fill=FILL(o.fill);
+    if(o.border!==0) st.border=BOX;
+    cell.s=st; ws[X.utils.encode_cell({r:r,c:col})]=cell;
+  };
+  const span=(r,c1,c2,v,o)=>{ for(let k=c1;k<=c2;k++) set(r,k,k===c1?v:'',o); if(c2>c1) merges.push({s:{r:r,c:c1},e:{r:r,c:c2}}); };
+  const all=exportAtwRows().sort((x,y)=>natCmp(x.atw,y.atw)), ns=all.filter(r=>!r.shipped), rows=onlyNS?ns:all;
+  const LAST=7; let r=0;
+  span(r,0,LAST,onlyNS?'ATW NOT SHIPPED':'ATW REGISTRY',{font:fnt(18,true,'FFFFFF'),fill:GREEN,al:{horizontal:'left',vertical:'center',indent:1},border:0}); H[r]=34; r++;
+  span(r,0,LAST,COMPANY+'   |   As of '+fd(today())+'   |   ATWs: '+all.length+'   |   Not shipped: '+ns.length+'   |   Shipped: '+(all.length-ns.length),{font:fnt(10,false,'404040',true),fill:LG,al:{horizontal:'left',vertical:'center',indent:1},border:0}); H[r]=20; r++;
+  span(r,0,LAST,'Rows highlighted in red are ATWs that have not been shipped (no shipping date).',{font:fnt(10,true,NSC),fill:NSF,al:{horizontal:'left',vertical:'center',indent:1},border:0}); H[r]=20; r+=2;
+  ['ATW No.','Source Mill','Total ATW Quantity','Withdrawal Quantity','DR #','Shipping Date','Balance','Status'].forEach((l,i)=>set(r,i,l,{font:fnt(10,true),fill:YELLOW,al:{horizontal:'center',vertical:'center',wrapText:true}})); H[r]=28; r++;
+  if(!rows.length){ span(r,0,LAST,onlyNS?'All ATWs have been shipped.':'No ATWs recorded yet.',{font:fnt(11,true,'006100'),fill:'C6EFCE',al:{horizontal:'center',vertical:'center'}}); r++; }
+  rows.forEach((a,ix)=>{
+    const f=a.shipped?(ix%2?BAND:'FFFFFF'):NSF, ft=a.shipped?fnt(10):fnt(10,true,NSC);
+    set(r,0,a.atw,{fill:f,font:a.shipped?fnt(10,true):ft}); set(r,1,a.mill,{fill:f,font:ft});
+    set(r,2,+a.qty||0,{fill:f,font:ft}); set(r,3,a.out,{fill:f,font:ft}); set(r,4,a.dr,{fill:f,font:ft});
+    set(r,5,a.ship?serial(a.ship):'',{z:'dd-mmm-yyyy',fill:f,font:ft,al:{horizontal:'center',vertical:'center'}});
+    set(r,6,a.bal,{fill:f,font:a.shipped?fnt(10,true):ft});
+    if(!a.shipped) set(r,7,'NOT SHIPPED',{fill:'C00000',font:fnt(10,true,'FFFFFF')});
+    else if(a.bal>0) set(r,7,'Shipped - balance left',{fill:'FFEB9C',font:fnt(10,true,'9C5700')});
+    else set(r,7,'Shipped',{fill:'C6EFCE',font:fnt(10,true,'006100')});
+    r++;
+  });
+  const endR=r+1, endC=LAST+2;
+  for(let R=0;R<=endR;R++) for(let C=0;C<=endC;C++){ const a=X.utils.encode_cell({r:R,c:C}); if(!ws[a]) ws[a]={t:'s',v:'',s:{fill:FILL(canvasHex())}}; }
+  ws['!ref']=X.utils.encode_range({s:{r:0,c:0},e:{r:endR,c:endC}});
+  ws['!merges']=merges;
+  ws['!cols']=[18,22,18,18,16,16,16,24,6,6].map(w=>({wch:w}));
+  ws['!rows']=[]; Object.keys(H).forEach(k=>{ ws['!rows'][+k]={hpt:H[k]}; });
+  return ws;
+}
 let exportingXlsx=false;
-async function exportXlsx(company=CO){
-  if(!ready||exportingXlsx)return;
+async function exportXlsx(company=CO,atwOnly=false){
+  if(!ready||exportingXlsx||(readOnly&&atwOnly))return;
   exportingXlsx=true;
-  const button=document.querySelector('[data-act="xlsx"]');
+  const button=document.querySelector('[data-act="'+(atwOnly?'atwx':'xlsx')+'"]'+(readOnly?'':'[data-company="'+company+'"]'));
   const label=button?.innerHTML;
   if(button){button.disabled=true;button.textContent='Preparing Excel…';}
   try{
@@ -1195,10 +1214,10 @@ async function exportXlsx(company=CO){
     window.XLSX=module.default||module;
     const previous=S,previousCompany=COMPANY,previousApp=APPNAME;
     let wb;
-    try{S=company===CO?S:companyInventory(cloudDocument,company,blank); COMPANY=companyName(company).toUpperCase(); APPNAME=COMPANY+' Sugar Inventory Monitoring'; wb=xlsxBook();}
+    try{S=company===CO?S:companyInventory(cloudDocument,company,blank); COMPANY=companyName(company).toUpperCase(); APPNAME=COMPANY+' Sugar Inventory Monitoring'; wb=xlsxBook(atwOnly);}
     finally{S=previous;COMPANY=previousCompany;APPNAME=previousApp;}
     const buf=window.XLSX.write(wb,{bookType:'xlsx',type:'array'});
-    await saveFile(companyName(company)+' - Sugar Inventory - '+stamp()+'.xlsx',buf);
+    await saveFile(companyName(company)+(atwOnly?' - ATW Registry.xlsx':' - Sugar Inventory Monitoring.xlsx'),buf);
   }catch(error){toast('Excel export could not finish. Please try again.');}
   finally{exportingXlsx=false;if(button){button.disabled=false;button.innerHTML=label;}}
 }
@@ -1415,6 +1434,7 @@ document.addEventListener('click',async e=>{
       if(await ask('Delete SRO quantity',(n?n+' issuance line'+(n>1?'s':'')+' refer to '+r.sro+' and will be flagged as unmatched. ':'')+'Delete '+r.sro+'?','Delete',true)){ S.receipts=S.receipts.filter(x=>x.id!==r.id); if(!await save()) return; closeSheet(); render(); toast('SRO quantity deleted'); } break; }
     case 'delIssue': { if(await ask('Delete issuance line','This removes the batch line permanently.','Delete',true)){ S.issues=S.issues.filter(x=>x.id!==d.id); if(!await save()) return; closeSheet(); render(); toast('Line deleted'); } break; }
     case 'xlsx': exportXlsx(d.company||CO); break;
+    case 'atwx': exportXlsx(d.company||CO,true); break;
     case 'csvRec': saveFile('SRO_Quantity_'+stamp()+'.csv',csv([[...REC_H,'Unit'],...recRows().map(r=>[...r,S.unit])])); break;
     case 'csvIss': saveFile('Issuance_'+stamp()+'.csv',csv([[...ISS_H,'Unit'],...issRows().map(r=>[...r,S.unit])])); break;
     case 'transferScope': if(['company','both'].includes(d.scope)){transferScope=d.scope;render();}break;

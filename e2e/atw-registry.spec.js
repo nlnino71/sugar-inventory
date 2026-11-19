@@ -48,10 +48,16 @@ test('ATW registry saves manual withdrawals by company and exports both ATW work
  await expect(form.getByLabel('Withdrawal Quantity')).toHaveValue('30.5');
  await page.locator('#sheet').getByRole('button',{name:'Close'}).click();
  await navigate(page,'More');
- const [download]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:/Excel workbook.*Wilmar Edible Oil/}).click()]);
+ const [download]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:/Excel ATW Registry.*Wilmar Edible Oil/}).click()]);
  const book=XLSX.read(await readFile(await download.path()),{type:'buffer'});
  for(const name of ['ATW Registry','Not Shipped']){
-  expect(XLSX.utils.sheet_to_json(book.Sheets[name],{range:2})[0]).toMatchObject({'ATW No.':'ATW-1','DR #':'DR-1','Total ATW Quantity':100,'Withdrawal Quantity':30.5,Balance:69.5});
+  expect(XLSX.utils.sheet_to_json(book.Sheets[name],{range:4})[0]).toMatchObject({'ATW No.':'ATW-1','DR #':'DR-1','Total ATW Quantity':100,'Withdrawal Quantity':30.5,Balance:69.5});
  }
- expect(Object.values(book.Sheets.Dashboard).some(cell=>cell?.v==='Mill A')).toBe(true);
+ expect(book.SheetNames).toEqual(['ATW Registry','Not Shipped']);
+ expect(book.Sheets['ATW Registry'].A5.v).toBe('ATW No.');
+ await page.getByRole('button',{name:'Close',exact:true}).click();
+ const [dashboard]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:/Excel dashboard.*Wilmar Edible Oil/}).click()]);
+ const dashboardBook=XLSX.read(await readFile(await dashboard.path()),{type:'buffer'});
+ expect(dashboardBook.SheetNames).toEqual(['Dashboard','SRO Registry','Withdrawal','SRO Balance','Client Summary']);
+ expect(Object.values(dashboardBook.Sheets.Dashboard).some(cell=>cell?.v==='Mill A')).toBe(true);
 });

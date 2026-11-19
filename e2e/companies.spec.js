@@ -42,10 +42,11 @@ test('company inventories survive edits, exports, reloads and filtered deletion'
  await page.reload();await expectCompany(page,'sugar');
  await selectCompany(page,'oil');await expect(page.locator('#rList')).toContainText('Oil mill');await expect(page.locator('#rList')).not.toContainText('Sugar mill');
  await navigate(page,'More');
- const downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:'Excel workbook (.xlsx) — Wilmar Sugar Philippines Inc.',exact:true}).click();
- const download=await downloadPromise;expect(download.suggestedFilename()).toMatch(/^Wilmar Sugar Philippines Inc\. - Sugar Inventory - \d{4}-\d{2}-\d{2}\.xlsx$/);
+ const downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:'Excel dashboard (.xlsx) — Wilmar Sugar Philippines Inc.',exact:true}).click();
+ const download=await downloadPromise;expect(download.suggestedFilename()).toMatch(/^Wilmar Sugar Philippines Inc\. - Sugar Inventory Monitoring\.xlsx$/);
  const XLSX=await import('xlsx-js-style');const wb=(XLSX.default||XLSX).readFile(await download.path());
  expect(Object.values(wb.Sheets.Withdrawal).some(c=>c?.v==='ABC 1234')).toBe(true);
+ await page.locator('#sheet').getByRole('button',{name:'Close',exact:true}).click();
  await expectCompany(page,'oil');
  await selectCompany(page,'sugar');await navigate(page,'SRO Registry');
  await page.locator('#rcards button').filter({hasText:'Raw Sugar'}).click();

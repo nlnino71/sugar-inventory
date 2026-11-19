@@ -13,7 +13,7 @@ function workbook(company='oil'){
  return ctx.result;
 }
 test('client workbook formatting preserves exact quantities, dates, branding and grouped data',()=>{
- const wb=workbook();assert.equal(wb.SheetNames.length,7);
+ const wb=workbook();assert.equal(wb.SheetNames.length,5);
  assert.equal(wb.Sheets.Dashboard.A1.v,'WILMAR EDIBLE OIL PHILIPPINES INC. Sugar Inventory Monitoring');
  for(const sheet of Object.values(wb.Sheets))assert.match(sheet.A2.v,/WILMAR EDIBLE OIL PHILIPPINES INC/);
  assert.equal(wb.Sheets['SRO Registry'].B5.v,'No. of SROs');assert.equal(wb.Sheets['SRO Registry'].C5.v,'SRO Quantity');
@@ -28,7 +28,7 @@ test('client workbook formatting preserves exact quantities, dates, branding and
 });
 
 test('Excel headers use the exported company blue or teal accent',()=>{
- for(const [company,color] of [['sugar','096D9E'],['oil','0E7C7B']]){
+ for(const [company,color] of [['sugar','0B6FA4'],['oil','0E7C7B']]){
   const wb=workbook(company);
   assert.equal(wb.Sheets.Dashboard.A1.s.fill.fgColor.rgb,color);
  }
