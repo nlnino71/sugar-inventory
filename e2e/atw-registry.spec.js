@@ -75,6 +75,6 @@ test('ATW registry saves manual withdrawals by company and exports both ATW work
  await page.getByRole('button',{name:'Close',exact:true}).click();
  const [dashboard]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:/Excel dashboard.*Wilmar Edible Oil/}).click()]);
  const dashboardBook=XLSX.read(await readFile(await dashboard.path()),{type:'buffer'});
- expect(dashboardBook.SheetNames).toEqual(['Dashboard','SRO Registry','Withdrawal','SRO Balance','Client Summary']);
+ expect(dashboardBook.SheetNames).toEqual(['Dashboard','SRO Registry','ATW Registry','Not Shipped','Withdrawal','SRO Balance','Client Summary']);
  expect(Object.values(dashboardBook.Sheets.Dashboard).some(cell=>cell?.v==='Mill A')).toBe(true);
 });

@@ -491,7 +491,7 @@ function vMore(){
    COMPANIES.map(co=>'<button class="btn block" data-act="atwx" data-company="'+co.id+'"'+(dl?'':' disabled')+'>Excel ATW Registry (.xlsx) — '+esc(co.name)+'</button>').join('')+
    '<button class="btn block" data-act="csvRec"'+(dl?'':' disabled')+'>SRO Registry (.csv)</button>'+
    '<button class="btn block" data-act="csvIss"'+(dl?'':' disabled')+'>Withdrawal (.csv)</button></div>'+
-   '<p>The workbook opens with a Dashboard summary (totals per sugar type, running balance per SRO, issued per client, data checks), followed by SRO Registry, Withdrawal with running balance, SRO Balance and Client Summary sheets. The separate ATW workbook includes ATW Registry and Not Shipped sheets.'+(dl?'':' Downloads are not available in this view.')+'</p></div>'+
+   '<p>Each company downloads as its own Excel file: a Dashboard sheet, followed by SRO Registry, ATW Registry, Not Shipped (ATWs not yet shipped), Withdrawal, SRO Balance and Client Summary sheets. The separate ATW workbook includes ATW Registry and Not Shipped sheets.'+(dl?'':' Downloads are not available in this view.')+'</p></div>'+
    '<div class="sec"><h2>Backup and import</h2></div><section class="setting transfer-panel" aria-label="Backup and import"><div class="chips" role="group" aria-label="Backup and restore scope"><button type="button" class="chip-b" data-act="transferScope" data-scope="company" aria-pressed="'+(transferScope==='company')+'">Selected company</button><button type="button" class="chip-b" data-act="transferScope" data-scope="both" aria-pressed="'+(transferScope==='both')+'">Both companies</button></div><p class="transfer-scope-hint">'+(transferScope==='both'?'Backup or restore BOTH Wilmar Sugar and Wilmar Edible Oil inventories together.':'Backup or restore only '+esc(companyName(CO))+'. The other company stays unchanged.')+'</p><div class="stack">'+
    '<button class="btn block" data-act="backup"'+(dl?'':' disabled')+'>Save backup (.json)</button>'+
    '<button class="btn block" data-act="restore">Restore from backup</button>'+
@@ -726,6 +726,8 @@ function xlsxBook(atwOnly=false){
   const c=compute();
   X.utils.book_append_sheet(wb,dashSheet(c),'Dashboard');
   X.utils.book_append_sheet(wb,sroQuantitySheet(c),'SRO Registry');
+  X.utils.book_append_sheet(wb,atwSheetFor(false),'ATW Registry');
+  X.utils.book_append_sheet(wb,atwSheetFor(true),'Not Shipped');
   X.utils.book_append_sheet(wb,withdrawalSheet(c),'Withdrawal');
   X.utils.book_append_sheet(wb,sroBalanceSheet(c),'SRO Balance');
   X.utils.book_append_sheet(wb,clientSummarySheet(c),'Client Summary');
@@ -779,6 +781,18 @@ function dashSheet(c){
     H[r]=24; H[r+1]=16; H[r+2]=40; H[r+6]=20; r+=8;
   }
   if(!ts.length) r++;
+  /* ATW registry at a glance */
+  {
+    const ar=atwRows(S), nShip=ar.filter(a=>a.shipped).length, nNot=ar.length-nShip;
+    const tq=ar.reduce((t,a)=>t+(+a.qty||0),0), tw=ar.reduce((t,a)=>t+a.out,0);
+    sec(r,'ATW REGISTRY AT A GLANCE'); r++;
+    const tiles=[['ATWs',String(ar.length),'F3F7F4','000000'],['SHIPPED',String(nShip),'C6EFCE','006100'],['NOT SHIPPED',String(nNot),nNot?'FFC7CE':'C6EFCE',nNot?'9C0006':'006100'],
+      ['TOTAL ATW QUANTITY',nf(tq),LAMB,'7F6000'],['WITHDRAWAL QUANTITY',nf(tw),LAMB,'7F6000'],['BALANCE',nf(tq-tw),AMB,GREEN]];
+    tiles.forEach((t,i)=>{ const c0=i*2, c1=c0+1;
+      span(r,c0,c1,t[0],{keep:true,font:fnt(9,true,t[3]),fill:t[2],al:{horizontal:'center',vertical:'center'}});
+      span(r+1,c0,c1,t[1],{keep:true,font:fnt(20,true,t[3]),fill:t[2],al:{horizontal:'center',vertical:'center'}}); });
+    H[r]=18; H[r+1]=36; r+=3;
+  }
   /* running balance per SRO: one separate block per sugar type */
   sec(r,'RUNNING BALANCE PER SRO (BY SUGAR TYPE)',9); r+=2;
   ts.forEach(t=>{

@@ -7,13 +7,13 @@ import {ATW_COLUMNS, atwRows, atwMillTotals, atwValues} from '../atw-registry.js
 import XLSX from 'xlsx-js-style';
 const src=readFileSync(new URL('../app.js',import.meta.url),'utf8');
 function workbook(company='oil'){
- const S={unit:'metric tonnes (t)',receipts:[{id:'r',sro:'S1',type:'Raw Sugar',qty:1234.123456,date:'2026-10-01',mill:'Mill',crop:'2026-2027'}],issues:[{id:'i',sro:'S1',type:'Raw Sugar',qty:0.123456,date:'2026-10-02',seq:1,client:'Client',atw:'__proto__',batch:'B1',van:'ABC 1234'}],clients:['Client'],seq:1};
+ const S={unit:'metric tonnes (t)',receipts:[{id:'r',sro:'S1',type:'Raw Sugar',qty:1234.123456,date:'2026-10-01',mill:'Mill',crop:'2026-2027'}],issues:[{id:'i',sro:'S1',type:'Raw Sugar',qty:0.123456,date:'2026-10-02',seq:1,client:'Client',atw:'__proto__',batch:'B1',van:'ABC 1234'}],atws:[{id:'a',atw:'ATW-1',mill:'ATW Mill',qty:100,withdrawalQty:30,dr:'DR-1',ship:''}],clients:['Client'],seq:1};
  const ctx=vm.createContext({window:{XLSX},readOnly:false,ATW_COLUMNS,atwRows,atwMillTotals,atwValues,S,CO:company,companyName,today:()=> '2026-10-21',fd:x=>x,nf:x=>String(x),threshold:()=>20});
  vm.runInContext(src.slice(src.indexOf('function compute()'),src.indexOf('const knownClients='))+src.slice(src.indexOf('const serial='),src.indexOf('let exportingXlsx='))+';result=xlsxBook();',ctx);
  return ctx.result;
 }
 test('client workbook formatting preserves exact quantities, dates, branding and grouped data',()=>{
- const wb=workbook();assert.equal(wb.SheetNames.length,5);
+ const wb=workbook();assert.deepEqual(wb.SheetNames,['Dashboard','SRO Registry','ATW Registry','Not Shipped','Withdrawal','SRO Balance','Client Summary']);
  assert.equal(wb.Sheets.Dashboard.A1.v,'WILMAR EDIBLE OIL PHILIPPINES INC. Sugar Inventory Monitoring');
  for(const sheet of Object.values(wb.Sheets))assert.match(sheet.A2.v,/WILMAR EDIBLE OIL PHILIPPINES INC/);
  assert.equal(wb.Sheets['SRO Registry'].B5.v,'No. of SROs');assert.equal(wb.Sheets['SRO Registry'].C5.v,'SRO Quantity');
@@ -23,6 +23,8 @@ test('client workbook formatting preserves exact quantities, dates, branding and
  assert.ok(Object.values(wb.Sheets.Withdrawal).some(c=>c?.v==='__proto__'));
  assert.ok(Object.values(wb.Sheets.Withdrawal).some(c=>c?.v==='Van # / Truck Plate #'));
  assert.ok(Object.values(wb.Sheets.Withdrawal).some(c=>c?.v==='ABC 1234'));
+ assert.ok(Object.values(wb.Sheets['ATW Registry']).some(c=>c?.v==='ATW-1'));
+ assert.ok(Object.values(wb.Sheets['Not Shipped']).some(c=>c?.v==='ATW-1'));
  const reread=XLSX.read(XLSX.write(wb,{type:'buffer',bookType:'xlsx'}),{type:'buffer',cellNF:true});
  assert.ok(Object.values(reread.Sheets['SRO Registry']).some(c=>c?.v===1234.123456));
 });

@@ -12,7 +12,7 @@ test('guests can save the shared inventory as Excel from navigation',async({page
  const [download]=await Promise.all([page.waitForEvent('download'),button.click()]);
  expect(download.suggestedFilename()).toMatch(/^Wilmar Edible Oil Philippines Inc\. - Sugar Inventory Monitoring\.xlsx$/);
  const workbook=XLSX.read(await readFile(await download.path()),{type:'buffer'});
- expect(workbook.SheetNames).toHaveLength(5);
+ expect(workbook.SheetNames).toEqual(['Dashboard','SRO Registry','ATW Registry','Not Shipped','Withdrawal','SRO Balance','Client Summary']);
  expect(Object.values(workbook.Sheets['SRO Registry']).some(c=>c?.v==='PUBLIC-SRO')).toBe(true);
  const retry=page.getByRole('link',{name:'Download file',exact:true});
  await expect(retry).toBeVisible();
